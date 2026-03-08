@@ -1,0 +1,24 @@
+{
+  "name": "raksara",
+  "version": "1.0.0",
+  "description": "A GitHub-native static content platform that builds a navigable metadata tree from repository files and renders blogs, portfolios, and pages with search, tags, and pagination.",
+  "scripts": {
+    "build:metadata": "node scripts/build-metadata.js",
+    "dev": "npx serve web",
+    "build": "node scripts/build-metadata.js"
+  },
+  "keywords": [
+    "blog",
+    "portfolio",
+    "static-site",
+    "github-pages",
+    "markdown"
+  ],
+  "author": "Yunaz Ramadhan",
+  "license": "MIT",
+  "dependencies": {
+    "fast-glob": "^3.3.3",
+    "gray-matter": "^4.0.3",
+    "minisearch": "^7.1.1"
+  }
+}
