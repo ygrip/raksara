@@ -90,7 +90,14 @@
   }
 
   function renderMd(md) {
+    const renderer = new marked.Renderer();
+    const defaultImage = renderer.image.bind(renderer);
+    renderer.image = function (href, title, text) {
+      const resolved = resolvePath(typeof href === 'object' ? href.href : href);
+      return `<img src="${resolved}" alt="${text || ''}"${title ? ` title="${title}"` : ''}>`;
+    };
     marked.setOptions({
+      renderer,
       highlight: function (code, lang) {
         if (lang && hljs.getLanguage(lang)) return hljs.highlight(code, { language: lang }).value;
         return hljs.highlightAuto(code).value;
@@ -131,6 +138,12 @@
     const el = document.createElement('div');
     el.textContent = str;
     return el.innerHTML;
+  }
+
+  function resolvePath(p) {
+    if (!p) return p;
+    if (p.startsWith('http://') || p.startsWith('https://') || p.startsWith('data:')) return p;
+    return p.replace(/^\/+/, '');
   }
 
   // ── Navigation Tree (uses titles) ─────────────────────
@@ -195,13 +208,16 @@
 
     let thoughtsHtml = recentThoughts.map((t) => renderThoughtCard(t)).join('');
 
-    let galleryHtml = state.gallery.slice(0, 4).map((g) => `
-      <div class="gallery-item" onclick="window.__openLightbox('${escapeHtml(g.image)}','${escapeHtml(g.caption)}')">
-        <img src="${escapeHtml(g.image)}" alt="${escapeHtml(g.title)}" loading="lazy">
+    let galleryHtml = state.gallery.slice(0, 4).map((g) => {
+      const imgSrc = resolvePath(g.image);
+      return `
+      <div class="gallery-item" onclick="window.__openLightbox('${escapeHtml(imgSrc)}','${escapeHtml(g.caption)}')">
+        <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(g.title)}" loading="lazy">
         <div class="gallery-item-overlay">
           <div class="gallery-item-title">${escapeHtml(g.title)}</div>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
 
     showContent(`
       <div class="home-hero">
@@ -350,14 +366,17 @@
   // ── Gallery ───────────────────────────────────────────
 
   function renderGallery() {
-    const items = state.gallery.map((g) => `
-      <div class="gallery-item" onclick="window.__openLightbox('${escapeHtml(g.image)}','${escapeHtml(g.caption)}')">
-        <img src="${escapeHtml(g.image)}" alt="${escapeHtml(g.title)}" loading="lazy">
+    const items = state.gallery.map((g) => {
+      const imgSrc = resolvePath(g.image);
+      return `
+      <div class="gallery-item" onclick="window.__openLightbox('${escapeHtml(imgSrc)}','${escapeHtml(g.caption)}')">
+        <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(g.title)}" loading="lazy">
         <div class="gallery-item-overlay">
           <div class="gallery-item-title">${escapeHtml(g.title)}</div>
           <div class="gallery-item-caption">${escapeHtml(g.caption)}</div>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
 
     showContent(`
       <h1 class="page-title">Gallery</h1>
@@ -452,8 +471,8 @@
       const { frontmatter, body } = parseMarkdown(raw);
       const html = renderMd(body);
 
-      const coverUrl = frontmatter.cover || 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1200&q=80';
-      const avatarUrl = frontmatter.avatar || '';
+      const coverUrl = resolvePath(frontmatter.cover) || 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1200&q=80';
+      const avatarUrl = resolvePath(frontmatter.avatar) || '';
       const name = frontmatter.title || 'Profile';
       const role = frontmatter.role || '';
 
