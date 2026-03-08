@@ -220,9 +220,13 @@
     }).join('');
 
     showContent(`
-      <div class="home-hero">
-        <h1>Welcome to <span class="accent-gradient">Raksara</span></h1>
-        <p>A place where ideas, knowledge, and engineering thoughts are recorded. Explore blog posts, projects, and more.</p>
+      <div class="home-parallax-hero" id="profile-hero">
+        <div class="home-parallax-bg" id="home-hero-bg"></div>
+        <div class="home-parallax-overlay"></div>
+        <div class="home-parallax-content">
+          <h1>Welcome to <span class="accent-gradient">Raksara</span></h1>
+          <p>A place where ideas, knowledge, and engineering thoughts are recorded. Explore blog posts, projects, and more.</p>
+        </div>
       </div>
 
       <div class="home-section">
@@ -245,6 +249,7 @@
         <div class="gallery-grid">${galleryHtml}</div>
       </div>` : ''}
     `);
+    initParallax();
   }
 
   // ── Blog ──────────────────────────────────────────────
@@ -509,17 +514,27 @@
     } catch { showContent('<div class="empty-state"><h3>Profile not found</h3></div>'); }
   }
 
+  let _parallaxCleanup = null;
+
   function initParallax() {
-    const heroBg = document.getElementById('profile-hero-bg');
+    if (_parallaxCleanup) { _parallaxCleanup(); _parallaxCleanup = null; }
+    const heroBg = document.getElementById('profile-hero-bg') || document.getElementById('home-hero-bg');
     if (!heroBg) return;
-    const hero = document.getElementById('profile-hero');
+    const hero = heroBg.parentElement;
+    let ticking = false;
     const onScroll = () => {
-      const rect = hero.getBoundingClientRect();
-      if (rect.bottom < 0 || rect.top > window.innerHeight) return;
-      const offset = -rect.top * 0.35;
-      heroBg.style.transform = `translateY(${offset}px) scale(1.1)`;
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const rect = hero.getBoundingClientRect();
+        if (rect.bottom >= 0 && rect.top <= window.innerHeight) {
+          heroBg.style.transform = `translateY(${-rect.top * 0.35}px) scale(1.1)`;
+        }
+        ticking = false;
+      });
     };
     window.addEventListener('scroll', onScroll, { passive: true });
+    _parallaxCleanup = () => window.removeEventListener('scroll', onScroll);
     onScroll();
   }
 
@@ -668,26 +683,19 @@
 
   // ── Theme Toggle ──────────────────────────────────────
 
+  function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('raksara-theme', next);
+    document.getElementById('hljs-dark').disabled = next === 'light';
+    document.getElementById('hljs-light').disabled = next === 'dark';
+  }
+
   function initTheme() {
     const saved = localStorage.getItem('raksara-theme');
     if (saved) document.documentElement.setAttribute('data-theme', saved);
-
-    document.getElementById('theme-toggle').addEventListener('click', () => {
-      const current = document.documentElement.getAttribute('data-theme');
-      const next = current === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', next);
-      localStorage.setItem('raksara-theme', next);
-
-      const darkSheet = document.getElementById('hljs-dark');
-      const lightSheet = document.getElementById('hljs-light');
-      if (next === 'light') {
-        darkSheet.disabled = true;
-        lightSheet.disabled = false;
-      } else {
-        darkSheet.disabled = false;
-        lightSheet.disabled = true;
-      }
-    });
+    document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
   }
 
   // ── Lightbox Events ───────────────────────────────────
@@ -711,8 +719,14 @@
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       </button>
       <a href="#/" class="logo"><span class="logo-icon">\u25C6</span><span class="logo-text">Raksara</span></a>
+      <button class="icon-btn mobile-theme-toggle" aria-label="Toggle theme">
+        <svg class="icon-sun" width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3.5" stroke="currentColor" stroke-width="1.2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        <svg class="icon-moon" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.5 8.5a5.5 5.5 0 01-6-6 5.5 5.5 0 106 6z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
     `;
     document.body.prepend(header);
+
+    header.querySelector('.mobile-theme-toggle').addEventListener('click', toggleTheme);
 
     const sidebar = document.getElementById('sidebar');
     header.querySelector('.mobile-menu-btn').addEventListener('click', () => sidebar.classList.toggle('open'));

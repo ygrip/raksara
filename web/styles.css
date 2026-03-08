@@ -121,14 +121,14 @@ body {
   inset: 0;
   z-index: 0;
   background: var(--gradient-bg);
-  animation: gradientShift 20s ease infinite;
   pointer-events: none;
+  will-change: opacity;
+  animation: gradientPulse 12s ease infinite;
 }
 
-@keyframes gradientShift {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  33% { opacity: 0.8; transform: scale(1.05) translateX(2%); }
-  66% { opacity: 0.9; transform: scale(0.98) translateX(-1%); }
+@keyframes gradientPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
 }
 
 .bg-noise {
@@ -136,7 +136,9 @@ body {
   inset: 0;
   z-index: 0;
   opacity: var(--noise-opacity);
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 128 128' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 128px 128px;
   pointer-events: none;
 }
 
@@ -171,8 +173,8 @@ body {
   width: var(--sidebar-width);
   min-width: var(--sidebar-width);
   background: var(--bg-primary);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -183,6 +185,8 @@ body {
   z-index: 100;
   overflow-y: auto;
   transition: transform 0.3s var(--smooth);
+  will-change: transform;
+  contain: layout style;
 }
 
 #sidebar::-webkit-scrollbar { width: 3px; }
@@ -542,6 +546,88 @@ body {
   max-width: 540px;
 }
 
+/* ── Home Parallax Hero ─────────────────────────────────── */
+
+.home-parallax-hero {
+  position: relative;
+  margin: -48px -32px 48px;
+  height: 340px;
+  overflow: hidden;
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+}
+
+.home-parallax-bg {
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(ellipse 60% 50% at 25% 30%, var(--gradient-1), transparent 60%),
+    radial-gradient(ellipse 50% 60% at 75% 70%, var(--gradient-3), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 50% 50%, var(--gradient-2), transparent 70%),
+    var(--bg-base);
+  transform: translateZ(0);
+  transition: transform 0.1s linear;
+  will-change: transform;
+}
+
+[data-theme="light"] .home-parallax-bg {
+  background:
+    radial-gradient(ellipse 60% 50% at 25% 30%, rgba(99,102,241,0.35), transparent 60%),
+    radial-gradient(ellipse 50% 60% at 75% 70%, rgba(168,85,247,0.25), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 50% 50%, rgba(139,92,246,0.15), transparent 70%),
+    #eeeef6;
+}
+
+.home-parallax-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 80%, rgba(255,255,255,0.04) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(255,255,255,0.03) 0%, transparent 50%);
+}
+
+[data-theme="light"] .home-parallax-overlay {
+  background:
+    radial-gradient(circle at 20% 80%, rgba(255,255,255,0.3) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(255,255,255,0.2) 0%, transparent 50%);
+}
+
+.home-parallax-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 40px 32px;
+  z-index: 1;
+}
+
+.home-parallax-content h1 {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.15;
+  margin-bottom: 14px;
+  color: #f0f0f5;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.3);
+}
+
+[data-theme="light"] .home-parallax-content h1 {
+  color: #1a1a2e;
+  text-shadow: 0 1px 8px rgba(255,255,255,0.4);
+}
+
+.home-parallax-content p {
+  font-size: 16px;
+  color: rgba(240,240,245,0.8);
+  line-height: 1.6;
+  max-width: 540px;
+  text-shadow: 0 1px 8px rgba(0,0,0,0.2);
+}
+
+[data-theme="light"] .home-parallax-content p {
+  color: #555566;
+  text-shadow: none;
+}
+
 .home-section { margin-bottom: 52px; }
 
 .home-section-header {
@@ -580,8 +666,6 @@ body {
   text-decoration: none;
   padding: 20px 22px;
   background: var(--bg-card);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-lg);
   transition: all 0.3s var(--bounce);
@@ -654,8 +738,6 @@ body {
 .portfolio-card {
   padding: 24px;
   background: var(--bg-card);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-lg);
   transition: all 0.3s var(--bounce);
@@ -701,7 +783,6 @@ body {
   background: var(--bg-glass);
   color: var(--text-primary);
   border: 1px solid var(--border-glass);
-  backdrop-filter: blur(8px);
 }
 
 .btn-github:hover {
@@ -849,8 +930,6 @@ body {
 .thought-card {
   padding: 24px 28px;
   background: var(--bg-card);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-lg);
   position: relative;
@@ -970,8 +1049,9 @@ body {
 
 .profile-links {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   margin-top: 10px;
+  flex-wrap: wrap;
 }
 
 .profile-links a {
@@ -1009,7 +1089,6 @@ body {
   gap: 6px;
   padding: 6px 14px;
   background: var(--bg-card);
-  backdrop-filter: blur(8px);
   border: 1px solid var(--border-glass);
   border-radius: 999px;
   color: var(--text-secondary);
@@ -1126,7 +1205,6 @@ body {
   display: block;
   padding: 16px 20px;
   background: var(--bg-card);
-  backdrop-filter: blur(8px);
   border: none;
   border-radius: 0;
   color: var(--text-primary);
@@ -1203,7 +1281,6 @@ body {
   color: var(--text-secondary);
   background: var(--bg-card);
   border: 1px solid var(--border-glass);
-  backdrop-filter: blur(8px);
 }
 
 .pagination a:hover {
@@ -1310,7 +1387,7 @@ body {
   gap: 12px;
 }
 
-.mobile-header .logo { font-size: 15px; }
+.mobile-header .logo { font-size: 15px; flex: 1; }
 
 .mobile-menu-btn {
   background: none;
@@ -1321,16 +1398,25 @@ body {
   border-radius: var(--radius-sm);
 }
 
+.mobile-theme-toggle {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 @media (max-width: 768px) {
   .mobile-header { display: flex; }
   #sidebar { transform: translateX(-100%); }
   #sidebar.open { transform: translateX(0); box-shadow: 4px 0 32px var(--shadow-heavy); }
+  #sidebar .sidebar-header-actions #theme-toggle { display: none; }
   #content { margin-left: 0; padding-top: 52px; }
   .page-content { padding: 24px 16px 60px; }
   .portfolio-grid { grid-template-columns: 1fr; }
   .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
   .article-header h1 { font-size: 22px; }
   .home-hero h1 { font-size: 26px; }
+  .home-parallax-hero { margin: -24px -16px 32px; height: 260px; }
+  .home-parallax-content { padding: 24px 20px; }
+  .home-parallax-content h1 { font-size: 26px; }
   .profile-hero { margin: -24px -16px 32px; height: 260px; }
   .profile-hero-content { padding: 20px; gap: 16px; }
   .profile-avatar { width: 80px; height: 80px; }
