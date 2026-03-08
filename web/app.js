@@ -250,6 +250,7 @@
       </div>` : ''}
     `);
     initParallax();
+    initPortfolioCards();
   }
 
   // ── Blog ──────────────────────────────────────────────
@@ -324,7 +325,7 @@
     if (p.github) links.push(`<a href="${escapeHtml(p.github)}" class="btn-github" target="_blank" rel="noopener">GitHub</a>`);
     if (p.demo) links.push(`<a href="${escapeHtml(p.demo)}" class="btn-demo" target="_blank" rel="noopener">Demo</a>`);
     return `
-      <div class="portfolio-card">
+      <div class="portfolio-card" data-href="#/portfolio/${p.slug}">
         <div class="portfolio-card-title">${escapeHtml(p.title)}</div>
         <div class="portfolio-card-summary">${escapeHtml(p.summary || '')}</div>
         <div class="portfolio-card-tags">${tagsHtml}</div>
@@ -338,6 +339,16 @@
       <p class="page-subtitle">${state.portfolio.length} project${state.portfolio.length !== 1 ? 's' : ''}</p>
       <div class="portfolio-grid">${state.portfolio.map(renderPortfolioCard).join('')}</div>
     `);
+    initPortfolioCards();
+  }
+
+  function initPortfolioCards() {
+    document.querySelectorAll('.portfolio-card[data-href]').forEach((card) => {
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('a')) return;
+        window.location.hash = card.dataset.href;
+      });
+    });
   }
 
   async function renderPortfolioItem(slug) {
@@ -415,6 +426,29 @@
     `);
   }
 
+  // ── Shared filtered item renderer ─────────────────────
+
+  function itemHref(item) {
+    if (item.section === 'blog') return `#/blog/post/${item.slug}`;
+    if (item.section === 'portfolio') return `#/portfolio/${item.slug}`;
+    if (item.section === 'gallery') return `#/gallery`;
+    if (item.section === 'thoughts') return `#/thoughts`;
+    return `#/${item.slug}`;
+  }
+
+  function renderFilteredItem(item) {
+    const sectionLabel = item.section ? `<span class="post-card-category">${escapeHtml(item.section)}</span>` : '';
+    return `
+      <a href="${itemHref(item)}" class="post-card">
+        <div class="post-card-title">${escapeHtml(item.title)}</div>
+        <div class="post-card-summary">${escapeHtml(item.summary || item.body || '')}</div>
+        <div class="post-card-meta">
+          ${item.date ? `<span class="post-card-date">${formatDate(item.date)}</span>` : ''}
+          ${sectionLabel}
+        </div>
+      </a>`;
+  }
+
   // ── Tags & Categories ─────────────────────────────────
 
   function renderTags() {
@@ -426,18 +460,14 @@
   }
 
   function renderTagPosts(tag) {
-    const filtered = state.posts.filter((p) => (p.tags || []).includes(tag));
-    let postsHtml = filtered.map((p) => `
-      <a href="#/blog/post/${p.slug}" class="post-card">
-        <div class="post-card-title">${escapeHtml(p.title)}</div>
-        <div class="post-card-summary">${escapeHtml(p.summary || '')}</div>
-        <div class="post-card-meta"><span class="post-card-date">${formatDate(p.date)}</span></div>
-      </a>`).join('');
+    const allItems = [...state.posts, ...state.portfolio, ...state.gallery, ...state.thoughts];
+    const filtered = allItems.filter((p) => (p.tags || []).includes(tag));
+    const html = filtered.map((item) => renderFilteredItem(item)).join('');
     showContent(`
       <a href="#/tags" class="back-link">\u2190 All tags</a>
       <h1 class="page-title">Tag: ${escapeHtml(tag)}</h1>
       <p class="page-subtitle">${filtered.length} item${filtered.length !== 1 ? 's' : ''}</p>
-      <div class="post-list">${postsHtml || '<div class="empty-state"><p>No posts with this tag.</p></div>'}</div>
+      <div class="post-list">${html || '<div class="empty-state"><p>No items with this tag.</p></div>'}</div>
     `);
   }
 
@@ -450,18 +480,14 @@
   }
 
   function renderCategoryPosts(category) {
-    const filtered = state.posts.filter((p) => p.category === category);
-    let postsHtml = filtered.map((p) => `
-      <a href="#/blog/post/${p.slug}" class="post-card">
-        <div class="post-card-title">${escapeHtml(p.title)}</div>
-        <div class="post-card-summary">${escapeHtml(p.summary || '')}</div>
-        <div class="post-card-meta"><span class="post-card-date">${formatDate(p.date)}</span></div>
-      </a>`).join('');
+    const allItems = [...state.posts, ...state.portfolio, ...state.gallery, ...state.thoughts];
+    const filtered = allItems.filter((p) => p.category === category);
+    const html = filtered.map((item) => renderFilteredItem(item)).join('');
     showContent(`
       <a href="#/categories" class="back-link">\u2190 All categories</a>
       <h1 class="page-title">Category: ${escapeHtml(category)}</h1>
-      <p class="page-subtitle">${filtered.length} post${filtered.length !== 1 ? 's' : ''}</p>
-      <div class="post-list">${postsHtml || '<div class="empty-state"><p>No posts in this category.</p></div>'}</div>
+      <p class="page-subtitle">${filtered.length} item${filtered.length !== 1 ? 's' : ''}</p>
+      <div class="post-list">${html || '<div class="empty-state"><p>No items in this category.</p></div>'}</div>
     `);
   }
 

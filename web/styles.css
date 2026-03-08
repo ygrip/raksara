@@ -741,6 +741,7 @@ body {
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-lg);
   transition: all 0.3s var(--bounce);
+  cursor: pointer;
 }
 
 .portfolio-card:hover {
