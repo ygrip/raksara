@@ -863,6 +863,106 @@ body {
   line-height: 1.4;
 }
 
+/* ── Gallery Card (detail view) ─────────────────────────── */
+
+.gallery-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.gallery-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-glass);
+  overflow: hidden;
+  background: var(--bg-card);
+  transition: all 0.3s var(--bounce);
+}
+
+.gallery-card:hover {
+  border-color: var(--accent-border);
+  box-shadow: 0 8px 32px var(--accent-glow);
+}
+
+.gallery-card-img {
+  cursor: pointer;
+  overflow: hidden;
+  max-height: 480px;
+}
+
+.gallery-card-img img {
+  width: 100%;
+  display: block;
+  object-fit: cover;
+  transition: transform 0.4s var(--smooth);
+}
+
+.gallery-card-img:hover img { transform: scale(1.03); }
+
+.gallery-card-info {
+  padding: 20px 24px;
+}
+
+.gallery-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.gallery-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.gallery-card-date {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.gallery-card-caption {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.gallery-card-desc {
+  position: relative;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-tertiary);
+  padding: 12px 16px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  margin-top: 8px;
+}
+
+.gallery-card-desc.collapsed .gallery-card-desc-text {
+  max-height: 3.3em;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+}
+
+.gallery-card-toggle {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  padding: 4px 0 0;
+  transition: color var(--transition);
+}
+
+.gallery-card-toggle:hover { color: var(--accent-hover); }
+
 /* ── Lightbox ────────────────────────────────────────────── */
 
 .lightbox {
@@ -1076,6 +1176,46 @@ body {
   transform: translateY(-2px);
 }
 
+/* ── Profile Metadata Chips ─────────────────────────────── */
+
+.profile-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 32px;
+  padding: 16px 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+}
+
+.profile-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.25s var(--bounce);
+}
+
+.profile-meta-chip .meta-label {
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+.profile-meta-chip.has-link:hover {
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-subtle);
+  transform: translateY(-1px);
+}
+
 /* ── Tags & Categories ───────────────────────────────────── */
 
 .tag-cloud {
@@ -1110,6 +1250,40 @@ body {
   font-size: 11px;
   color: var(--text-tertiary);
   font-family: var(--font-mono);
+}
+
+/* ── Share Button ────────────────────────────────────────── */
+
+.article-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.article-top-bar .back-link { margin-bottom: 0; }
+
+.share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all 0.25s var(--bounce);
+}
+
+.share-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-border);
+  background: var(--accent-subtle);
+  transform: translateY(-1px);
 }
 
 /* ── Article / Markdown Content ──────────────────────────── */

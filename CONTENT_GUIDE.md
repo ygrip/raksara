@@ -102,6 +102,9 @@ tags:
 image: "/content/assets/images/my-photo.jpg"
 caption: "A short description of the image."
 ---
+
+Optional longer description here. If the description exceeds roughly two lines
+it will be collapsed with a "Show more" toggle, similar to YouTube descriptions.
 ```
 
 External image URLs also work:
@@ -123,8 +126,30 @@ cover: "/content/assets/images/cover.jpg"
 github: "https://github.com/yourusername"
 linkedin: "https://linkedin.com/in/yourusername"
 email: "you@example.com"
+metadata:
+  - label: "Location"
+    value: "Your City"
+  - label: "Focus"
+    value: "Web Development"
+  - label: "Blog"
+    value: "My Blog"
+    url: "https://blog.example.com"
 ---
 ```
+
+### Dynamic Metadata Chips
+
+The `metadata` array renders as interactive chips below the profile hero.
+Each item supports:
+
+| Field | Required | Description |
+|---|---|---|
+| `label` | Yes | Left-side label shown in lighter text |
+| `value` | Yes | Main display text |
+| `url` | No | Makes the chip a clickable link |
+
+Chips without a `url` are static labels. Chips with a `url` gain a hover
+effect and open in a new tab.
 
 ---
 
@@ -216,6 +241,14 @@ npm install
 npm run build
 npm run dev
 ```
+
+---
+
+## 7. Sharing
+
+Every blog post and portfolio detail page has a **Share** button in the top-right
+corner. On desktop it copies the page URL to the clipboard. On mobile devices that
+support the Web Share API, it opens the native share sheet.
 
 ---
 

@@ -6,6 +6,14 @@ cover: "/content/assets/images/cover.jpg"
 github: "https://github.com/yourusername"
 linkedin: "https://linkedin.com/in/yourusername"
 email: "you@example.com"
+metadata:
+  - label: "Location"
+    value: "Your City"
+  - label: "Focus"
+    value: "Your Specialty"
+  - label: "Blog"
+    value: "Medium"
+    url: "https://medium.com/@you"
 ---
 
 Write a short bio about yourself here.

@@ -67,9 +67,14 @@
       const lines = gm[1].split('\n');
       let currentKey = null;
       let arrayMode = false;
+      let objBuffer = null;
       for (const line of lines) {
         const kv = line.match(/^(\w[\w-]*):\s*(.*)$/);
         if (kv) {
+          if (objBuffer && currentKey) {
+            frontmatter[currentKey].push(objBuffer);
+            objBuffer = null;
+          }
           currentKey = kv[1];
           const val = kv[2].trim().replace(/^["']|["']$/g, '');
           if (val === '') {
@@ -79,12 +84,22 @@
             frontmatter[currentKey] = val;
             arrayMode = false;
           }
+        } else if (arrayMode && currentKey && line.match(/^\s+-\s+\w[\w-]*:/)) {
+          if (objBuffer) frontmatter[currentKey].push(objBuffer);
+          const objKv = line.match(/^\s+-\s+(\w[\w-]*):\s*(.*)$/);
+          objBuffer = {};
+          if (objKv) objBuffer[objKv[1]] = objKv[2].trim().replace(/^["']|["']$/g, '');
+        } else if (objBuffer && line.match(/^\s+\w[\w-]*:/)) {
+          const nestedKv = line.match(/^\s+(\w[\w-]*):\s*(.*)$/);
+          if (nestedKv) objBuffer[nestedKv[1]] = nestedKv[2].trim().replace(/^["']|["']$/g, '');
         } else if (arrayMode && currentKey && line.match(/^\s+-\s+/)) {
+          if (objBuffer) { frontmatter[currentKey].push(objBuffer); objBuffer = null; }
           const item = line.replace(/^\s+-\s+/, '').trim();
           if (!Array.isArray(frontmatter[currentKey])) frontmatter[currentKey] = [];
           frontmatter[currentKey].push(item);
         }
       }
+      if (objBuffer && currentKey) frontmatter[currentKey].push(objBuffer);
     }
     return { frontmatter, body };
   }
@@ -302,7 +317,10 @@
       const html = renderMd(body);
       const tagsHtml = (post.tags || []).map((t) => `<a href="#/tag/${encodeURIComponent(t)}" class="tag">${escapeHtml(t)}</a>`).join('');
       showContent(`
-        <a href="#/blog" class="back-link">\u2190 Back to blog</a>
+        <div class="article-top-bar">
+          <a href="#/blog" class="back-link">\u2190 Back to blog</a>
+          ${shareButton(post.title)}
+        </div>
         <div class="article-header">
           <h1>${escapeHtml(post.title)}</h1>
           <div class="article-meta">
@@ -313,6 +331,7 @@
         </div>
         <div class="article-body">${html}</div>
       `);
+      initShareButton(post.title);
       initArticleImages();
     } catch { showContent('<div class="empty-state"><h3>Failed to load post</h3></div>'); }
   }
@@ -364,7 +383,10 @@
       if (item.github) links.push(`<a href="${escapeHtml(item.github)}" class="btn-github" target="_blank" rel="noopener">GitHub</a>`);
       if (item.demo) links.push(`<a href="${escapeHtml(item.demo)}" class="btn-demo" target="_blank" rel="noopener">Demo</a>`);
       showContent(`
-        <a href="#/portfolio" class="back-link">\u2190 Back to portfolio</a>
+        <div class="article-top-bar">
+          <a href="#/portfolio" class="back-link">\u2190 Back to portfolio</a>
+          ${shareButton(item.title)}
+        </div>
         <div class="article-header">
           <h1>${escapeHtml(item.title)}</h1>
           <div class="article-meta">
@@ -375,6 +397,7 @@
         </div>
         <div class="article-body">${html}</div>
       `);
+      initShareButton(item.title);
       initArticleImages();
     } catch { showContent('<div class="empty-state"><h3>Failed to load project</h3></div>'); }
   }
@@ -384,12 +407,23 @@
   function renderGallery() {
     const items = state.gallery.map((g) => {
       const imgSrc = resolvePath(g.image);
+      const desc = g.description || '';
+      const hasLongDesc = desc.length > 120;
       return `
-      <div class="gallery-item" onclick="window.__openLightbox('${escapeHtml(imgSrc)}','${escapeHtml(g.caption)}')">
-        <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(g.title)}" loading="lazy">
-        <div class="gallery-item-overlay">
-          <div class="gallery-item-title">${escapeHtml(g.title)}</div>
-          <div class="gallery-item-caption">${escapeHtml(g.caption)}</div>
+      <div class="gallery-card">
+        <div class="gallery-card-img" onclick="window.__openLightbox('${escapeHtml(imgSrc)}','${escapeHtml(g.caption)}')">
+          <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(g.title)}" loading="lazy">
+        </div>
+        <div class="gallery-card-info">
+          <div class="gallery-card-header">
+            <div class="gallery-card-title">${escapeHtml(g.title)}</div>
+            <div class="gallery-card-date">${formatDate(g.date)}</div>
+          </div>
+          ${g.caption ? `<div class="gallery-card-caption">${escapeHtml(g.caption)}</div>` : ''}
+          ${desc ? `<div class="gallery-card-desc${hasLongDesc ? ' collapsed' : ''}">
+            <div class="gallery-card-desc-text">${escapeHtml(desc)}</div>
+            ${hasLongDesc ? '<button class="gallery-card-toggle">Show more</button>' : ''}
+          </div>` : ''}
         </div>
       </div>`;
     }).join('');
@@ -397,8 +431,19 @@
     showContent(`
       <h1 class="page-title">Gallery</h1>
       <p class="page-subtitle">${state.gallery.length} photo${state.gallery.length !== 1 ? 's' : ''}</p>
-      <div class="gallery-grid">${items}</div>
+      <div class="gallery-list">${items}</div>
     `);
+    initGalleryToggles();
+  }
+
+  function initGalleryToggles() {
+    document.querySelectorAll('.gallery-card-toggle').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const desc = btn.closest('.gallery-card-desc');
+        const isCollapsed = desc.classList.toggle('collapsed');
+        btn.textContent = isCollapsed ? 'Show more' : 'Show less';
+      });
+    });
   }
 
   // ── Thoughts ──────────────────────────────────────────
@@ -520,6 +565,20 @@
         if (frontmatter[key]) links.push(`<a href="${def.prefix}${escapeHtml(frontmatter[key])}" target="_blank" rel="noopener">${def.label}</a>`);
       }
 
+      const metaItems = Array.isArray(frontmatter.metadata) ? frontmatter.metadata : [];
+      let metaHtml = '';
+      if (metaItems.length) {
+        metaHtml = '<div class="profile-metadata">' + metaItems.map((m) => {
+          if (typeof m === 'string') return `<span class="profile-meta-chip">${escapeHtml(m)}</span>`;
+          const label = m.label || '';
+          const value = m.value || '';
+          const url = m.url || '';
+          const display = value || label;
+          if (url) return `<a href="${escapeHtml(url)}" class="profile-meta-chip has-link" target="_blank" rel="noopener">${label ? `<span class="meta-label">${escapeHtml(label)}</span>` : ''}${escapeHtml(display !== label ? display : '')}</a>`;
+          return `<span class="profile-meta-chip">${label ? `<span class="meta-label">${escapeHtml(label)}</span>` : ''}${escapeHtml(display !== label ? display : '')}</span>`;
+        }).join('') + '</div>';
+      }
+
       showContent(`
         <div class="profile-hero" id="profile-hero">
           <div class="profile-hero-bg" id="profile-hero-bg" style="background-image:url('${escapeHtml(coverUrl)}')"></div>
@@ -533,6 +592,7 @@
             </div>
           </div>
         </div>
+        ${metaHtml}
         <div class="article-body">${html}</div>
       `);
       initParallax();
@@ -577,6 +637,33 @@
       showContent(`<div class="article-body">${html}</div>`);
       initArticleImages();
     } catch { showContent('<div class="empty-state"><h3>Page not found</h3></div>'); }
+  }
+
+  // ── Share ───────────────────────────────────────────────
+
+  function shareButton(title) {
+    return `<button class="share-btn" aria-label="Share">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M4 8.5v5a1 1 0 001 1h6a1 1 0 001-1v-5M8 1v8.5M5 4l3-3 3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Share</span>
+    </button>`;
+  }
+
+  function initShareButton(title) {
+    const btn = document.querySelector('.share-btn');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      const url = window.location.href;
+      if (navigator.share) {
+        try { await navigator.share({ title, url }); } catch {}
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(url);
+        const label = btn.querySelector('span');
+        label.textContent = 'Copied!';
+        setTimeout(() => { label.textContent = 'Share'; }, 2000);
+      } catch {}
+    });
   }
 
   // ── Image Lightbox in Articles ────────────────────────

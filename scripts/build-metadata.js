@@ -67,6 +67,7 @@ async function buildMetadata() {
       entry.date = data.date ? new Date(data.date).toISOString().split('T')[0] : '1970-01-01';
       entry.image = data.image || '';
       entry.caption = data.caption || '';
+      entry.description = stripMarkdown(content) || '';
       galleryItems.push(entry);
     } else if (section === 'thoughts') {
       entry.date = data.date ? new Date(data.date).toISOString().split('T')[0] : '1970-01-01';
@@ -201,10 +202,13 @@ function copyMetadataToWeb() {
   console.log('  ✓ Copied metadata and content to web/');
 }
 
+const SKIP_DIRS = new Set(['.git', 'node_modules', '.github']);
+
 function copyDirRecursive(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
   const entries = fs.readdirSync(src, { withFileTypes: true });
   for (const entry of entries) {
+    if (SKIP_DIRS.has(entry.name)) continue;
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
     if (entry.isDirectory()) {
