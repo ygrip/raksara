@@ -209,10 +209,14 @@ body {
   cursor: pointer;
   padding: 6px;
   border-radius: var(--radius-sm);
-  transition: all var(--transition);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  transition: color var(--transition), background var(--transition);
+  display: grid;
+  place-items: center;
+}
+
+.icon-btn > svg {
+  grid-area: 1 / 1;
+  transition: opacity var(--transition);
 }
 
 .icon-btn:hover {
@@ -220,10 +224,10 @@ body {
   background: var(--bg-hover);
 }
 
-[data-theme="dark"] .icon-sun { display: none; }
-[data-theme="dark"] .icon-moon { display: block; }
-[data-theme="light"] .icon-sun { display: block; }
-[data-theme="light"] .icon-moon { display: none; }
+[data-theme="dark"] .icon-sun { opacity: 0; pointer-events: none; }
+[data-theme="dark"] .icon-moon { opacity: 1; }
+[data-theme="light"] .icon-sun { opacity: 1; }
+[data-theme="light"] .icon-moon { opacity: 0; pointer-events: none; }
 
 .logo {
   display: flex;
