@@ -696,12 +696,13 @@ body {
 
 .hero-waves {
   position: absolute;
-  bottom: -2px;
+  bottom: 0;
   left: 0;
   right: 0;
-  height: 80px;
+  height: 100px;
   z-index: 4;
   pointer-events: none;
+  background: linear-gradient(to top, var(--bg-base) 4px, transparent 4px);
 }
 
 .hero-wave {
@@ -710,6 +711,7 @@ body {
   width: 200%;
   height: 100%;
   left: -50%;
+  transform-origin: bottom center;
 }
 
 .hero-wave path { fill: var(--bg-base); }
@@ -1284,7 +1286,7 @@ body {
 .profile-hero {
   position: relative;
   margin: -48px -32px 0;
-  height: 360px;
+  height: 420px;
   overflow: hidden;
 }
 
@@ -1350,7 +1352,7 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 32px 32px 88px;
+  padding: 32px 32px 110px;
   display: flex;
   align-items: flex-end;
   gap: 24px;
@@ -1962,9 +1964,9 @@ body {
   .home-hero { margin: -52px -16px 0; height: 300px; }
   .home-hero-content { padding: 24px 20px 56px; }
   .home-hero-title { font-size: 38px; }
-  .profile-hero { margin: -52px -16px 0; height: 300px; }
-  .profile-hero-content { padding: 20px 20px 80px; gap: 16px; }
-  .profile-hero-share { top: 56px; right: 12px; }
+  .profile-hero { margin: -52px -16px 0; height: 360px; }
+  .profile-hero-content { padding: 20px 20px 110px; gap: 16px; }
+  .profile-hero-share { top: 60px; right: 12px; }
   .profile-avatar-wrap, .profile-avatar { width: 80px; height: 80px; }
   .profile-info h1 { font-size: 22px; }
   .search-overlay-content { width: 95%; }
