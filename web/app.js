@@ -10,7 +10,7 @@
     pages: [],
     tags: {},
     categories: {},
-    tree: null,
+    blogDirs: {},
     searchIndex: null,
     miniSearch: null,
     loaded: false,
@@ -27,7 +27,7 @@
   async function loadData() {
     if (state.loaded) return;
     try {
-      const [posts, portfolio, gallery, thoughts, pages, tags, categories, tree, searchIndex] = await Promise.all([
+      const [posts, portfolio, gallery, thoughts, pages, tags, categories, blogDirs, searchIndex] = await Promise.all([
         loadJSON('metadata/posts.json'),
         loadJSON('metadata/portfolio.json'),
         loadJSON('metadata/gallery.json'),
@@ -35,17 +35,15 @@
         loadJSON('metadata/pages.json'),
         loadJSON('metadata/tags.json'),
         loadJSON('metadata/categories.json'),
-        loadJSON('metadata/tree.json'),
+        loadJSON('metadata/blog-dirs.json'),
         loadJSON('metadata/search-index.json'),
       ]);
-      Object.assign(state, { posts, portfolio, gallery, thoughts, pages, tags, categories, tree, searchIndex, loaded: true });
+      Object.assign(state, { posts, portfolio, gallery, thoughts, pages, tags, categories, blogDirs, searchIndex, loaded: true });
 
       state.miniSearch = MiniSearch.loadJS(searchIndex, {
         fields: ['title', 'tags', 'category', 'body'],
         storeFields: ['title', 'section', 'slug', 'category'],
       });
-
-      renderNavTree(tree);
     } catch (err) {
       console.error('Error loading data:', err);
       showContent('<div class="empty-state"><h3>Failed to load data</h3><p>Run: npm run build</p></div>');
@@ -161,63 +159,13 @@
     return p.replace(/^\/+/, '');
   }
 
-  // ── Navigation Tree (uses titles) ─────────────────────
-
-  function renderNavTree(tree) {
-    const container = document.getElementById('nav-tree');
-    if (!tree || !tree.children) return;
-    let html = '<div class="nav-tree-label">Content Tree</div>';
-    html += renderTreeNode(tree);
-    container.innerHTML = html;
-    container.querySelectorAll('.tree-folder-name').forEach((el) => {
-      el.addEventListener('click', () => {
-        el.querySelector('.arrow').classList.toggle('open');
-        el.nextElementSibling.classList.toggle('collapsed');
-      });
-    });
-  }
-
-  function renderTreeNode(node) {
-    if (!node.children) return '';
-    let html = '';
-    for (const child of node.children) {
-      if (child.type === 'folder') {
-        const label = child.name.charAt(0).toUpperCase() + child.name.slice(1);
-        html += `<div class="tree-folder">
-          <div class="tree-folder-name"><span class="arrow open">\u25B6</span> ${escapeHtml(label)}</div>
-          <div class="tree-children">${renderTreeNode(child)}</div>
-        </div>`;
-      } else {
-        const displayTitle = child.title || child.name.replace(/\.md$/, '');
-        const slug = child.name.replace(/\.md$/, '');
-        const section = child.path ? child.path.split('/')[1] : '';
-        let href = '#/';
-        if (section === 'blog') href = `#/blog/post/${slug}`;
-        else if (section === 'portfolio') href = `#/portfolio/${slug}`;
-        else if (section === 'gallery') href = `#/gallery`;
-        else if (section === 'thoughts') href = `#/thoughts`;
-        else if (section === 'pages') href = `#/${slug}`;
-        html += `<a class="tree-file" href="${href}">${escapeHtml(displayTitle)}</a>`;
-      }
-    }
-    return html;
-  }
-
   // ── Page Renderers ────────────────────────────────────
 
   function renderHome() {
     const recentPosts = state.posts.slice(0, 3);
     const recentThoughts = state.thoughts.slice(0, 2);
 
-    let postsHtml = recentPosts.map((p) => `
-      <a href="#/blog/post/${p.slug}" class="post-card">
-        <div class="post-card-title">${escapeHtml(p.title)}</div>
-        <div class="post-card-summary">${escapeHtml(p.summary || '')}</div>
-        <div class="post-card-meta">
-          <span class="post-card-date">${formatDate(p.date)}</span>
-          ${p.category ? `<span class="post-card-category">${escapeHtml(p.category)}</span>` : ''}
-        </div>
-      </a>`).join('');
+    let postsHtml = recentPosts.map(renderPostCard).join('');
 
     let portfolioHtml = state.portfolio.slice(0, 4).map((p) => renderPortfolioCard(p)).join('');
 
@@ -270,14 +218,30 @@
 
   // ── Blog ──────────────────────────────────────────────
 
-  function renderBlogList(page) {
-    page = parseInt(page) || 1;
-    const total = state.posts.length;
-    const totalPages = Math.ceil(total / POSTS_PER_PAGE);
-    const start = (page - 1) * POSTS_PER_PAGE;
-    const pagePosts = state.posts.slice(start, start + POSTS_PER_PAGE);
+  function humanize(slug) {
+    return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
 
-    let postsHtml = pagePosts.map((p) => `
+  function blogBreadcrumbs(segments, options) {
+    const { linkLast = false, lastLabel = '' } = options || {};
+    let html = '<nav class="breadcrumbs"><a href="#/blog">Blog</a>';
+    let accum = '';
+    for (let i = 0; i < segments.length; i++) {
+      accum += (accum ? '/' : '') + segments[i];
+      const isLast = i === segments.length - 1;
+      const label = isLast && lastLabel ? lastLabel : humanize(segments[i]);
+      if (isLast && !linkLast) {
+        html += `<span class="breadcrumb-sep">/</span><span class="breadcrumb-current">${escapeHtml(label)}</span>`;
+      } else {
+        html += `<span class="breadcrumb-sep">/</span><a href="#/blog/dir/${accum}">${escapeHtml(label)}</a>`;
+      }
+    }
+    html += '</nav>';
+    return html;
+  }
+
+  function renderPostCard(p) {
+    return `
       <a href="#/blog/post/${p.slug}" class="post-card">
         <div class="post-card-title">${escapeHtml(p.title)}</div>
         <div class="post-card-summary">${escapeHtml(p.summary || '')}</div>
@@ -286,24 +250,47 @@
           ${p.category ? `<span class="post-card-category">${escapeHtml(p.category)}</span>` : ''}
           ${(p.tags || []).map((t) => `<span class="tag" style="padding:2px 8px;font-size:11px">${escapeHtml(t)}</span>`).join('')}
         </div>
-      </a>`).join('');
+      </a>`;
+  }
 
-    let paginationHtml = '';
-    if (totalPages > 1) {
-      paginationHtml = '<div class="pagination">';
-      if (page > 1) paginationHtml += `<a href="#/blog/page/${page - 1}">\u2190 Prev</a>`;
-      for (let i = 1; i <= totalPages; i++) {
-        paginationHtml += i === page ? `<span class="active">${i}</span>` : `<a href="#/blog/page/${i}">${i}</a>`;
-      }
-      if (page < totalPages) paginationHtml += `<a href="#/blog/page/${page + 1}">Next \u2192</a>`;
-      paginationHtml += '</div>';
+  function renderBlogDir(dirPath) {
+    const dir = state.blogDirs[dirPath];
+    if (!dir) { showContent('<div class="empty-state"><h3>Directory not found</h3></div>'); return; }
+
+    const isRoot = dirPath === '';
+    const segments = dirPath ? dirPath.split('/') : [];
+    const breadcrumbsHtml = isRoot ? '' : blogBreadcrumbs(segments);
+    const title = isRoot ? 'Blog' : humanize(segments[segments.length - 1]);
+
+    let foldersHtml = '';
+    if (dir.subdirs.length) {
+      foldersHtml = '<div class="blog-dir-folders">' + dir.subdirs.map((d) => {
+        const fullDir = dirPath ? dirPath + '/' + d : d;
+        const childDir = state.blogDirs[fullDir];
+        const count = childDir ? childDir.posts.length + childDir.subdirs.length : 0;
+        return `<a href="#/blog/dir/${fullDir}" class="blog-dir-chip">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4.5A1.5 1.5 0 013.5 3h3.586a1.5 1.5 0 011.06.44L8.854 4.145A.5.5 0 009.207 4.3H12.5A1.5 1.5 0 0114 5.8V12a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 12V4.5z" stroke="currentColor" stroke-width="1.2"/></svg>
+          <span>${escapeHtml(humanize(d))}</span>
+          ${count ? `<span class="blog-dir-count">${count}</span>` : ''}
+        </a>`;
+      }).join('') + '</div>';
     }
 
+    const dirPosts = dir.posts.map((slug) => state.posts.find((p) => p.slug === slug)).filter(Boolean);
+    dirPosts.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const total = dirPosts.length;
+    const postsHtml = dirPosts.map(renderPostCard).join('');
+    const subtitle = isRoot
+      ? `${state.posts.length} post${state.posts.length !== 1 ? 's' : ''}`
+      : `${total} post${total !== 1 ? 's' : ''} in this directory`;
+
     showContent(`
-      <h1 class="page-title">Blog</h1>
-      <p class="page-subtitle">${total} post${total !== 1 ? 's' : ''}</p>
-      <div class="post-list">${postsHtml}</div>
-      ${paginationHtml}
+      ${breadcrumbsHtml}
+      <h1 class="page-title">${escapeHtml(title)}</h1>
+      <p class="page-subtitle">${subtitle}</p>
+      ${foldersHtml}
+      <div class="post-list">${postsHtml || '<div class="empty-state"><p>No posts in this directory.</p></div>'}</div>
     `);
   }
 
@@ -313,12 +300,46 @@
     if (!post) { showContent('<div class="empty-state"><h3>Post not found</h3></div>'); return; }
     try {
       const raw = await loadMarkdown(post.path);
-      const { body } = parseMarkdown(raw);
+      const { frontmatter, body } = parseMarkdown(raw);
       const html = renderMd(body);
       const tagsHtml = (post.tags || []).map((t) => `<a href="#/tag/${encodeURIComponent(t)}" class="tag">${escapeHtml(t)}</a>`).join('');
+
+      const slugParts = slug.split('/');
+      const parentDir = slugParts.length > 1 ? slugParts.slice(0, -1).join('/') : '';
+      const backHref = parentDir ? `#/blog/dir/${parentDir}` : '#/blog';
+      const backLabel = parentDir ? humanize(slugParts[slugParts.length - 2]) : 'blog';
+      const breadcrumbsHtml = slugParts.length > 1
+        ? blogBreadcrumbs(slugParts, { linkLast: false, lastLabel: post.title })
+        : '';
+
+      const np = frontmatter.next_page;
+      const pp = frontmatter.previous_page;
+      const nextPage = Array.isArray(np) && np.length ? np[0] : (typeof np === 'object' && np ? np : null);
+      const prevPage = Array.isArray(pp) && pp.length ? pp[0] : (typeof pp === 'object' && pp ? pp : null);
+      let postNavHtml = '';
+      if (prevPage || nextPage) {
+        postNavHtml = '<div class="post-nav">';
+        if (prevPage && prevPage.link) {
+          postNavHtml += `<a href="${escapeHtml(prevPage.link)}" class="post-nav-link prev">
+            <span class="post-nav-label">\u2190 Previous</span>
+            <span class="post-nav-title">${escapeHtml(prevPage.title || 'Previous Page')}</span>
+          </a>`;
+        } else {
+          postNavHtml += '<div></div>';
+        }
+        if (nextPage && nextPage.link) {
+          postNavHtml += `<a href="${escapeHtml(nextPage.link)}" class="post-nav-link next">
+            <span class="post-nav-label">Next \u2192</span>
+            <span class="post-nav-title">${escapeHtml(nextPage.title || 'Next Page')}</span>
+          </a>`;
+        }
+        postNavHtml += '</div>';
+      }
+
       showContent(`
+        ${breadcrumbsHtml}
         <div class="article-top-bar">
-          <a href="#/blog" class="back-link">\u2190 Back to blog</a>
+          <a href="${backHref}" class="back-link">\u2190 Back to ${escapeHtml(backLabel)}</a>
           ${shareButton(post.title)}
         </div>
         <div class="article-header">
@@ -330,6 +351,7 @@
           </div>
         </div>
         <div class="article-body">${html}</div>
+        ${postNavHtml}
       `);
       initShareButton(post.title);
       initArticleImages();
@@ -701,9 +723,9 @@
     updateActiveNav(hash);
 
     if (hash === '/' || hash === '') renderHome();
-    else if (parts[0] === 'blog' && parts[1] === 'post' && parts[2]) await renderBlogPost(parts[2]);
-    else if (parts[0] === 'blog' && parts[1] === 'page' && parts[2]) renderBlogList(parseInt(parts[2]));
-    else if (parts[0] === 'blog') renderBlogList(1);
+    else if (parts[0] === 'blog' && parts[1] === 'post' && parts.length > 2) await renderBlogPost(parts.slice(2).join('/'));
+    else if (parts[0] === 'blog' && parts[1] === 'dir' && parts.length > 2) renderBlogDir(parts.slice(2).join('/'));
+    else if (parts[0] === 'blog') renderBlogDir('');
     else if (parts[0] === 'portfolio' && parts[1]) await renderPortfolioItem(parts[1]);
     else if (parts[0] === 'portfolio') renderPortfolioList();
     else if (parts[0] === 'gallery') renderGallery();

@@ -43,8 +43,10 @@ async function buildMetadata() {
     const fullPath = path.join(CONTENT_DIR, file);
     const raw = fs.readFileSync(fullPath, 'utf-8');
     const { data, content } = matter(raw);
-    const slug = path.basename(file, '.md');
     const section = file.split(path.sep)[0];
+    const slug = section === 'blog'
+      ? file.replace(/^blog\//, '').replace(/\.md$/, '')
+      : path.basename(file, '.md');
 
     titleMap[`content/${file}`] = data.title || slug;
 
@@ -59,6 +61,8 @@ async function buildMetadata() {
     if (section === 'blog') {
       entry.date = data.date ? new Date(data.date).toISOString().split('T')[0] : '1970-01-01';
       entry.summary = data.summary || stripMarkdown(content).substring(0, 160) + '...';
+      const dir = path.dirname(slug);
+      entry.dir = dir === '.' ? '' : dir;
       posts.push(entry);
     } else if (section === 'portfolio') {
       entry.summary = data.summary || stripMarkdown(content).substring(0, 160) + '...';
@@ -91,23 +95,25 @@ async function buildMetadata() {
   galleryItems.sort((a, b) => new Date(b.date) - new Date(a.date));
   thoughts.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  const tree = buildTree(files, titleMap);
+  const blogDirs = buildBlogDirs(posts);
 
   const searchDocs = [];
   for (const file of files) {
     const fullPath = path.join(CONTENT_DIR, file);
     const raw = fs.readFileSync(fullPath, 'utf-8');
     const { data, content } = matter(raw);
-    const slug = path.basename(file, '.md');
     const section = file.split(path.sep)[0];
+    const searchSlug = section === 'blog'
+      ? file.replace(/^blog\//, '').replace(/\.md$/, '')
+      : path.basename(file, '.md');
     searchDocs.push({
       id: `content/${file}`,
-      title: data.title || slug,
+      title: data.title || searchSlug,
       tags: (data.tags || []).join(' '),
       category: data.category || '',
       body: stripMarkdown(content).substring(0, 1000),
       section,
-      slug,
+      slug: searchSlug,
     });
   }
 
@@ -123,7 +129,7 @@ async function buildMetadata() {
   miniSearch.addAll(searchDocs);
   const searchIndex = JSON.parse(JSON.stringify(miniSearch));
 
-  write('tree.json', tree);
+  write('blog-dirs.json', blogDirs);
   write('posts.json', posts);
   write('portfolio.json', portfolioItems);
   write('gallery.json', galleryItems);
@@ -145,42 +151,31 @@ async function buildMetadata() {
   console.log('\nMetadata build complete.');
 }
 
-function buildTree(files, titleMap) {
-  const root = { name: 'content', type: 'folder', children: [] };
-
-  for (const file of files) {
-    const parts = file.split(path.sep);
-    let current = root;
-    for (let i = 0; i < parts.length; i++) {
-      const part = parts[i];
-      const isFile = i === parts.length - 1;
-      let child = current.children.find((c) => c.name === part);
-      if (!child) {
-        const filePath = `content/${file}`;
-        child = {
-          name: part,
-          type: isFile ? 'file' : 'folder',
-          ...(isFile ? { path: filePath, title: titleMap[filePath] || part.replace(/\.md$/, '') } : { children: [] }),
-        };
-        current.children.push(child);
-      }
-      current = child;
+function buildBlogDirs(posts) {
+  const dirs = {};
+  const allDirPaths = new Set(['']);
+  for (const p of posts) {
+    const d = p.dir || '';
+    allDirPaths.add(d);
+    const parts = d.split('/').filter(Boolean);
+    for (let i = 1; i < parts.length; i++) {
+      allDirPaths.add(parts.slice(0, i).join('/'));
     }
   }
-
-  sortTree(root);
-  return root;
-}
-
-function sortTree(node) {
-  if (!node.children) return;
-  node.children.sort((a, b) => {
-    if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
-    return a.name.localeCompare(b.name);
-  });
-  for (const child of node.children) {
-    sortTree(child);
+  for (const d of allDirPaths) {
+    const childDirs = new Set();
+    const childPosts = [];
+    for (const p of posts) {
+      const pd = p.dir || '';
+      if (pd === d) {
+        childPosts.push(p.slug);
+      } else if (d === '' ? !pd.includes('/') && pd !== '' : pd.startsWith(d + '/') && !pd.slice(d.length + 1).includes('/')) {
+        childDirs.add(d === '' ? pd : pd.slice(d.length + 1));
+      }
+    }
+    dirs[d] = { subdirs: [...childDirs].sort(), posts: childPosts };
   }
+  return dirs;
 }
 
 function write(filename, data) {

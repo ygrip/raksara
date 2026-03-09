@@ -13,7 +13,11 @@ Your content repo should have this structure at its root:
 
 ```
 your-content-repo/
-  blog/           # Blog posts (.md)
+  blog/           # Blog posts (.md) — supports nested directories
+    post.md
+    series-name/
+      part-1.md
+      part-2.md
   portfolio/      # Project descriptions (.md)
   gallery/        # Gallery image entries (.md)
   thoughts/       # Short-form shower thoughts (.md)
@@ -28,7 +32,8 @@ Use `content-template/` in the main Raksara repo as a starting point.
 
 ## 1. Create a New Blog Post
 
-Create a `.md` file inside `blog/` in your content repo. The filename becomes the URL slug.
+Create a `.md` file inside `blog/` in your content repo. The full path within
+`blog/` becomes the URL slug.
 
 **File:** `blog/my-new-post.md`
 
@@ -46,6 +51,53 @@ summary: "A short one-liner that shows in card previews."
 Your markdown content starts here.
 ```
 
+### Nested Directories
+
+Blog posts support nested directories. Folders are displayed as navigable
+sections on the blog page with humanized names (e.g. `my-series` becomes
+"My Series"). Each folder gets its own listing page with breadcrumb navigation.
+
+```
+blog/
+  standalone-post.md            -> /#/blog/post/standalone-post
+  novel/
+    chapter-1.md                -> /#/blog/post/novel/chapter-1
+    chapter-2.md                -> /#/blog/post/novel/chapter-2
+    bonus/
+      deleted-scenes.md         -> /#/blog/post/novel/bonus/deleted-scenes
+```
+
+Directory listing pages:
+
+```
+/#/blog                         -> root (shows folders + root-level posts)
+/#/blog/dir/novel               -> shows novel/ contents
+/#/blog/dir/novel/bonus         -> shows novel/bonus/ contents
+```
+
+### Next / Previous Page Navigation
+
+Add `next_page` and/or `previous_page` to frontmatter to link posts in a series.
+A navigation bar appears at the bottom of the post.
+
+```yaml
+---
+title: "Chapter 1"
+date: 2026-03-08
+next_page:
+  - title: "Chapter 2: The Journey"
+    link: "#/blog/post/novel/chapter-2"
+previous_page:
+  - title: "Prologue"
+    link: "#/blog/post/novel/prologue"
+---
+```
+
+| Field | Required | Description |
+|---|---|---|
+| `title` | No | Custom link label. Defaults to "Next Page" / "Previous Page" |
+| `link` | Yes | Hash URL to the target page |
+
 ### Fields
 
 | Field | Required | Description |
@@ -55,11 +107,14 @@ Your markdown content starts here.
 | `tags` | No | List of tags (lowercase, hyphenated) |
 | `category` | No | Single category string |
 | `summary` | No | Short description for cards. Auto-generated from body if omitted |
+| `next_page` | No | Link to the next post in a series |
+| `previous_page` | No | Link to the previous post in a series |
 
 ### URL
 
 ```
 /#/blog/post/my-new-post
+/#/blog/post/folder/nested-post
 ```
 
 ---
