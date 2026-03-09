@@ -200,14 +200,18 @@
     const heroTitle = (state.config && state.config.hero_title) || 'Raksara';
     const heroSubtitle = (state.config && state.config.hero_subtitle) || 'A place where ideas, knowledge, and engineering thoughts are recorded.';
 
+    const waveSvg = `<div class="hero-waves"><svg class="hero-wave hero-wave-back" viewBox="0 0 1440 60" preserveAspectRatio="none"><path d="M0,25 C240,50 480,0 720,25 C960,50 1200,0 1440,25 L1440,60 L0,60 Z"/></svg><svg class="hero-wave hero-wave-front" viewBox="0 0 1440 60" preserveAspectRatio="none"><path d="M0,30 C120,10 240,50 360,30 C480,10 600,50 720,30 C840,10 960,50 1080,30 C1200,10 1320,50 1440,30 L1440,60 L0,60 Z"/></svg></div>`;
+
     showContent(`
-      <div class="home-hero">
-        <div class="home-hero-aurora"></div>
-        <h1 class="home-hero-title">
-          <span class="accent-gradient">${escapeHtml(heroTitle)}</span>
-          <span class="hero-underline"></span>
-        </h1>
-        <p class="home-hero-subtitle">${escapeHtml(heroSubtitle)}</p>
+      <div class="home-hero" id="profile-hero">
+        <div class="home-hero-aurora" id="home-hero-bg"></div>
+        <div class="home-hero-content">
+          <h1 class="home-hero-title">
+            <span class="accent-gradient">${escapeHtml(heroTitle)}</span>
+          </h1>
+          <p class="home-hero-subtitle">${escapeHtml(heroSubtitle)}</p>
+        </div>
+        ${waveSvg}
       </div>
 
       <div class="home-section">
@@ -230,6 +234,7 @@
         <div class="gallery-grid">${galleryHtml}</div>
       </div>` : ''}
     `);
+    initParallax();
     initPortfolioCards();
     initLazyImages();
   }
@@ -673,25 +678,56 @@
         }).join('') + '</div>';
       }
 
+      const waveSvg = `<div class="hero-waves"><svg class="hero-wave hero-wave-back" viewBox="0 0 1440 60" preserveAspectRatio="none"><path d="M0,25 C240,50 480,0 720,25 C960,50 1200,0 1440,25 L1440,60 L0,60 Z"/></svg><svg class="hero-wave hero-wave-front" viewBox="0 0 1440 60" preserveAspectRatio="none"><path d="M0,30 C120,10 240,50 360,30 C480,10 600,50 720,30 C840,10 960,50 1080,30 C1200,10 1320,50 1440,30 L1440,60 L0,60 Z"/></svg></div>`;
+
       showContent(`
         <div class="profile-hero" id="profile-hero">
-          <div class="profile-hero-bg" id="profile-hero-bg" style="background-image:url('${escapeHtml(coverUrl)}')"></div>
+          <div class="profile-hero-bg" id="profile-hero-bg" data-src="${escapeHtml(coverUrl)}"></div>
+          <div class="profile-hero-skeleton"></div>
           <div class="profile-hero-overlay"></div>
           <div class="profile-hero-content">
-            ${avatarUrl ? `<img class="profile-avatar" src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(name)}" loading="lazy">` : ''}
+            ${avatarUrl ? `<div class="profile-avatar-wrap"><img class="profile-avatar" src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(name)}" loading="lazy"></div>` : ''}
             <div class="profile-info">
               <h1>${escapeHtml(name)}</h1>
               ${role ? `<div class="profile-role">${escapeHtml(role)}</div>` : ''}
               ${links.length ? `<div class="profile-links">${links.join('')}</div>` : ''}
             </div>
           </div>
+          ${waveSvg}
         </div>
         ${metaHtml}
         <div class="article-body">${html}</div>
       `);
       initParallax();
+      initProfileMedia(coverUrl);
       initArticleImages();
     } catch { showContent('<div class="empty-state"><h3>Profile not found</h3></div>'); }
+  }
+
+  function initProfileMedia(coverUrl) {
+    const bg = document.getElementById('profile-hero-bg');
+    const skeleton = document.querySelector('.profile-hero-skeleton');
+    if (bg && coverUrl) {
+      const img = new Image();
+      img.onload = () => {
+        bg.style.backgroundImage = `url('${coverUrl}')`;
+        bg.classList.add('loaded');
+        if (skeleton) skeleton.classList.add('hidden');
+      };
+      img.onerror = () => { if (skeleton) skeleton.classList.add('hidden'); };
+      img.src = coverUrl;
+    }
+
+    const avatarWrap = document.querySelector('.profile-avatar-wrap');
+    const avatar = avatarWrap && avatarWrap.querySelector('.profile-avatar');
+    if (avatar) {
+      if (avatar.complete && avatar.naturalWidth > 0) {
+        avatarWrap.classList.add('loaded');
+      } else {
+        avatar.addEventListener('load', () => avatarWrap.classList.add('loaded'), { once: true });
+        avatar.addEventListener('error', () => avatarWrap.classList.add('loaded'), { once: true });
+      }
+    }
   }
 
   let _parallaxCleanup = null;

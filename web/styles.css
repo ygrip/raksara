@@ -585,48 +585,70 @@ body {
 
 .home-hero {
   position: relative;
-  padding: 72px 0 56px;
-  margin-bottom: 16px;
+  margin: -48px -32px 0;
+  height: 360px;
   overflow: hidden;
 }
 
 .home-hero-aurora {
   position: absolute;
-  inset: -60%;
+  inset: -40%;
   background:
-    radial-gradient(ellipse 50% 40% at 30% 40%, color-mix(in srgb, var(--gradient-1) 14%, transparent), transparent 60%),
-    radial-gradient(ellipse 40% 50% at 70% 30%, color-mix(in srgb, var(--gradient-3) 10%, transparent), transparent 60%),
-    radial-gradient(ellipse 60% 30% at 50% 60%, color-mix(in srgb, var(--gradient-2) 8%, transparent), transparent 60%);
-  animation: auroraDrift 12s ease-in-out infinite alternate;
+    radial-gradient(ellipse 40% 35% at 20% 30%, color-mix(in srgb, var(--gradient-1) 40%, transparent), transparent 50%),
+    radial-gradient(ellipse 35% 40% at 80% 25%, color-mix(in srgb, var(--gradient-3) 32%, transparent), transparent 50%),
+    radial-gradient(ellipse 45% 25% at 50% 70%, color-mix(in srgb, var(--gradient-2) 25%, transparent), transparent 50%),
+    var(--bg-base);
+  filter: blur(18px);
   pointer-events: none;
-  filter: blur(40px);
+  will-change: transform;
+  transform: translateZ(0);
+  transition: transform 0.1s linear;
+  animation: auroraDrift 14s ease-in-out infinite alternate;
 }
 
 [data-theme="light"] .home-hero-aurora {
   background:
-    radial-gradient(ellipse 50% 40% at 30% 40%, color-mix(in srgb, var(--gradient-1) 20%, transparent), transparent 60%),
-    radial-gradient(ellipse 40% 50% at 70% 30%, color-mix(in srgb, var(--gradient-3) 15%, transparent), transparent 60%),
-    radial-gradient(ellipse 60% 30% at 50% 60%, color-mix(in srgb, var(--gradient-2) 12%, transparent), transparent 60%);
+    radial-gradient(ellipse 40% 35% at 20% 30%, color-mix(in srgb, var(--gradient-1) 50%, transparent), transparent 50%),
+    radial-gradient(ellipse 35% 40% at 80% 25%, color-mix(in srgb, var(--gradient-3) 40%, transparent), transparent 50%),
+    radial-gradient(ellipse 45% 25% at 50% 70%, color-mix(in srgb, var(--gradient-2) 30%, transparent), transparent 50%),
+    var(--bg-base);
 }
 
 @keyframes auroraDrift {
   0%   { transform: translate(0, 0) scale(1) rotate(0deg); }
-  33%  { transform: translate(8%, -6%) scale(1.08) rotate(2deg); }
-  66%  { transform: translate(-6%, 4%) scale(0.95) rotate(-1deg); }
-  100% { transform: translate(4%, -3%) scale(1.04) rotate(1deg); }
+  25%  { transform: translate(6%, -4%) scale(1.06) rotate(1.5deg); }
+  50%  { transform: translate(-4%, 3%) scale(0.96) rotate(-1deg); }
+  75%  { transform: translate(3%, -5%) scale(1.03) rotate(0.5deg); }
+  100% { transform: translate(-5%, 2%) scale(1.05) rotate(-1.5deg); }
+}
+
+.home-hero-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 40px 32px 64px;
+  z-index: 2;
 }
 
 .home-hero-title {
-  font-size: 60px;
+  font-size: 56px;
   font-weight: 800;
   letter-spacing: -0.06em;
   line-height: 1.05;
-  margin: 0;
-  position: relative;
-  z-index: 1;
+  margin: 0 0 6px;
+  color: #f0f0f5;
+  text-shadow: 0 2px 20px rgba(0,0,0,0.3);
+}
+
+[data-theme="light"] .home-hero-title {
+  color: #1a1a2e;
+  text-shadow: 0 1px 10px rgba(255,255,255,0.3);
 }
 
 .accent-gradient {
+  position: relative;
+  display: inline-block;
   background: linear-gradient(135deg, var(--gradient-1), var(--gradient-2), var(--gradient-3));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -635,19 +657,21 @@ body {
   animation: textGradient 4s ease infinite;
 }
 
+.accent-gradient::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--gradient-1), var(--gradient-2), var(--gradient-3));
+  animation: underlineExpand 1s cubic-bezier(0.22, 1, 0.36, 1) 0.4s forwards;
+}
+
 @keyframes textGradient {
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
-}
-
-.hero-underline {
-  display: block;
-  width: 0;
-  height: 3px;
-  margin-top: 10px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, var(--gradient-1), var(--gradient-2), var(--gradient-3));
-  animation: underlineExpand 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.3s forwards;
 }
 
 @keyframes underlineExpand {
@@ -656,12 +680,56 @@ body {
 
 .home-hero-subtitle {
   font-size: 16px;
-  color: var(--text-secondary);
+  color: rgba(240,240,245,0.8);
   line-height: 1.7;
-  margin-top: 20px;
+  margin-top: 16px;
   max-width: 480px;
-  position: relative;
-  z-index: 1;
+  text-shadow: 0 1px 8px rgba(0,0,0,0.2);
+}
+
+[data-theme="light"] .home-hero-subtitle {
+  color: #555566;
+  text-shadow: none;
+}
+
+/* ── Hero Waves ──────────────────────────────────────────── */
+
+.hero-waves {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 48px;
+  z-index: 3;
+}
+
+.hero-wave {
+  position: absolute;
+  bottom: 0;
+  width: 120%;
+  height: 100%;
+  left: -10%;
+}
+
+.hero-wave path { fill: var(--bg-base); }
+
+.hero-wave-back {
+  opacity: 0.45;
+  animation: waveBack 8s ease-in-out infinite alternate;
+}
+
+.hero-wave-front {
+  animation: waveFront 6s ease-in-out infinite alternate;
+}
+
+@keyframes waveBack {
+  0%   { transform: translateX(-3%) scaleY(0.8); }
+  100% { transform: translateX(3%) scaleY(1.2); }
+}
+
+@keyframes waveFront {
+  0%   { transform: translateX(2%) scaleY(1.15); }
+  100% { transform: translateX(-2%) scaleY(0.85); }
 }
 
 .home-section { margin-bottom: 52px; }
@@ -1217,17 +1285,33 @@ body {
   margin: -48px -32px 40px;
   height: 320px;
   overflow: hidden;
-  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
 }
 
 .profile-hero-bg {
   position: absolute;
   inset: 0;
+  background-color: var(--bg-secondary);
   background-size: cover;
   background-position: center;
   transform: translateZ(0);
   transition: transform 0.1s linear;
 }
+
+.profile-hero-bg:not(.loaded) {
+  background-image: none !important;
+}
+
+.profile-hero-skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--bg-glass) 25%, var(--bg-hover) 50%, var(--bg-glass) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  z-index: 0;
+  transition: opacity 0.5s ease;
+}
+
+.profile-hero-skeleton.hidden { opacity: 0; pointer-events: none; }
 
 .profile-hero-overlay {
   position: absolute;
@@ -1237,6 +1321,7 @@ body {
     rgba(0,0,0,0.2) 40%,
     rgba(0,0,0,0.6) 100%
   );
+  z-index: 1;
 }
 
 .profile-hero-content {
@@ -1244,10 +1329,27 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 32px;
+  padding: 32px 32px 64px;
   display: flex;
   align-items: flex-end;
   gap: 24px;
+  z-index: 2;
+}
+
+.profile-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, var(--bg-glass) 25%, var(--bg-hover) 50%, var(--bg-glass) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.profile-avatar-wrap.loaded {
+  animation: none;
+  background: none;
 }
 
 .profile-avatar {
@@ -1257,11 +1359,29 @@ body {
   border: 3px solid rgba(255,255,255,0.3);
   object-fit: cover;
   box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-  transition: transform 0.3s var(--bounce);
   flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.4s ease;
 }
 
-.profile-avatar:hover { transform: scale(1.05); }
+.profile-avatar-wrap.loaded .profile-avatar {
+  opacity: 1;
+}
+
+.profile-avatar-wrap.loaded::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  animation: avatarRipple 3s ease-out infinite;
+}
+
+@keyframes avatarRipple {
+  0%   { transform: scale(1); opacity: 0.6; }
+  70%  { transform: scale(1.12); opacity: 0; }
+  100% { transform: scale(1.12); opacity: 0; }
+}
 
 .profile-info h1 {
   font-size: 28px;
@@ -1800,11 +1920,12 @@ body {
   .portfolio-grid { grid-template-columns: 1fr; }
   .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
   .article-header h1 { font-size: 22px; }
-  .home-hero { padding: 48px 0 40px; }
-  .home-hero-title { font-size: 40px; }
-  .profile-hero { margin: -24px -16px 32px; height: 260px; }
-  .profile-hero-content { padding: 20px; gap: 16px; }
-  .profile-avatar { width: 80px; height: 80px; }
+  .home-hero { margin: -52px -16px 0; height: 300px; }
+  .home-hero-content { padding: 24px 20px 56px; }
+  .home-hero-title { font-size: 38px; }
+  .profile-hero { margin: -52px -16px 32px; height: 260px; }
+  .profile-hero-content { padding: 20px 20px 56px; gap: 16px; }
+  .profile-avatar-wrap, .profile-avatar { width: 80px; height: 80px; }
   .profile-info h1 { font-size: 22px; }
   .search-overlay-content { width: 95%; }
 }
