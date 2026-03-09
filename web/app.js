@@ -818,18 +818,30 @@
 
   // ── Theme Toggle ──────────────────────────────────────
 
+  function syncThemeIcons(theme) {
+    document.querySelectorAll('.icon-sun').forEach(el => el.classList.toggle('active', theme === 'light'));
+    document.querySelectorAll('.icon-moon').forEach(el => el.classList.toggle('active', theme === 'dark'));
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('raksara-theme', theme);
+    syncThemeIcons(theme);
+    const hljsDark = document.getElementById('hljs-dark');
+    const hljsLight = document.getElementById('hljs-light');
+    if (hljsDark) hljsDark.disabled = theme === 'light';
+    if (hljsLight) hljsLight.disabled = theme === 'dark';
+  }
+
   function toggleTheme() {
     const current = document.documentElement.getAttribute('data-theme');
-    const next = current === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem('raksara-theme', next);
-    document.getElementById('hljs-dark').disabled = next === 'light';
-    document.getElementById('hljs-light').disabled = next === 'dark';
+    applyTheme(current === 'dark' ? 'light' : 'dark');
   }
 
   function initTheme() {
     const saved = localStorage.getItem('raksara-theme');
-    if (saved) document.documentElement.setAttribute('data-theme', saved);
+    const theme = saved || document.documentElement.getAttribute('data-theme') || 'dark';
+    applyTheme(theme);
     document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
   }
 
@@ -862,6 +874,7 @@
     document.body.prepend(header);
 
     header.querySelector('.mobile-theme-toggle').addEventListener('click', toggleTheme);
+    syncThemeIcons(document.documentElement.getAttribute('data-theme') || 'dark');
 
     const sidebar = document.getElementById('sidebar');
     header.querySelector('.mobile-menu-btn').addEventListener('click', () => sidebar.classList.toggle('open'));

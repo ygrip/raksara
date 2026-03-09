@@ -217,17 +217,19 @@ body {
 .icon-btn > svg {
   grid-area: 1 / 1;
   transition: opacity var(--transition);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.icon-btn > svg.active {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .icon-btn:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
 }
-
-[data-theme="dark"] .icon-sun { opacity: 0; pointer-events: none; }
-[data-theme="dark"] .icon-moon { opacity: 1; }
-[data-theme="light"] .icon-sun { opacity: 1; }
-[data-theme="light"] .icon-moon { opacity: 0; pointer-events: none; }
 
 .logo {
   display: flex;
