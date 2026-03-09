@@ -24,6 +24,7 @@ your-content-repo/
   pages/          # Static pages (profile.md, about.md)
   assets/
     images/       # Images referenced in your content
+  raksara.yml     # Site configuration (accent color, etc.)
 ```
 
 Use `content-template/` in the main Raksara repo as a starting point.
@@ -299,11 +300,49 @@ npm run dev
 
 ---
 
-## 7. Sharing
+## 7. Site Configuration (`raksara.yml`)
 
-Every blog post and portfolio detail page has a **Share** button in the top-right
-corner. On desktop it copies the page URL to the clipboard. On mobile devices that
-support the Web Share API, it opens the native share sheet.
+Create a `raksara.yml` file at the **root** of your content repository to
+customize your site.
+
+**File:** `raksara.yml`
+
+```yaml
+color: purple
+```
+
+### Accent Color
+
+The `color` field sets the accent color used across the entire site — buttons,
+gradients, hero backgrounds, tags, navigation highlights, and more.
+
+| Value | Description |
+|---|---|
+| `purple` | Indigo-violet (default) |
+| `blue` | Sky blue / cyan |
+| `red` | Red / rose / pink |
+| `yellow` | Amber / gold |
+| `green` | Emerald / teal |
+| `orange` | Orange / warm amber |
+
+If `raksara.yml` is missing or the `color` field is omitted, the site defaults
+to `purple`.
+
+---
+
+## 8. Sharing
+
+Every page with content has a **Share** button — blog posts, blog directories,
+gallery, thoughts, portfolio listing, and portfolio detail pages.
+
+The share button copies the page title and URL in the format:
+
+```
+Page Title : https://yoursite.github.io/raksara/#/blog/post/my-post
+```
+
+On mobile devices that support the Web Share API, it opens the native share
+sheet instead.
 
 ---
 
@@ -318,3 +357,4 @@ support the Web Share API, it opens the native share sheet.
 | Edit my profile | `pages/profile.md` |
 | Add a static page | `pages/slug.md` |
 | Upload an image | `assets/images/filename.ext` |
+| Change accent color | `raksara.yml` → `color: blue` |

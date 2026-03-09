@@ -14,6 +14,8 @@ A GitHub-native static content platform that transforms a repository into a blog
 - **Search** — Client-side full-text search powered by MiniSearch
 - **Navigation Tree** — Auto-generated content tree sidebar
 - **Light/Dark Theme** — Glassmorphism UI with animated gradients
+- **Configurable Accent Color** — Choose from 6 color presets (purple, blue, red, yellow, green, orange) via `raksara.yml`
+- **Share Anywhere** — Share button on posts, directories, gallery, thoughts, and portfolio pages; copies `Title : URL` to clipboard or opens native share sheet
 - **GitHub Pages** — Automatic deployment via GitHub Actions
 
 ## Architecture
@@ -28,6 +30,7 @@ raksara/                          your-content-repo/
   .github/workflows/                thoughts/
   sync.yml          (trigger)       pages/
   package.json                      assets/images/
+                                    raksara.yml  (site config)
                                     .github/workflows/
 ```
 

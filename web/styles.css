@@ -209,27 +209,17 @@ body {
   cursor: pointer;
   padding: 6px;
   border-radius: var(--radius-sm);
-  transition: color var(--transition), background var(--transition);
-  display: grid;
-  place-items: center;
-}
-
-.icon-btn > svg {
-  grid-area: 1 / 1;
-  transition: opacity var(--transition);
-  opacity: 0;
-  pointer-events: none;
-}
-
-.icon-btn > svg.active {
-  opacity: 1;
-  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .icon-btn:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
 }
+
+.icon-sun, .icon-moon { display: none; }
 
 .logo {
   display: flex;
@@ -477,36 +467,36 @@ body {
 .blog-dir-folders {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 28px;
 }
 
 .blog-dir-chip {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 18px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 500;
+  gap: 10px;
+  padding: 16px 22px;
+  background: var(--accent-subtle);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-lg);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
   text-decoration: none;
   transition: all 0.3s var(--bounce);
 }
 
 .blog-dir-chip:hover {
-  color: var(--accent);
-  border-color: var(--accent-border);
-  background: var(--accent-subtle);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px var(--accent-glow);
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px var(--accent-glow);
 }
 
 .blog-dir-chip svg {
-  opacity: 0.5;
   flex-shrink: 0;
+  opacity: 0.8;
 }
 
 .blog-dir-chip:hover svg { opacity: 1; }
@@ -514,9 +504,10 @@ body {
 .blog-dir-count {
   font-size: 11px;
   font-family: var(--font-mono);
-  color: var(--text-tertiary);
-  background: var(--bg-hover);
-  padding: 1px 6px;
+  color: inherit;
+  opacity: 0.7;
+  background: rgba(255,255,255,0.15);
+  padding: 2px 8px;
   border-radius: 999px;
 }
 
@@ -605,7 +596,7 @@ body {
   margin-bottom: 14px;
 }
 
-.home-hero .accent-gradient {
+.accent-gradient {
   background: linear-gradient(135deg, var(--gradient-1), var(--gradient-2), var(--gradient-3));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -651,10 +642,10 @@ body {
 
 [data-theme="light"] .home-parallax-bg {
   background:
-    radial-gradient(ellipse 60% 50% at 25% 30%, rgba(99,102,241,0.35), transparent 60%),
-    radial-gradient(ellipse 50% 60% at 75% 70%, rgba(168,85,247,0.25), transparent 60%),
-    radial-gradient(ellipse 70% 50% at 50% 50%, rgba(139,92,246,0.15), transparent 70%),
-    #eeeef6;
+    radial-gradient(ellipse 60% 50% at 25% 30%, color-mix(in srgb, var(--gradient-1) 35%, transparent), transparent 60%),
+    radial-gradient(ellipse 50% 60% at 75% 70%, color-mix(in srgb, var(--gradient-3) 25%, transparent), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 50% 50%, color-mix(in srgb, var(--gradient-2) 15%, transparent), transparent 70%),
+    var(--bg-base);
 }
 
 .home-parallax-overlay {
@@ -706,6 +697,27 @@ body {
 [data-theme="light"] .home-parallax-content p {
   color: #555566;
   text-shadow: none;
+}
+
+/* ── Hero Stars ──────────────────────────────────────────── */
+
+.hero-star {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 2;
+  background: rgba(255,255,255,0.85);
+  opacity: 0;
+  animation: starPop var(--dur, 2s) ease-out forwards;
+}
+
+[data-theme="light"] .hero-star { background: var(--accent); }
+
+@keyframes starPop {
+  0%   { transform: scale(0); opacity: 0; }
+  15%  { transform: scale(1.3); opacity: 1; }
+  40%  { transform: scale(0.9); opacity: 0.8; }
+  100% { transform: scale(0); opacity: 0; }
 }
 
 .home-section { margin-bottom: 52px; }
@@ -1612,6 +1624,17 @@ body {
 }
 
 /* ── Page Title ──────────────────────────────────────────── */
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.page-header .page-title { margin-bottom: 6px; }
+.page-header .page-subtitle { margin-bottom: 0; }
 
 .page-title {
   font-size: 24px;

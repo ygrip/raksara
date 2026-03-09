@@ -141,6 +141,17 @@ async function buildMetadata() {
   write('categories.json', categories);
   write('search-index.json', searchIndex);
 
+  const configPath = path.join(CONTENT_DIR, 'raksara.yml');
+  let siteConfig = { color: 'purple' };
+  if (fs.existsSync(configPath)) {
+    const raw = fs.readFileSync(configPath, 'utf-8');
+    for (const line of raw.split('\n')) {
+      const m = line.match(/^(\w[\w-]*):\s*(.+)$/);
+      if (m) siteConfig[m[1]] = m[2].trim().replace(/^["']|["']$/g, '');
+    }
+  }
+  write('config.json', siteConfig);
+
   copyMetadataToWeb();
 
   console.log(`  Posts:      ${posts.length}`);

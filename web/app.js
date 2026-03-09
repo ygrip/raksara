@@ -13,6 +13,7 @@
     blogDirs: {},
     searchIndex: null,
     miniSearch: null,
+    config: {},
     loaded: false,
   };
 
@@ -44,6 +45,9 @@
         fields: ['title', 'tags', 'category', 'body'],
         storeFields: ['title', 'section', 'slug', 'category'],
       });
+
+      try { state.config = await loadJSON('metadata/config.json'); } catch { state.config = {}; }
+      applyAccentColor((state.config && state.config.color) || 'purple');
     } catch (err) {
       console.error('Error loading data:', err);
       showContent('<div class="empty-state"><h3>Failed to load data</h3><p>Run: npm run build</p></div>');
@@ -224,6 +228,7 @@
       </div>` : ''}
     `);
     initParallax();
+    initHeroStars();
     initPortfolioCards();
     initLazyImages();
   }
@@ -281,7 +286,7 @@
         const childDir = state.blogDirs[fullDir];
         const count = childDir ? childDir.posts.length + childDir.subdirs.length : 0;
         return `<a href="#/blog/dir/${fullDir}" class="blog-dir-chip">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4.5A1.5 1.5 0 013.5 3h3.586a1.5 1.5 0 011.06.44L8.854 4.145A.5.5 0 009.207 4.3H12.5A1.5 1.5 0 0114 5.8V12a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 12V4.5z" stroke="currentColor" stroke-width="1.2"/></svg>
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M2 4.5A1.5 1.5 0 013.5 3h3.586a1.5 1.5 0 011.06.44L8.854 4.145A.5.5 0 009.207 4.3H12.5A1.5 1.5 0 0114 5.8V12a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 12V4.5z" stroke="currentColor" stroke-width="1.2"/></svg>
           <span>${escapeHtml(humanize(d))}</span>
           ${count ? `<span class="blog-dir-count">${count}</span>` : ''}
         </a>`;
@@ -299,11 +304,17 @@
 
     showContent(`
       ${breadcrumbsHtml}
-      <h1 class="page-title">${escapeHtml(title)}</h1>
-      <p class="page-subtitle">${subtitle}</p>
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">${escapeHtml(title)}</h1>
+          <p class="page-subtitle">${subtitle}</p>
+        </div>
+        ${shareButton(title)}
+      </div>
       ${foldersHtml}
       <div class="post-list">${postsHtml || '<div class="empty-state"><p>No posts in this directory.</p></div>'}</div>
     `);
+    initShareButton(title);
   }
 
   async function renderBlogPost(slug) {
@@ -388,10 +399,16 @@
 
   function renderPortfolioList() {
     showContent(`
-      <h1 class="page-title">Portfolio</h1>
-      <p class="page-subtitle">${state.portfolio.length} project${state.portfolio.length !== 1 ? 's' : ''}</p>
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Portfolio</h1>
+          <p class="page-subtitle">${state.portfolio.length} project${state.portfolio.length !== 1 ? 's' : ''}</p>
+        </div>
+        ${shareButton('Portfolio')}
+      </div>
       <div class="portfolio-grid">${state.portfolio.map(renderPortfolioCard).join('')}</div>
     `);
+    initShareButton('Portfolio');
     initPortfolioCards();
   }
 
@@ -463,10 +480,16 @@
     }).join('');
 
     showContent(`
-      <h1 class="page-title">Gallery</h1>
-      <p class="page-subtitle">${state.gallery.length} photo${state.gallery.length !== 1 ? 's' : ''}</p>
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Gallery</h1>
+          <p class="page-subtitle">${state.gallery.length} photo${state.gallery.length !== 1 ? 's' : ''}</p>
+        </div>
+        ${shareButton('Gallery')}
+      </div>
       <div class="gallery-list">${items}</div>
     `);
+    initShareButton('Gallery');
     initGalleryToggles();
     initLazyImages();
   }
@@ -500,10 +523,16 @@
   function renderThoughts() {
     const html = state.thoughts.map(renderThoughtCard).join('');
     showContent(`
-      <h1 class="page-title">Shower Thoughts</h1>
-      <p class="page-subtitle">Random ideas that pop in my mind</p>
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Shower Thoughts</h1>
+          <p class="page-subtitle">Random ideas that pop in my mind</p>
+        </div>
+        ${shareButton('Shower Thoughts')}
+      </div>
       <div class="thoughts-list">${html || '<div class="empty-state"><p>No thoughts yet. Brain empty.</p></div>'}</div>
     `);
+    initShareButton('Shower Thoughts');
   }
 
   // ── Shared filtered item renderer ─────────────────────
@@ -659,6 +688,39 @@
     onScroll();
   }
 
+  let _starCleanup = null;
+
+  function initHeroStars() {
+    if (_starCleanup) { _starCleanup(); _starCleanup = null; }
+    const hero = document.querySelector('.home-parallax-hero');
+    if (!hero) return;
+
+    function spawnStar() {
+      if (!document.contains(hero)) return;
+      const star = document.createElement('div');
+      star.className = 'hero-star';
+      const size = 2 + Math.random() * 4;
+      star.style.width = size + 'px';
+      star.style.height = size + 'px';
+      star.style.left = (5 + Math.random() * 90) + '%';
+      star.style.top = (5 + Math.random() * 90) + '%';
+      star.style.setProperty('--dur', (1.4 + Math.random() * 1.6) + 's');
+      hero.appendChild(star);
+      star.addEventListener('animationend', () => star.remove());
+    }
+
+    for (let i = 0; i < 4; i++) setTimeout(spawnStar, i * 300);
+    const id = setInterval(() => {
+      if (!document.contains(hero)) { clearInterval(id); return; }
+      spawnStar();
+    }, 500);
+
+    _starCleanup = () => {
+      clearInterval(id);
+      hero.querySelectorAll('.hero-star').forEach(s => s.remove());
+    };
+  }
+
   // ── Generic Page ──────────────────────────────────────
 
   async function renderPage(slug) {
@@ -688,12 +750,13 @@
     if (!btn) return;
     btn.addEventListener('click', async () => {
       const url = window.location.href;
+      const text = title ? `${title} : ${url}` : url;
       if (navigator.share) {
-        try { await navigator.share({ title, url }); } catch {}
+        try { await navigator.share({ title, text, url }); } catch {}
         return;
       }
       try {
-        await navigator.clipboard.writeText(url);
+        await navigator.clipboard.writeText(text);
         const label = btn.querySelector('span');
         label.textContent = 'Copied!';
         setTimeout(() => { label.textContent = 'Share'; }, 2000);
@@ -832,15 +895,59 @@
 
   // ── Theme Toggle ──────────────────────────────────────
 
+  const COLOR_PALETTES = {
+    purple: { accent: '#6366f1', hoverDark: '#818cf8', hoverLight: '#4f46e5', g1: '#6366f1', g2: '#8b5cf6', g3: '#a855f7', rgb: '99,102,241' },
+    blue:   { accent: '#3b82f6', hoverDark: '#60a5fa', hoverLight: '#2563eb', g1: '#3b82f6', g2: '#06b6d4', g3: '#0ea5e9', rgb: '59,130,246' },
+    red:    { accent: '#ef4444', hoverDark: '#f87171', hoverLight: '#dc2626', g1: '#ef4444', g2: '#f43f5e', g3: '#ec4899', rgb: '239,68,68' },
+    yellow: { accent: '#eab308', hoverDark: '#facc15', hoverLight: '#ca8a04', g1: '#eab308', g2: '#f59e0b', g3: '#f97316', rgb: '234,179,8' },
+    green:  { accent: '#22c55e', hoverDark: '#4ade80', hoverLight: '#16a34a', g1: '#22c55e', g2: '#10b981', g3: '#14b8a6', rgb: '34,197,94' },
+    orange: { accent: '#f97316', hoverDark: '#fb923c', hoverLight: '#ea580c', g1: '#f97316', g2: '#fb923c', g3: '#fbbf24', rgb: '249,115,22' },
+  };
+
+  function applyAccentColor(colorName) {
+    const c = COLOR_PALETTES[(colorName || '').toLowerCase()] || COLOR_PALETTES.purple;
+    const s = document.documentElement.style;
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+
+    s.setProperty('--accent', c.accent);
+    s.setProperty('--accent-hover', isDark ? c.hoverDark : c.hoverLight);
+    s.setProperty('--accent-subtle', `rgba(${c.rgb},${isDark ? 0.12 : 0.08})`);
+    s.setProperty('--accent-border', `rgba(${c.rgb},${isDark ? 0.3 : 0.2})`);
+    s.setProperty('--accent-glow', `rgba(${c.rgb},${isDark ? 0.15 : 0.1})`);
+    s.setProperty('--gradient-1', c.g1);
+    s.setProperty('--gradient-2', c.g2);
+    s.setProperty('--gradient-3', c.g3);
+    s.setProperty('--gradient-4', c.g1);
+
+    if (isDark) {
+      s.setProperty('--bg-hover', 'rgba(255,255,255,0.06)');
+      s.setProperty('--bg-active', 'rgba(255,255,255,0.08)');
+    } else {
+      s.setProperty('--bg-hover', `rgba(${c.rgb},0.06)`);
+      s.setProperty('--bg-active', `rgba(${c.rgb},0.08)`);
+    }
+
+    s.setProperty('--gradient-bg',
+      `radial-gradient(ellipse 80% 60% at 20% 0%, rgba(${c.rgb},${isDark ? 0.12 : 0.08}) 0%, transparent 50%),` +
+      `radial-gradient(ellipse 60% 50% at 80% 100%, rgba(${c.rgb},${isDark ? 0.08 : 0.06}) 0%, transparent 50%),` +
+      `radial-gradient(ellipse 50% 40% at 50% 50%, rgba(${c.rgb},${isDark ? 0.05 : 0.03}) 0%, transparent 50%)`
+    );
+  }
+
   function syncThemeIcons(theme) {
-    document.querySelectorAll('.icon-sun').forEach(el => el.classList.toggle('active', theme === 'light'));
-    document.querySelectorAll('.icon-moon').forEach(el => el.classList.toggle('active', theme === 'dark'));
+    document.querySelectorAll('.icon-sun').forEach(el => {
+      el.style.display = theme === 'light' ? 'block' : 'none';
+    });
+    document.querySelectorAll('.icon-moon').forEach(el => {
+      el.style.display = theme === 'dark' ? 'block' : 'none';
+    });
   }
 
   function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('raksara-theme', theme);
     syncThemeIcons(theme);
+    applyAccentColor((state.config && state.config.color) || 'purple');
     const hljsDark = document.getElementById('hljs-dark');
     const hljsLight = document.getElementById('hljs-light');
     if (hljsDark) hljsDark.disabled = theme === 'light';
