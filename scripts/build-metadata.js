@@ -22,6 +22,8 @@ function stripMarkdown(md) {
     .replace(/\|.*\|/g, '')
     .replace(/[-=]{3,}/g, '')
     .replace(/>\s+/g, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s{2,}/g, ' ')
     .replace(/\n{2,}/g, '\n')
     .trim();
 }
