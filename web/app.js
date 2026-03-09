@@ -202,8 +202,10 @@
 
     showContent(`
       <div class="home-hero">
+        <div class="home-hero-aurora"></div>
         <h1 class="home-hero-title">
-          <span class="accent-gradient">${escapeHtml(heroTitle)}</span><span class="hero-cursor">_</span>
+          <span class="accent-gradient">${escapeHtml(heroTitle)}</span>
+          <span class="hero-underline"></span>
         </h1>
         <p class="home-hero-subtitle">${escapeHtml(heroSubtitle)}</p>
       </div>
@@ -228,7 +230,6 @@
         <div class="gallery-grid">${galleryHtml}</div>
       </div>` : ''}
     `);
-    initHeroStars();
     initPortfolioCards();
     initLazyImages();
   }
@@ -715,39 +716,6 @@
     window.addEventListener('scroll', onScroll, { passive: true });
     _parallaxCleanup = () => window.removeEventListener('scroll', onScroll);
     onScroll();
-  }
-
-  let _starCleanup = null;
-
-  function initHeroStars() {
-    if (_starCleanup) { _starCleanup(); _starCleanup = null; }
-    const hero = document.querySelector('.home-hero');
-    if (!hero) return;
-
-    function spawnStar() {
-      if (!document.contains(hero)) return;
-      const star = document.createElement('div');
-      star.className = 'hero-star';
-      const size = 2 + Math.random() * 4;
-      star.style.width = size + 'px';
-      star.style.height = size + 'px';
-      star.style.left = (5 + Math.random() * 90) + '%';
-      star.style.top = (5 + Math.random() * 90) + '%';
-      star.style.setProperty('--dur', (1.4 + Math.random() * 1.6) + 's');
-      hero.appendChild(star);
-      star.addEventListener('animationend', () => star.remove());
-    }
-
-    for (let i = 0; i < 4; i++) setTimeout(spawnStar, i * 300);
-    const id = setInterval(() => {
-      if (!document.contains(hero)) { clearInterval(id); return; }
-      spawnStar();
-    }, 500);
-
-    _starCleanup = () => {
-      clearInterval(id);
-      hero.querySelectorAll('.hero-star').forEach(s => s.remove());
-    };
   }
 
   // ── Generic Page ──────────────────────────────────────
