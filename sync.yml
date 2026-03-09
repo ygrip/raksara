@@ -1,4 +1,4 @@
 # Raksara Content Sync
 # Bump the version below to trigger a rebuild from your content repository.
 # Alternatively, push content to your content repo — it will auto-trigger via repository_dispatch.
-version: 2
+version: 3
