@@ -36,6 +36,14 @@ jobs:
           path: content
           lfs: true
 
+      - name: Fetch LFS objects
+        working-directory: content
+        run: |
+          git lfs install --force
+          git lfs pull
+        env:
+          GIT_TRACE: 1
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -47,6 +55,23 @@ jobs:
 
       - name: Build metadata
         run: node scripts/build-metadata.js
+
+      - name: Verify content images
+        run: |
+          echo "=== Images in content/assets/images/ ==="
+          ls -lah content/assets/images/ || echo "Directory not found"
+          echo ""
+          echo "=== Images in web/content/assets/images/ ==="
+          ls -lah web/content/assets/images/ || echo "Directory not found"
+          echo ""
+          echo "=== Checking for LFS pointers ==="
+          for f in content/assets/images/*; do
+            if head -c 50 "$f" 2>/dev/null | grep -q "git-lfs"; then
+              echo "WARNING: LFS pointer detected: $f"
+            else
+              echo "OK: $f ($(wc -c < "$f") bytes)"
+            fi
+          done
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
