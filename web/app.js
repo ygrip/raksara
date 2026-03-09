@@ -695,10 +695,15 @@
           </div>
           ${waveSvg}
         </div>
+        <div class="article-top-bar" style="margin-top:0">
+          <div></div>
+          ${shareButton(name)}
+        </div>
         ${metaHtml}
         <div class="article-body">${html}</div>
       `);
       initParallax();
+      initShareButton(name);
       initProfileMedia(coverUrl);
       initArticleImages();
     } catch { showContent('<div class="empty-state"><h3>Profile not found</h3></div>'); }
