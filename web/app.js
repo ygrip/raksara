@@ -197,14 +197,15 @@
       </div>`;
     }).join('');
 
+    const heroTitle = (state.config && state.config.hero_title) || 'Raksara';
+    const heroSubtitle = (state.config && state.config.hero_subtitle) || 'A place where ideas, knowledge, and engineering thoughts are recorded.';
+
     showContent(`
-      <div class="home-parallax-hero" id="profile-hero">
-        <div class="home-parallax-bg" id="home-hero-bg"></div>
-        <div class="home-parallax-overlay"></div>
-        <div class="home-parallax-content">
-          <h1>Welcome to <span class="accent-gradient">Raksara</span></h1>
-          <p>A place where ideas, knowledge, and engineering thoughts are recorded. Explore blog posts, projects, and more.</p>
-        </div>
+      <div class="home-hero">
+        <h1 class="home-hero-title">
+          <span class="accent-gradient">${escapeHtml(heroTitle)}</span><span class="hero-cursor">_</span>
+        </h1>
+        <p class="home-hero-subtitle">${escapeHtml(heroSubtitle)}</p>
       </div>
 
       <div class="home-section">
@@ -227,7 +228,6 @@
         <div class="gallery-grid">${galleryHtml}</div>
       </div>` : ''}
     `);
-    initParallax();
     initHeroStars();
     initPortfolioCards();
     initLazyImages();
@@ -398,6 +398,35 @@
   }
 
   function renderPortfolioList() {
+    const sorted = [...state.portfolio].sort((a, b) => {
+      const da = a.date ? new Date(a.date) : new Date(0);
+      const db = b.date ? new Date(b.date) : new Date(0);
+      return db - da;
+    });
+
+    const groups = {};
+    for (const p of sorted) {
+      const year = p.date && p.date !== '1970-01-01' ? new Date(p.date + 'T00:00:00').getFullYear().toString() : 'Other';
+      if (!groups[year]) groups[year] = [];
+      groups[year].push(p);
+    }
+
+    const years = Object.keys(groups).sort((a, b) => {
+      if (a === 'Other') return 1;
+      if (b === 'Other') return -1;
+      return parseInt(b) - parseInt(a);
+    });
+
+    const timelineHtml = years.map(year => {
+      const items = groups[year].map(p =>
+        `<div class="timeline-item">${renderPortfolioCard(p)}</div>`
+      ).join('');
+      return `<div class="timeline-year">
+        <div class="timeline-year-label">${escapeHtml(year)}</div>
+        ${items}
+      </div>`;
+    }).join('');
+
     showContent(`
       <div class="page-header">
         <div>
@@ -406,7 +435,7 @@
         </div>
         ${shareButton('Portfolio')}
       </div>
-      <div class="portfolio-grid">${state.portfolio.map(renderPortfolioCard).join('')}</div>
+      <div class="timeline">${timelineHtml}</div>
     `);
     initShareButton('Portfolio');
     initPortfolioCards();
@@ -692,7 +721,7 @@
 
   function initHeroStars() {
     if (_starCleanup) { _starCleanup(); _starCleanup = null; }
-    const hero = document.querySelector('.home-parallax-hero');
+    const hero = document.querySelector('.home-hero');
     if (!hero) return;
 
     function spawnStar() {
@@ -935,12 +964,17 @@
   }
 
   function syncThemeIcons(theme) {
-    document.querySelectorAll('.icon-sun').forEach(el => {
-      el.style.display = theme === 'light' ? 'block' : 'none';
-    });
-    document.querySelectorAll('.icon-moon').forEach(el => {
-      el.style.display = theme === 'dark' ? 'block' : 'none';
-    });
+    const containers = [
+      document.getElementById('theme-toggle'),
+      document.querySelector('.mobile-theme-toggle'),
+    ];
+    for (const c of containers) {
+      if (!c) continue;
+      const sun = c.querySelector('.icon-sun');
+      const moon = c.querySelector('.icon-moon');
+      if (sun) sun.style.display = theme === 'light' ? 'block' : 'none';
+      if (moon) moon.style.display = theme === 'dark' ? 'block' : 'none';
+    }
   }
 
   function applyTheme(theme) {
@@ -994,11 +1028,17 @@
     `;
     document.body.prepend(header);
 
-    header.querySelector('.mobile-theme-toggle').addEventListener('click', toggleTheme);
+    header.querySelector('.mobile-theme-toggle').addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleTheme();
+    });
     syncThemeIcons(document.documentElement.getAttribute('data-theme') || 'dark');
 
     const sidebar = document.getElementById('sidebar');
-    header.querySelector('.mobile-menu-btn').addEventListener('click', () => sidebar.classList.toggle('open'));
+    header.querySelector('.mobile-menu-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      sidebar.classList.toggle('open');
+    });
     document.getElementById('content').addEventListener('click', () => sidebar.classList.remove('open'));
 
     sidebar.querySelectorAll('a, button:not(#theme-toggle)').forEach(el => {

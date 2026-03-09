@@ -67,6 +67,7 @@ async function buildMetadata() {
       entry.dir = dir === '.' ? '' : dir;
       posts.push(entry);
     } else if (section === 'portfolio') {
+      entry.date = data.date ? new Date(data.date).toISOString().split('T')[0] : '';
       entry.summary = data.summary || stripMarkdown(content).substring(0, 160) + '...';
       portfolioItems.push(entry);
     } else if (section === 'gallery') {

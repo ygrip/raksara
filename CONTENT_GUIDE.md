@@ -309,6 +309,8 @@ customize your site.
 
 ```yaml
 color: purple
+hero_title: Raksara
+hero_subtitle: A place where ideas, knowledge, and engineering thoughts are recorded.
 ```
 
 ### Accent Color
@@ -327,6 +329,13 @@ gradients, hero backgrounds, tags, navigation highlights, and more.
 
 If `raksara.yml` is missing or the `color` field is omitted, the site defaults
 to `purple`.
+
+### Hero Banner
+
+| Field | Default | Description |
+|---|---|---|
+| `hero_title` | `Raksara` | Large display text on the homepage hero |
+| `hero_subtitle` | (built-in default) | Description text below the title |
 
 ---
 
