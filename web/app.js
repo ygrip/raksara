@@ -200,7 +200,7 @@
     const heroTitle = (state.config && state.config.hero_title) || 'Raksara';
     const heroSubtitle = (state.config && state.config.hero_subtitle) || 'A place where ideas, knowledge, and engineering thoughts are recorded.';
 
-    const waveSvg = `<div class="hero-waves"><svg class="hero-wave hero-wave-back" viewBox="0 0 1440 60" preserveAspectRatio="none"><path d="M0,25 C240,50 480,0 720,25 C960,50 1200,0 1440,25 L1440,60 L0,60 Z"/></svg><svg class="hero-wave hero-wave-front" viewBox="0 0 1440 60" preserveAspectRatio="none"><path d="M0,30 C120,10 240,50 360,30 C480,10 600,50 720,30 C840,10 960,50 1080,30 C1200,10 1320,50 1440,30 L1440,60 L0,60 Z"/></svg></div>`;
+    const waveSvg = `<div class="hero-waves"><svg class="hero-wave hero-wave-back" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,45 C100,20 200,55 360,30 C480,12 560,50 720,35 C850,22 1000,55 1140,28 C1280,8 1380,42 1440,38 L1440,80 L0,80 Z"/></svg><svg class="hero-wave hero-wave-front" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,38 C80,52 180,15 320,42 C430,60 540,18 700,40 C820,55 960,12 1100,45 C1220,62 1340,22 1440,35 L1440,80 L0,80 Z"/></svg></div>`;
 
     showContent(`
       <div class="home-hero" id="profile-hero">
@@ -678,13 +678,14 @@
         }).join('') + '</div>';
       }
 
-      const waveSvg = `<div class="hero-waves"><svg class="hero-wave hero-wave-back" viewBox="0 0 1440 60" preserveAspectRatio="none"><path d="M0,25 C240,50 480,0 720,25 C960,50 1200,0 1440,25 L1440,60 L0,60 Z"/></svg><svg class="hero-wave hero-wave-front" viewBox="0 0 1440 60" preserveAspectRatio="none"><path d="M0,30 C120,10 240,50 360,30 C480,10 600,50 720,30 C840,10 960,50 1080,30 C1200,10 1320,50 1440,30 L1440,60 L0,60 Z"/></svg></div>`;
+      const waveSvg = `<div class="hero-waves"><svg class="hero-wave hero-wave-back" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,45 C100,20 200,55 360,30 C480,12 560,50 720,35 C850,22 1000,55 1140,28 C1280,8 1380,42 1440,38 L1440,80 L0,80 Z"/></svg><svg class="hero-wave hero-wave-front" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,38 C80,52 180,15 320,42 C430,60 540,18 700,40 C820,55 960,12 1100,45 C1220,62 1340,22 1440,35 L1440,80 L0,80 Z"/></svg></div>`;
 
       showContent(`
         <div class="profile-hero" id="profile-hero">
           <div class="profile-hero-bg" id="profile-hero-bg" data-src="${escapeHtml(coverUrl)}"></div>
           <div class="profile-hero-skeleton"></div>
           <div class="profile-hero-overlay"></div>
+          <div class="profile-hero-share">${shareButton(name)}</div>
           <div class="profile-hero-content">
             ${avatarUrl ? `<div class="profile-avatar-wrap"><img class="profile-avatar" src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(name)}" loading="lazy"></div>` : ''}
             <div class="profile-info">
@@ -694,10 +695,6 @@
             </div>
           </div>
           ${waveSvg}
-        </div>
-        <div class="article-top-bar" style="margin-top:0">
-          <div></div>
-          ${shareButton(name)}
         </div>
         ${metaHtml}
         <div class="article-body">${html}</div>
