@@ -696,10 +696,10 @@ body {
 
 .hero-waves {
   position: absolute;
-  bottom: 0;
+  bottom: -2px;
   left: 0;
   right: 0;
-  height: 56px;
+  height: 80px;
   z-index: 4;
   pointer-events: none;
 }
@@ -1283,8 +1283,8 @@ body {
 
 .profile-hero {
   position: relative;
-  margin: -48px -32px 40px;
-  height: 320px;
+  margin: -48px -32px 0;
+  height: 360px;
   overflow: hidden;
 }
 
@@ -1327,8 +1327,8 @@ body {
 
 .profile-hero-share {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: 60px;
+  right: 20px;
   z-index: 5;
 }
 
@@ -1350,7 +1350,7 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 32px 32px 64px;
+  padding: 32px 32px 88px;
   display: flex;
   align-items: flex-end;
   gap: 24px;
@@ -1385,23 +1385,40 @@ body {
   transition: opacity 0.4s ease;
 }
 
-.profile-avatar-wrap.loaded .profile-avatar {
+.profile-avatar-wrap.loaded > .profile-avatar {
   opacity: 1;
 }
 
+.profile-avatar-wrap.loaded::before,
 .profile-avatar-wrap.loaded::after {
   content: '';
   position: absolute;
-  inset: -4px;
+  inset: -6px;
   border-radius: 50%;
-  border: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
-  animation: avatarRipple 3s ease-out infinite;
+  border: 2.5px solid color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.profile-avatar-wrap.loaded::before {
+  animation: avatarRipple 2.8s ease-out infinite;
+}
+
+.profile-avatar-wrap.loaded::after {
+  animation: avatarRipple 2.8s ease-out 1.4s infinite;
+}
+
+.profile-avatar-wrap.loaded .profile-avatar {
+  animation: avatarPulse 3s ease-in-out infinite;
 }
 
 @keyframes avatarRipple {
-  0%   { transform: scale(1); opacity: 0.6; }
-  70%  { transform: scale(1.12); opacity: 0; }
-  100% { transform: scale(1.12); opacity: 0; }
+  0%   { transform: scale(1); opacity: 0.7; }
+  60%  { transform: scale(1.22); opacity: 0; }
+  100% { transform: scale(1.22); opacity: 0; }
+}
+
+@keyframes avatarPulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.04); }
 }
 
 .profile-info h1 {
@@ -1452,6 +1469,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-top: 24px;
   margin-bottom: 32px;
   padding: 16px 20px;
   background: var(--bg-card);
@@ -1944,9 +1962,9 @@ body {
   .home-hero { margin: -52px -16px 0; height: 300px; }
   .home-hero-content { padding: 24px 20px 56px; }
   .home-hero-title { font-size: 38px; }
-  .profile-hero { margin: -52px -16px 32px; height: 260px; }
-  .profile-hero-content { padding: 20px 20px 56px; gap: 16px; }
-  .profile-hero-share { top: 12px; right: 12px; }
+  .profile-hero { margin: -52px -16px 0; height: 300px; }
+  .profile-hero-content { padding: 20px 20px 80px; gap: 16px; }
+  .profile-hero-share { top: 56px; right: 12px; }
   .profile-avatar-wrap, .profile-avatar { width: 80px; height: 80px; }
   .profile-info h1 { font-size: 22px; }
   .search-overlay-content { width: 95%; }
