@@ -899,6 +899,9 @@ body {
   aspect-ratio: 4/3;
   border: 1px solid var(--border-glass);
   transition: all 0.35s var(--bounce);
+  background: linear-gradient(90deg, var(--bg-glass) 25%, var(--bg-hover) 50%, var(--bg-glass) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
 }
 
 .gallery-item:hover {
@@ -911,7 +914,12 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.4s var(--smooth);
+  transition: transform 0.4s var(--smooth), opacity 0.35s ease;
+  opacity: 0;
+}
+
+.gallery-item img.loaded {
+  opacity: 1;
 }
 
 .gallery-item:hover img { transform: scale(1.08); }
@@ -968,13 +976,22 @@ body {
   cursor: pointer;
   overflow: hidden;
   max-height: 480px;
+  min-height: 200px;
+  background: linear-gradient(90deg, var(--bg-glass) 25%, var(--bg-hover) 50%, var(--bg-glass) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
 }
 
 .gallery-card-img img {
   width: 100%;
   display: block;
   object-fit: cover;
-  transition: transform 0.4s var(--smooth);
+  transition: transform 0.4s var(--smooth), opacity 0.35s ease;
+  opacity: 0;
+}
+
+.gallery-card-img img.loaded {
+  opacity: 1;
 }
 
 .gallery-card-img:hover img { transform: scale(1.03); }
@@ -1499,7 +1516,16 @@ body {
   border-radius: var(--radius-md);
   margin: 16px 0;
   cursor: pointer;
-  transition: transform 0.3s var(--bounce);
+  transition: transform 0.3s var(--bounce), opacity 0.35s ease;
+  background: linear-gradient(90deg, var(--bg-glass) 25%, var(--bg-hover) 50%, var(--bg-glass) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  min-height: 100px;
+}
+
+.article-body img.loaded {
+  animation: none;
+  background: none;
 }
 
 .article-body img:hover { transform: scale(1.01); }
@@ -1642,6 +1668,26 @@ body {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.img-skeleton {
+  background: linear-gradient(90deg, var(--bg-glass) 25%, var(--bg-hover) 50%, var(--bg-glass) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.img-skeleton img {
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.img-skeleton img.loaded {
+  opacity: 1;
+}
+
 /* ── Empty State ─────────────────────────────────────────── */
 
 .empty-state {
@@ -1686,6 +1732,14 @@ body {
   cursor: pointer;
   padding: 6px;
   border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-menu-btn svg {
+  display: block;
+  flex-shrink: 0;
 }
 
 .mobile-theme-toggle {

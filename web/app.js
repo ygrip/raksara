@@ -107,7 +107,7 @@
     const defaultImage = renderer.image.bind(renderer);
     renderer.image = function (href, title, text) {
       const resolved = resolvePath(typeof href === 'object' ? href.href : href);
-      return `<img src="${resolved}" alt="${text || ''}"${title ? ` title="${title}"` : ''}>`;
+      return `<img src="${resolved}" alt="${text || ''}"${title ? ` title="${title}"` : ''} loading="lazy">`;
     };
     marked.setOptions({
       renderer,
@@ -157,6 +157,17 @@
     if (!p) return p;
     if (p.startsWith('http://') || p.startsWith('https://') || p.startsWith('data:')) return p;
     return p.replace(/^\/+/, '');
+  }
+
+  function initLazyImages(root) {
+    (root || document).querySelectorAll('img[loading="lazy"]:not(.loaded)').forEach(img => {
+      if (img.complete && img.naturalWidth > 0) {
+        img.classList.add('loaded');
+      } else {
+        img.addEventListener('load', () => img.classList.add('loaded'), { once: true });
+        img.addEventListener('error', () => img.classList.add('loaded'), { once: true });
+      }
+    });
   }
 
   // ── Page Renderers ────────────────────────────────────
@@ -214,6 +225,7 @@
     `);
     initParallax();
     initPortfolioCards();
+    initLazyImages();
   }
 
   // ── Blog ──────────────────────────────────────────────
@@ -456,6 +468,7 @@
       <div class="gallery-list">${items}</div>
     `);
     initGalleryToggles();
+    initLazyImages();
   }
 
   function initGalleryToggles() {
@@ -606,7 +619,7 @@
           <div class="profile-hero-bg" id="profile-hero-bg" style="background-image:url('${escapeHtml(coverUrl)}')"></div>
           <div class="profile-hero-overlay"></div>
           <div class="profile-hero-content">
-            ${avatarUrl ? `<img class="profile-avatar" src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(name)}">` : ''}
+            ${avatarUrl ? `<img class="profile-avatar" src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(name)}" loading="lazy">` : ''}
             <div class="profile-info">
               <h1>${escapeHtml(name)}</h1>
               ${role ? `<div class="profile-role">${escapeHtml(role)}</div>` : ''}
@@ -695,6 +708,7 @@
     document.querySelectorAll('.article-body img').forEach((img) => {
       img.addEventListener('click', () => openLightbox(img.src, img.alt));
     });
+    initLazyImages();
   }
 
   function openLightbox(src, caption) {
@@ -879,6 +893,10 @@
     const sidebar = document.getElementById('sidebar');
     header.querySelector('.mobile-menu-btn').addEventListener('click', () => sidebar.classList.toggle('open'));
     document.getElementById('content').addEventListener('click', () => sidebar.classList.remove('open'));
+
+    sidebar.querySelectorAll('a, button:not(#theme-toggle)').forEach(el => {
+      el.addEventListener('click', () => sidebar.classList.remove('open'));
+    });
   }
 
   // ── Init ──────────────────────────────────────────────
