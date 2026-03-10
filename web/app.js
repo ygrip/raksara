@@ -975,7 +975,7 @@
     btn.addEventListener('click', async () => {
       const url = window.location.href;
       if (navigator.share) {
-        try { await navigator.share({ title, url }); } catch {}
+        try { await navigator.share({ title, text: title, url }); } catch {}
         return;
       }
       try {
