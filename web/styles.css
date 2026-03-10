@@ -1826,6 +1826,18 @@ body {
 
 .article-body strong { font-weight: 600; color: var(--text-primary); }
 
+/* ── Content Footer ─────────────────────────────────────── */
+
+.content-footer {
+  margin-top: 48px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-subtle);
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+}
+
 /* ── Content Type: Poem ─────────────────────────────────── */
 
 .poem-header {

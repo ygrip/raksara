@@ -550,6 +550,7 @@
         ${headerHtml}
         ${bodyHtml}
         ${postNavHtml}
+        ${contentFooter(frontmatter.author)}
       `);
       initShareButton(post.title);
       initReadingMode(frontmatter);
@@ -634,7 +635,7 @@
     if (!item) { showContent('<div class="empty-state"><h3>Project not found</h3></div>'); return; }
     try {
       const raw = await loadMarkdown(item.path);
-      const { body } = parseMarkdown(raw);
+      const { frontmatter, body } = parseMarkdown(raw);
       const html = renderMd(body);
       const tagsHtml = (item.tags || []).map((t) => `<a href="#/tag/${encodeURIComponent(t)}" class="tag">${escapeHtml(t)}</a>`).join('');
       const links = [];
@@ -655,6 +656,7 @@
           ${links.length ? `<div class="portfolio-detail-links">${links.join('')}</div>` : ''}
         </div>
         <div class="article-body">${html}</div>
+        ${contentFooter(frontmatter.author)}
       `);
       initShareButton(item.title);
       initArticleImages();
@@ -939,14 +941,23 @@
     const path = page ? page.path : `content/pages/${slug}.md`;
     try {
       const raw = await loadMarkdown(path);
-      const { body } = parseMarkdown(raw);
+      const { frontmatter, body } = parseMarkdown(raw);
       const html = renderMd(body);
       document.getElementById('page-content').removeAttribute('data-layout');
-      showContent(`<div class="article-body">${html}</div>`);
+      showContent(`<div class="article-body">${html}</div>${contentFooter(frontmatter.author)}`);
       initArticleImages();
       initContentLinks();
       scrollToAnchor();
     } catch { showContent('<div class="empty-state"><h3>Page not found</h3></div>'); }
+  }
+
+  // ── Content Footer ──────────────────────────────────────
+
+  function contentFooter(frontmatterAuthor) {
+    const author = frontmatterAuthor || (state.config && state.config.author) || '';
+    if (!author) return '';
+    const year = new Date().getFullYear();
+    return `<div class="content-footer">&copy; ${year} ${escapeHtml(author)}</div>`;
   }
 
   // ── Share ───────────────────────────────────────────────
@@ -963,13 +974,12 @@
     if (!btn) return;
     btn.addEventListener('click', async () => {
       const url = window.location.href;
-      const text = title ? `${title} : ${url}` : url;
       if (navigator.share) {
-        try { await navigator.share({ title, text, url }); } catch {}
+        try { await navigator.share({ title, url }); } catch {}
         return;
       }
       try {
-        await navigator.clipboard.writeText(text);
+        await navigator.clipboard.writeText(title ? `${title} : ${url}` : url);
         const label = btn.querySelector('span');
         label.textContent = 'Copied!';
         setTimeout(() => { label.textContent = 'Share'; }, 2000);
