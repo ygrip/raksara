@@ -1725,8 +1725,52 @@ body {
 
 .article-body strong { font-weight: 600; color: var(--text-primary); }
 
-/* ── Poem / Custom Content Styles ───────────────────────── */
+/* ── Content Type: Poem ─────────────────────────────────── */
 
+.poem-header {
+  text-align: center;
+  border-bottom: none;
+}
+
+.poem-header h1 {
+  font-family: "Georgia", "Times New Roman", serif;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.poem-header .article-meta {
+  justify-content: center;
+}
+
+.poem-cover {
+  max-width: 100%;
+  margin: 0 auto 32px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.poem-cover img {
+  width: 100%;
+  max-height: 340px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+}
+
+.poem-body {
+  max-width: 640px;
+  margin: 0 auto;
+  font-family: "Georgia", "Times New Roman", serif;
+  line-height: 2;
+  font-size: 1.05rem;
+  text-align: center;
+}
+
+.poem-body p {
+  margin-bottom: 28px;
+  color: var(--text-secondary);
+}
+
+/* Legacy poem HTML support */
 .poem-container {
   max-width: 640px;
   margin: 40px auto;
@@ -1735,6 +1779,7 @@ body {
   line-height: 1.9;
   font-size: 1.05rem;
   color: var(--text-secondary);
+  text-align: center;
 }
 
 .poem-title {
@@ -1758,6 +1803,93 @@ body {
   text-align: center;
   font-style: italic;
   opacity: 0.7;
+}
+
+/* ── Content Type: Novel ───────────────────────────────── */
+
+.novel-series {
+  text-align: center;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+
+.novel-chapter {
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+
+.novel-body {
+  max-width: 720px;
+  margin: 0 auto;
+  font-family: "Georgia", "Times New Roman", serif;
+  line-height: 2;
+  font-size: 1.05rem;
+}
+
+.novel-body p {
+  text-indent: 1.5em;
+  margin-bottom: 8px;
+}
+
+.novel-body p:first-child {
+  text-indent: 0;
+}
+
+.novel-body h1, .novel-body h2, .novel-body h3 {
+  text-indent: 0;
+  font-family: var(--font-sans);
+}
+
+/* ── Reading Mode ──────────────────────────────────────── */
+
+.reading-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.reading-mode-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-border);
+  background: var(--accent-subtle);
+  transform: translateY(-1px);
+}
+
+body.reading-mode #sidebar { display: none; }
+body.reading-mode .mobile-header { display: none; }
+body.reading-mode #content { margin-left: 0; padding-top: 24px; }
+
+body.reading-mode .page-content {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+}
+
+body.reading-mode .article-body {
+  font-size: 1.08rem;
+  line-height: 1.85;
+}
+
+body.reading-mode .reading-mode-btn {
+  background: var(--accent-subtle);
+  border-color: var(--accent-border);
+  color: var(--accent);
 }
 
 /* ── Pagination ──────────────────────────────────────────── */

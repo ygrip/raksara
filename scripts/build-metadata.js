@@ -63,6 +63,11 @@ async function buildMetadata() {
     if (section === 'blog') {
       entry.date = data.date ? new Date(data.date).toISOString().split('T')[0] : '1970-01-01';
       entry.summary = data.summary || stripMarkdown(content).substring(0, 160) + '...';
+      if (data.type) entry.type = data.type;
+      if (data.cover) entry.cover = data.cover;
+      if (data.series) entry.series = data.series;
+      if (data.chapter) entry.chapter = data.chapter;
+      if (data.readingMode) entry.readingMode = data.readingMode;
       const dir = path.dirname(slug);
       entry.dir = dir === '.' ? '' : dir;
       posts.push(entry);

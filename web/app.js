@@ -106,12 +106,49 @@
     return { frontmatter, body };
   }
 
-  function renderMd(md) {
+  function slugifyHeading(text) {
+    return text.replace(/<[^>]+>/g, '').replace(/[^\w\s-]/g, '').trim().toLowerCase().replace(/\s+/g, '-');
+  }
+
+  function resolveContentLink(href) {
+    if (!href || href.startsWith('http://') || href.startsWith('https://') || href.startsWith('mailto:') || href.startsWith('#')) return href;
+    const m = href.match(/^\/?(content\/)?blog\/(.+?)(?:#(.+))?$/);
+    if (m) {
+      const slug = m[2].replace(/\.md$/, '');
+      return `#/blog/post/${slug}${m[3] ? '#' + m[3] : ''}`;
+    }
+    const pm = href.match(/^\/?(content\/)?portfolio\/(.+?)(?:#(.+))?$/);
+    if (pm) {
+      const slug = pm[2].replace(/\.md$/, '');
+      return `#/portfolio/${slug}${pm[3] ? '#' + pm[3] : ''}`;
+    }
+    const pgm = href.match(/^\/?(content\/)?pages\/(.+?)(?:#(.+))?$/);
+    if (pgm) {
+      const slug = pgm[2].replace(/\.md$/, '');
+      return `#/${slug}${pgm[3] ? '#' + pgm[3] : ''}`;
+    }
+    return href;
+  }
+
+  function renderMd(md, opts = {}) {
     const renderer = new marked.Renderer();
-    const defaultImage = renderer.image.bind(renderer);
     renderer.image = function (href, title, text) {
       const resolved = resolvePath(typeof href === 'object' ? href.href : href);
       return `<img src="${resolved}" alt="${text || ''}"${title ? ` title="${title}"` : ''} loading="lazy">`;
+    };
+    renderer.heading = function (tokenOrText, level) {
+      const raw = typeof tokenOrText === 'object' ? (tokenOrText.text || '') : tokenOrText;
+      const depth = typeof tokenOrText === 'object' ? (tokenOrText.depth || level || 1) : (level || 1);
+      const id = slugifyHeading(raw);
+      return `<h${depth} id="${id}">${raw}</h${depth}>\n`;
+    };
+    renderer.link = function (hrefOrToken, title, text) {
+      const rawHref = typeof hrefOrToken === 'object' ? hrefOrToken.href : hrefOrToken;
+      const rawTitle = typeof hrefOrToken === 'object' ? hrefOrToken.title : title;
+      const rawText = typeof hrefOrToken === 'object' ? hrefOrToken.text : text;
+      const resolved = resolveContentLink(rawHref);
+      const external = resolved.startsWith('http://') || resolved.startsWith('https://');
+      return `<a href="${resolved}"${rawTitle ? ` title="${rawTitle}"` : ''}${external ? ' target="_blank" rel="noopener"' : ''}>${rawText || resolved}</a>`;
     };
     marked.setOptions({
       renderer,
@@ -119,7 +156,7 @@
         if (lang && hljs.getLanguage(lang)) return hljs.highlight(code, { language: lang }).value;
         return hljs.highlightAuto(code).value;
       },
-      breaks: false,
+      breaks: opts.breaks || false,
       gfm: true,
     });
     return marked.parse(md);
@@ -323,6 +360,86 @@
     initShareButton(title);
   }
 
+  // ── Content Type System ───────────────────────────────
+
+  const contentLayouts = {
+    default: {
+      bodyClass: '',
+      renderBody(body) { return `<div class="article-body">${renderMd(body)}</div>`; },
+      headerLayout: 'standard',
+    },
+    poem: {
+      bodyClass: 'poem-layout',
+      renderBody(body, frontmatter) {
+        const coverUrl = frontmatter.cover || '';
+        const coverHtml = coverUrl
+          ? `<div class="poem-cover"><img src="${escapeHtml(coverUrl)}" alt="" loading="lazy"></div>`
+          : '';
+        return `<div class="article-body poem-body">${coverHtml}${renderMd(body, { breaks: true })}</div>`;
+      },
+      headerLayout: 'poem',
+    },
+    novel: {
+      bodyClass: 'novel-layout',
+      renderBody(body, frontmatter) {
+        const series = frontmatter.series || '';
+        const chapter = frontmatter.chapter || '';
+        const seriesHtml = series ? `<div class="novel-series">${escapeHtml(humanize(series))}</div>` : '';
+        const chapterHtml = chapter ? `<div class="novel-chapter">Chapter ${escapeHtml(chapter)}</div>` : '';
+        return `${seriesHtml}${chapterHtml}<div class="article-body novel-body">${renderMd(body)}</div>`;
+      },
+      headerLayout: 'novel',
+    },
+  };
+
+  function getContentLayout(type) {
+    return contentLayouts[type] || contentLayouts.default;
+  }
+
+  function readingModeButton() {
+    return `<button class="reading-mode-btn" aria-label="Reading Mode">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 3h12M2 6.5h12M2 10h8M2 13.5h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      <span>Read</span>
+    </button>`;
+  }
+
+  function initReadingMode(frontmatter) {
+    const btn = document.querySelector('.reading-mode-btn');
+    if (!btn) return;
+    const autoEnable = frontmatter && (frontmatter.readingMode === 'true' || frontmatter.readingMode === true);
+    if (autoEnable || localStorage.getItem('raksara-reading-mode') === 'true') {
+      document.body.classList.add('reading-mode');
+      btn.querySelector('span').textContent = 'Exit';
+    }
+    btn.addEventListener('click', () => {
+      document.body.classList.toggle('reading-mode');
+      const active = document.body.classList.contains('reading-mode');
+      btn.querySelector('span').textContent = active ? 'Exit' : 'Read';
+      localStorage.setItem('raksara-reading-mode', active);
+    });
+  }
+
+  function scrollToAnchor() {
+    const fullHash = window.location.hash;
+    const anchorIdx = fullHash.indexOf('#', 1);
+    if (anchorIdx === -1) return;
+    const anchor = fullHash.slice(anchorIdx + 1);
+    if (!anchor) return;
+    setTimeout(() => {
+      const el = document.getElementById(anchor);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }
+
+  function initContentLinks() {
+    document.querySelectorAll('.article-body a[href^="#/"]').forEach(a => {
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.location.hash = a.getAttribute('href').slice(1);
+      });
+    });
+  }
+
   async function renderBlogPost(slug) {
     showLoading();
     const post = state.posts.find((p) => p.slug === slug);
@@ -330,7 +447,9 @@
     try {
       const raw = await loadMarkdown(post.path);
       const { frontmatter, body } = parseMarkdown(raw);
-      const html = renderMd(body);
+      const type = frontmatter.type || post.type || 'default';
+      const layout = getContentLayout(type);
+      const bodyHtml = layout.renderBody(body, frontmatter);
       const tagsHtml = (post.tags || []).map((t) => `<a href="#/tag/${encodeURIComponent(t)}" class="tag">${escapeHtml(t)}</a>`).join('');
 
       const slugParts = slug.split('/');
@@ -365,25 +484,46 @@
         postNavHtml += '</div>';
       }
 
+      const headerHtml = layout.headerLayout === 'poem'
+        ? `<div class="article-header poem-header">
+            <h1>${escapeHtml(post.title)}</h1>
+            <div class="article-meta">
+              <span class="post-card-date">${formatDate(post.date)}</span>
+              ${post.category ? `<a href="#/category/${encodeURIComponent(post.category)}" class="post-card-category">${escapeHtml(post.category)}</a>` : ''}
+              ${tagsHtml}
+            </div>
+          </div>`
+        : `<div class="article-header">
+            <h1>${escapeHtml(post.title)}</h1>
+            <div class="article-meta">
+              <span class="post-card-date">${formatDate(post.date)}</span>
+              ${post.category ? `<a href="#/category/${encodeURIComponent(post.category)}" class="post-card-category">${escapeHtml(post.category)}</a>` : ''}
+              ${tagsHtml}
+            </div>
+          </div>`;
+
+      document.body.classList.remove('reading-mode');
+      if (layout.bodyClass) document.getElementById('page-content').setAttribute('data-layout', type);
+      else document.getElementById('page-content').removeAttribute('data-layout');
+
       showContent(`
         ${breadcrumbsHtml}
         <div class="article-top-bar">
           <a href="${backHref}" class="back-link">\u2190 Back to ${escapeHtml(backLabel)}</a>
-          ${shareButton(post.title)}
-        </div>
-        <div class="article-header">
-          <h1>${escapeHtml(post.title)}</h1>
-          <div class="article-meta">
-            <span class="post-card-date">${formatDate(post.date)}</span>
-            ${post.category ? `<a href="#/category/${encodeURIComponent(post.category)}" class="post-card-category">${escapeHtml(post.category)}</a>` : ''}
-            ${tagsHtml}
+          <div style="display:flex;gap:8px;align-items:center">
+            ${readingModeButton()}
+            ${shareButton(post.title)}
           </div>
         </div>
-        <div class="article-body">${html}</div>
+        ${headerHtml}
+        ${bodyHtml}
         ${postNavHtml}
       `);
       initShareButton(post.title);
+      initReadingMode(frontmatter);
       initArticleImages();
+      initContentLinks();
+      scrollToAnchor();
     } catch { showContent('<div class="empty-state"><h3>Failed to load post</h3></div>'); }
   }
 
@@ -468,6 +608,8 @@
       const links = [];
       if (item.github) links.push(`<a href="${escapeHtml(item.github)}" class="btn-github" target="_blank" rel="noopener">GitHub</a>`);
       if (item.demo) links.push(`<a href="${escapeHtml(item.demo)}" class="btn-demo" target="_blank" rel="noopener">Demo</a>`);
+      document.body.classList.remove('reading-mode');
+      document.getElementById('page-content').removeAttribute('data-layout');
       showContent(`
         <div class="article-top-bar">
           <a href="#/portfolio" class="back-link">\u2190 Back to portfolio</a>
@@ -485,6 +627,8 @@
       `);
       initShareButton(item.title);
       initArticleImages();
+      initContentLinks();
+      scrollToAnchor();
     } catch { showContent('<div class="empty-state"><h3>Failed to load project</h3></div>'); }
   }
 
@@ -766,8 +910,12 @@
       const raw = await loadMarkdown(path);
       const { body } = parseMarkdown(raw);
       const html = renderMd(body);
+      document.body.classList.remove('reading-mode');
+      document.getElementById('page-content').removeAttribute('data-layout');
       showContent(`<div class="article-body">${html}</div>`);
       initArticleImages();
+      initContentLinks();
+      scrollToAnchor();
     } catch { showContent('<div class="empty-state"><h3>Page not found</h3></div>'); }
   }
 
