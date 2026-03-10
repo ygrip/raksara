@@ -213,6 +213,39 @@
 
   // ── Page Renderers ────────────────────────────────────
 
+  let _typingTimer = null;
+
+  function initHeroTyping(title) {
+    if (_typingTimer) { clearTimeout(_typingTimer); _typingTimer = null; }
+    const span = document.querySelector('.accent-gradient');
+    if (!span) return;
+    span.textContent = '';
+    span.classList.remove('typed');
+    const cursor = document.createElement('span');
+    cursor.className = 'hero-cursor';
+    cursor.textContent = '|';
+    span.after(cursor);
+    const chars = title.split('');
+    const total = chars.length;
+    const slowCount = 3;
+    const baseDelay = 70;
+    let i = 0;
+    function typeNext() {
+      if (i >= total) {
+        cursor.classList.add('hero-cursor-done');
+        _typingTimer = setTimeout(() => { cursor.remove(); span.classList.add('typed'); _typingTimer = null; }, 600);
+        return;
+      }
+      span.textContent += chars[i];
+      const remaining = total - i - 1;
+      let delay = baseDelay;
+      if (remaining < slowCount) delay = baseDelay * Math.pow(2.5, slowCount - remaining);
+      i++;
+      _typingTimer = setTimeout(typeNext, delay);
+    }
+    _typingTimer = setTimeout(typeNext, 400);
+  }
+
   function renderHome() {
     const recentPosts = state.posts.slice(0, 3);
     const recentThoughts = state.thoughts.slice(0, 2);
@@ -244,7 +277,7 @@
         <div class="home-hero-aurora" id="home-hero-bg"></div>
         <div class="home-hero-content">
           <h1 class="home-hero-title">
-            <span class="accent-gradient">${escapeHtml(heroTitle)}</span>
+            <span class="accent-gradient"></span>
           </h1>
           <p class="home-hero-subtitle">${escapeHtml(heroSubtitle)}</p>
         </div>
@@ -274,6 +307,7 @@
     initParallax();
     initPortfolioCards();
     initLazyImages();
+    initHeroTyping(heroTitle);
   }
 
   // ── Blog ──────────────────────────────────────────────
@@ -407,7 +441,7 @@
     const btn = document.querySelector('.reading-mode-btn');
     if (!btn) return;
     const autoEnable = frontmatter && (frontmatter.readingMode === 'true' || frontmatter.readingMode === true);
-    if (autoEnable || localStorage.getItem('raksara-reading-mode') === 'true') {
+    if (autoEnable) {
       document.body.classList.add('reading-mode');
       btn.querySelector('span').textContent = 'Exit';
     }
@@ -415,7 +449,6 @@
       document.body.classList.toggle('reading-mode');
       const active = document.body.classList.contains('reading-mode');
       btn.querySelector('span').textContent = active ? 'Exit' : 'Read';
-      localStorage.setItem('raksara-reading-mode', active);
     });
   }
 
@@ -502,7 +535,6 @@
             </div>
           </div>`;
 
-      document.body.classList.remove('reading-mode');
       if (layout.bodyClass) document.getElementById('page-content').setAttribute('data-layout', type);
       else document.getElementById('page-content').removeAttribute('data-layout');
 
@@ -608,7 +640,6 @@
       const links = [];
       if (item.github) links.push(`<a href="${escapeHtml(item.github)}" class="btn-github" target="_blank" rel="noopener"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a>`);
       if (item.demo) links.push(`<a href="${escapeHtml(item.demo)}" class="btn-demo" target="_blank" rel="noopener"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 3h7v7M13 3L6 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Live Demo</a>`);
-      document.body.classList.remove('reading-mode');
       document.getElementById('page-content').removeAttribute('data-layout');
       showContent(`
         <div class="article-top-bar">
@@ -910,7 +941,6 @@
       const raw = await loadMarkdown(path);
       const { body } = parseMarkdown(raw);
       const html = renderMd(body);
-      document.body.classList.remove('reading-mode');
       document.getElementById('page-content').removeAttribute('data-layout');
       showContent(`<div class="article-body">${html}</div>`);
       initArticleImages();
@@ -949,8 +979,36 @@
 
   // ── Image Lightbox in Articles ────────────────────────
 
+  function initCodeBlocks() {
+    document.querySelectorAll('.article-body pre').forEach((pre) => {
+      if (pre.parentElement.classList.contains('code-block-wrap')) return;
+      const wrapper = document.createElement('div');
+      wrapper.className = 'code-block-wrap';
+      pre.parentNode.insertBefore(wrapper, pre);
+      wrapper.appendChild(pre);
+      const btn = document.createElement('button');
+      btn.className = 'code-copy-btn';
+      btn.title = 'Copy code';
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" stroke="currentColor" stroke-width="1.3"/></svg>';
+      btn.addEventListener('click', () => {
+        const code = pre.querySelector('code');
+        const text = code ? code.textContent : pre.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+          btn.classList.add('copied');
+          btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3 3 7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+          setTimeout(() => {
+            btn.classList.remove('copied');
+            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" stroke="currentColor" stroke-width="1.3"/></svg>';
+          }, 2000);
+        });
+      });
+      wrapper.appendChild(btn);
+    });
+  }
+
   function initArticleImages() {
     document.querySelectorAll('.article-body pre code').forEach((el) => hljs.highlightElement(el));
+    initCodeBlocks();
     document.querySelectorAll('.article-body img').forEach((img) => {
       img.addEventListener('click', () => openLightbox(img.src, img.alt));
     });
@@ -974,6 +1032,9 @@
   // ── Router ────────────────────────────────────────────
 
   async function handleRoute() {
+    if (_typingTimer) { clearTimeout(_typingTimer); _typingTimer = null; }
+    document.body.classList.remove('reading-mode');
+    document.body.style.overflow = '';
     showLoading();
     await loadData();
     if (!state.loaded) return;
@@ -1019,15 +1080,39 @@
     const backdrop = overlay.querySelector('.search-overlay-backdrop');
     let debounceTimer;
 
+    const searchPhrases = ['Search posts...', 'Search projects...', 'Search thoughts...', 'Search tags...'];
+    let phraseIdx = 0, phraseCharIdx = 0, phraseDir = 1, phraseTimer = null;
+
+    function animatePlaceholder() {
+      if (overlay.classList.contains('hidden') || input.value.length > 0) return;
+      const phrase = searchPhrases[phraseIdx];
+      if (phraseDir === 1) {
+        phraseCharIdx++;
+        if (phraseCharIdx > phrase.length) { phraseDir = -1; phraseTimer = setTimeout(animatePlaceholder, 2000); return; }
+      } else {
+        phraseCharIdx--;
+        if (phraseCharIdx < 0) { phraseDir = 1; phraseIdx = (phraseIdx + 1) % searchPhrases.length; phraseCharIdx = 0; phraseTimer = setTimeout(animatePlaceholder, 400); return; }
+      }
+      input.setAttribute('placeholder', phrase.slice(0, phraseCharIdx));
+      phraseTimer = setTimeout(animatePlaceholder, phraseDir === 1 ? 80 : 40);
+    }
+
     function openSearch() {
       overlay.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
       setTimeout(() => input.focus(), 50);
+      phraseIdx = 0; phraseCharIdx = 0; phraseDir = 1;
+      if (phraseTimer) clearTimeout(phraseTimer);
+      animatePlaceholder();
     }
 
     function closeSearch() {
       overlay.classList.add('hidden');
+      document.body.style.overflow = '';
       input.value = '';
+      input.setAttribute('placeholder', 'Search posts, projects, thoughts...');
       results.innerHTML = '';
+      if (phraseTimer) { clearTimeout(phraseTimer); phraseTimer = null; }
     }
 
     trigger.addEventListener('click', openSearch);
@@ -1043,6 +1128,11 @@
 
     input.addEventListener('input', () => {
       clearTimeout(debounceTimer);
+      if (!input.value && !overlay.classList.contains('hidden')) {
+        if (phraseTimer) clearTimeout(phraseTimer);
+        phraseCharIdx = 0; phraseDir = 1;
+        animatePlaceholder();
+      }
       debounceTimer = setTimeout(() => {
         const query = input.value.trim();
         if (query.length < 2 || !state.miniSearch) {
