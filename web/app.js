@@ -1033,18 +1033,18 @@
   }
 
   function initVideoPlayers() {
-    document.querySelectorAll('.article-body a[target="_blank"]').forEach(a => {
+    document.querySelectorAll('.article-body a.video-player').forEach(a => {
       const href = a.getAttribute('href') || '';
-      if (!href.match(/youtube\.com\/watch|youtu\.be\//)) return;
       const img = a.querySelector('img');
-      if (!img || a.querySelectorAll('img').length !== 1) return;
-      const title = img.alt || '';
-      const src = img.src;
+      const title = img ? (img.alt || '') : (a.getAttribute('data-title') || '');
+      const src = img ? img.src : '';
+      const thumbSrc = src || a.getAttribute('data-thumbnail') || '';
+      if (!thumbSrc) return;
       const player = document.createElement('div');
       player.className = 'video-player';
       player.addEventListener('click', () => window.open(href, '_blank'));
       player.innerHTML = `
-        <img src="${src}" alt="${title}" loading="lazy">
+        <img src="${thumbSrc}" alt="${escapeHtml(title)}" loading="lazy">
         <div class="video-player-overlay">
           <div class="video-player-play">
             <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>

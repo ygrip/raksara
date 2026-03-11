@@ -246,6 +246,28 @@ Reference images in any markdown file:
 
 Images in blog posts and articles are clickable and open in a lightbox.
 
+### Embedding Videos
+
+To embed a video with a YouTube-style player preview, add a link with
+`class="video-player"` wrapping a thumbnail image:
+
+```html
+<a class="video-player" href="https://www.youtube.com/watch?v=VIDEO_ID" target="_blank">
+  <img src="https://img.youtube.com/vi/VIDEO_ID/0.jpg" alt="Video title here" />
+</a>
+```
+
+This renders as a styled video preview with a play button, gradient overlay,
+and title (from the `alt` text). Clicking opens the video URL in a new tab.
+
+You can use any thumbnail URL — YouTube auto-generates thumbnails at:
+
+| URL | Size |
+|---|---|
+| `https://img.youtube.com/vi/VIDEO_ID/0.jpg` | 480×360 (default) |
+| `https://img.youtube.com/vi/VIDEO_ID/hqdefault.jpg` | 480×360 |
+| `https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg` | 1280×720 |
+
 ### Adding to the Gallery
 
 Create a `.md` file in `gallery/`:
@@ -271,6 +293,40 @@ External image URLs also work:
 ```yaml
 image: "https://images.unsplash.com/photo-example?w=800&q=80"
 ```
+
+#### Multi-Image Gallery
+
+To include multiple images in a single gallery entry, use the `images` array
+instead of the single `image` field. Each entry has a `src` and optional
+`caption`.
+
+```yaml
+---
+title: "Weekend Trip"
+date: 2026-03-08
+tags:
+  - travel
+images:
+  - src: "/content/assets/images/trip-1.jpg"
+    caption: "Morning coffee by the lake"
+  - src: "/content/assets/images/trip-2.jpg"
+    caption: "Sunset from the hill"
+  - src: "/content/assets/images/trip-3.jpg"
+    caption: "Night market vibes"
+---
+```
+
+Multi-image entries appear with a **stacked card** visual and image count badge
+on the gallery list and homepage. Clicking opens a **carousel lightbox** with
+prev/next navigation, dot indicators, and keyboard arrow key support.
+
+| Field | Description |
+|---|---|
+| `image` | Single image path or URL (original format, still supported) |
+| `images` | Array of `{ src, caption }` objects for multi-image entries |
+
+Both formats are supported. If `images` is present it takes priority over
+`image`.
 
 ### Profile Image
 
@@ -466,6 +522,8 @@ sheet instead.
 | Write a poem | `blog/poem/slug.md` (with `type: poem`) |
 | Write a novel chapter | `blog/novel/slug.md` (with `type: novel`) |
 | Add a gallery image | `gallery/slug.md` |
+| Add multi-image gallery | `gallery/slug.md` (with `images:` array) |
+| Embed a video | `<a class="video-player" href="...">` in markdown |
 | Share a thought | `thoughts/slug.md` |
 | Add a portfolio project | `portfolio/slug.md` |
 | Edit my profile | `pages/profile.md` |
