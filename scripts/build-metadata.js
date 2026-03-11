@@ -78,6 +78,7 @@ async function buildMetadata() {
     } else if (section === 'gallery') {
       entry.date = data.date ? new Date(data.date).toISOString().split('T')[0] : '1970-01-01';
       entry.image = data.image || '';
+      entry.images = data.images || [];
       entry.caption = data.caption || '';
       entry.description = stripMarkdown(content) || '';
       galleryItems.push(entry);

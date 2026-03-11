@@ -200,6 +200,12 @@
     return p.replace(/^\/+/, '');
   }
 
+  function getGalleryImages(g) {
+    if (g.images && g.images.length > 0) return g.images;
+    if (g.image) return [{ src: g.image, caption: g.caption || '' }];
+    return [];
+  }
+
   function initLazyImages(root) {
     (root || document).querySelectorAll('img[loading="lazy"]:not(.loaded)').forEach(img => {
       if (img.complete && img.naturalWidth > 0) {
@@ -257,13 +263,18 @@
     let thoughtsHtml = recentThoughts.map((t) => renderThoughtCard(t)).join('');
 
     let galleryHtml = state.gallery.slice(0, 4).map((g) => {
-      const imgSrc = resolvePath(g.image);
+      const images = getGalleryImages(g);
+      if (!images.length) return '';
+      const imgSrc = resolvePath(images[0].src);
+      const isMulti = images.length > 1;
+      const countBadge = isMulti ? `<div class="gallery-image-count"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="1" width="9" height="9" rx="1.5"/><rect x="5" y="5" width="9" height="9" rx="1.5"/></svg>${images.length}</div>` : '';
       return `
-      <div class="gallery-item" onclick="window.__openLightbox('${escapeHtml(imgSrc)}','${escapeHtml(g.caption)}')">
+      <div class="gallery-item${isMulti ? ' multi-image' : ''}" onclick="window.__openGallery(${state.gallery.indexOf(g)})">
         <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(g.title)}" loading="lazy">
         <div class="gallery-item-overlay">
           <div class="gallery-item-title">${escapeHtml(g.title)}</div>
         </div>
+        ${countBadge}
       </div>`;
     }).join('');
 
@@ -668,14 +679,19 @@
   // ── Gallery ───────────────────────────────────────────
 
   function renderGallery() {
-    const items = state.gallery.map((g) => {
-      const imgSrc = resolvePath(g.image);
+    const items = state.gallery.map((g, galleryIndex) => {
+      const images = getGalleryImages(g);
+      if (!images.length) return '';
+      const imgSrc = resolvePath(images[0].src);
+      const isMulti = images.length > 1;
+      const countBadge = isMulti ? `<div class="gallery-image-count"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="1" width="9" height="9" rx="1.5"/><rect x="5" y="5" width="9" height="9" rx="1.5"/></svg>${images.length}</div>` : '';
       const desc = g.description || '';
       const hasLongDesc = desc.length > 120;
       return `
-      <div class="gallery-card">
-        <div class="gallery-card-img" onclick="window.__openLightbox('${escapeHtml(imgSrc)}','${escapeHtml(g.caption)}')">
+      <div class="gallery-card${isMulti ? ' multi-image' : ''}">
+        <div class="gallery-card-img" onclick="window.__openGallery(${galleryIndex})">
           <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(g.title)}" loading="lazy">
+          ${countBadge}
         </div>
         <div class="gallery-card-info">
           <div class="gallery-card-header">
@@ -1016,28 +1032,134 @@
     });
   }
 
+  function initVideoPlayers() {
+    document.querySelectorAll('.article-body a[target="_blank"]').forEach(a => {
+      const href = a.getAttribute('href') || '';
+      if (!href.match(/youtube\.com\/watch|youtu\.be\//)) return;
+      const img = a.querySelector('img');
+      if (!img || a.querySelectorAll('img').length !== 1) return;
+      const title = img.alt || '';
+      const src = img.src;
+      const player = document.createElement('div');
+      player.className = 'video-player';
+      player.addEventListener('click', () => window.open(href, '_blank'));
+      player.innerHTML = `
+        <img src="${src}" alt="${title}" loading="lazy">
+        <div class="video-player-overlay">
+          <div class="video-player-play">
+            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+          ${title ? `<div class="video-player-title">${escapeHtml(title)}</div>` : ''}
+        </div>`;
+      a.replaceWith(player);
+    });
+  }
+
   function initArticleImages() {
     document.querySelectorAll('.article-body pre code').forEach((el) => hljs.highlightElement(el));
     initCodeBlocks();
+    initVideoPlayers();
     document.querySelectorAll('.article-body img').forEach((img) => {
+      if (img.closest('.video-player')) return;
       img.addEventListener('click', () => openLightbox(img.src, img.alt));
     });
     initLazyImages();
   }
 
+  let _carouselImages = [];
+  let _carouselIndex = 0;
+
   function openLightbox(src, caption) {
+    _carouselImages = [];
+    _carouselIndex = 0;
     const lb = document.getElementById('lightbox');
+    const content = lb.querySelector('.lightbox-content');
+    content.querySelectorAll('.lightbox-nav, .lightbox-dots').forEach(el => el.remove());
     document.getElementById('lightbox-img').src = src;
     document.getElementById('lightbox-caption').textContent = caption || '';
     lb.classList.remove('hidden');
   }
 
+  function openCarousel(images, startIndex) {
+    _carouselImages = images;
+    _carouselIndex = startIndex || 0;
+    const lb = document.getElementById('lightbox');
+    const content = lb.querySelector('.lightbox-content');
+    content.querySelectorAll('.lightbox-nav, .lightbox-dots').forEach(el => el.remove());
+    const current = images[_carouselIndex];
+    document.getElementById('lightbox-img').src = resolvePath(current.src);
+    document.getElementById('lightbox-caption').textContent = current.caption || '';
+    if (images.length > 1) {
+      const prevBtn = document.createElement('button');
+      prevBtn.className = 'lightbox-nav prev';
+      prevBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      prevBtn.addEventListener('click', (e) => { e.stopPropagation(); navigateCarousel(-1); });
+      const nextBtn = document.createElement('button');
+      nextBtn.className = 'lightbox-nav next';
+      nextBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      nextBtn.addEventListener('click', (e) => { e.stopPropagation(); navigateCarousel(1); });
+      content.appendChild(prevBtn);
+      content.appendChild(nextBtn);
+      const dots = document.createElement('div');
+      dots.className = 'lightbox-dots';
+      images.forEach((_, i) => {
+        const dot = document.createElement('button');
+        dot.className = 'lightbox-dot' + (i === _carouselIndex ? ' active' : '');
+        dot.addEventListener('click', (e) => { e.stopPropagation(); goToCarouselSlide(i); });
+        dots.appendChild(dot);
+      });
+      content.appendChild(dots);
+    }
+    lb.classList.remove('hidden');
+  }
+
+  function navigateCarousel(dir) {
+    if (_carouselImages.length < 2) return;
+    _carouselIndex = (_carouselIndex + dir + _carouselImages.length) % _carouselImages.length;
+    updateCarouselSlide();
+  }
+
+  function goToCarouselSlide(index) {
+    _carouselIndex = index;
+    updateCarouselSlide();
+  }
+
+  function updateCarouselSlide() {
+    const current = _carouselImages[_carouselIndex];
+    const img = document.getElementById('lightbox-img');
+    img.style.opacity = '0';
+    setTimeout(() => {
+      img.src = resolvePath(current.src);
+      document.getElementById('lightbox-caption').textContent = current.caption || '';
+      img.style.opacity = '1';
+    }, 150);
+    document.querySelectorAll('.lightbox-dot').forEach((dot, i) => {
+      dot.classList.toggle('active', i === _carouselIndex);
+    });
+  }
+
   function closeLightbox() {
-    document.getElementById('lightbox').classList.add('hidden');
+    const lb = document.getElementById('lightbox');
+    lb.classList.add('hidden');
     document.getElementById('lightbox-img').src = '';
+    _carouselImages = [];
+    _carouselIndex = 0;
+    lb.querySelector('.lightbox-content').querySelectorAll('.lightbox-nav, .lightbox-dots').forEach(el => el.remove());
   }
 
   window.__openLightbox = openLightbox;
+
+  window.__openGallery = function(galleryIndex) {
+    const g = state.gallery[galleryIndex];
+    if (!g) return;
+    const images = getGalleryImages(g);
+    if (!images.length) return;
+    if (images.length === 1) {
+      openLightbox(resolvePath(images[0].src), images[0].caption || g.caption);
+    } else {
+      openCarousel(images, 0);
+    }
+  };
 
   // ── Router ────────────────────────────────────────────
 
@@ -1261,7 +1383,10 @@
     lb.querySelector('.lightbox-backdrop').addEventListener('click', closeLightbox);
     lb.querySelector('.lightbox-close').addEventListener('click', closeLightbox);
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !lb.classList.contains('hidden')) closeLightbox();
+      if (lb.classList.contains('hidden')) return;
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowLeft' && _carouselImages.length > 1) navigateCarousel(-1);
+      if (e.key === 'ArrowRight' && _carouselImages.length > 1) navigateCarousel(1);
     });
   }
 
