@@ -48,6 +48,7 @@
 
       try { state.config = await loadJSON('metadata/config.json'); } catch { state.config = {}; }
       applyAccentColor((state.config && state.config.color) || 'purple');
+      if (state.config.logo) applyLogo('content/' + state.config.logo);
     } catch (err) {
       console.error('Error loading data:', err);
       showContent('<div class="empty-state"><h3>Failed to load data</h3><p>Run: npm run build</p></div>');
@@ -1337,6 +1338,25 @@
       `radial-gradient(ellipse 60% 50% at 80% 100%, rgba(${c.rgb},${isDark ? 0.08 : 0.06}) 0%, transparent 50%),` +
       `radial-gradient(ellipse 50% 40% at 50% 50%, rgba(${c.rgb},${isDark ? 0.05 : 0.03}) 0%, transparent 50%)`
     );
+  }
+
+  async function applyLogo(logoPath) {
+    try {
+      const res = await fetch(logoPath);
+      if (!res.ok) return;
+      const svgText = await res.text();
+      const tmp = document.createElement('div');
+      tmp.innerHTML = svgText.trim();
+      const svg = tmp.querySelector('svg');
+      if (!svg) return;
+      svg.setAttribute('width', '18');
+      svg.setAttribute('height', '18');
+      svg.style.display = 'block';
+      document.querySelectorAll('.logo-icon').forEach(el => {
+        el.textContent = '';
+        el.appendChild(svg.cloneNode(true));
+      });
+    } catch { /* logo not available, keep fallback */ }
   }
 
   function syncThemeIcons(theme) {
