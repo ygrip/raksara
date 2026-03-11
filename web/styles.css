@@ -1133,6 +1133,7 @@ body {
 }
 
 .gallery-card-img {
+  position: relative;
   cursor: pointer;
   overflow: hidden;
   max-height: 480px;
