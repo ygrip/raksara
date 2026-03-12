@@ -1225,12 +1225,15 @@
     const siteName = (state.config && state.config.hero_title) || 'Raksara';
 
     if (isProfile) {
-      const aSize = 180;
-      const avatarTop = mg + 60;
+      const aSize = 280;
+      const avatarTop = mg + 40;
       const aCy = avatarTop + aSize / 2;
 
       if (avatarImg) {
         ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.15)';
+        ctx.shadowBlur = 24;
+        ctx.shadowOffsetY = 6;
         ctx.beginPath();
         ctx.arc(centerX, aCy, aSize / 2, 0, Math.PI * 2);
         ctx.clip();
@@ -1238,57 +1241,98 @@
         ctx.drawImage(avatarImg, centerX - avatarImg.width * aS / 2, aCy - avatarImg.height * aS / 2, avatarImg.width * aS, avatarImg.height * aS);
         ctx.restore();
         ctx.strokeStyle = '#e0e0e0';
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 5;
         ctx.beginPath();
         ctx.arc(centerX, aCy, aSize / 2 + 2, 0, Math.PI * 2);
         ctx.stroke();
       }
 
-      const nameY = aCy + aSize / 2 + 58;
+      const nameY = aCy + aSize / 2 + 56;
       ctx.textAlign = 'center';
-      ctx.fillStyle = '#1a1a1a';
-      ctx.font = '700 46px "Playfair Display", Georgia, serif';
-      const nameLinesCount = canvasWrapText(ctx, title || '', centerX, nameY, cw, 58, 2);
-      const nameBottom = nameY + (nameLinesCount - 1) * 58;
-      let curProfileY = nameBottom;
+      ctx.font = '700 48px "Playfair Display", Georgia, serif';
+      const nameM = ctx.measureText(title || '');
+      const nameW = nameM.width;
+      const nhPad = 16, nvPad = 10;
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      canvasRoundRect(ctx, centerX - nameW / 2 - nhPad, nameY - 38 - nvPad, nameW + nhPad * 2, 48 + nvPad * 2, 10);
+      ctx.fill();
+      ctx.fillStyle = '#111';
+      ctx.fillText(title || '', centerX, nameY);
+
+      let curProfileY = nameY;
 
       if (role) {
-        curProfileY += 36;
-        ctx.fillStyle = '#666';
-        ctx.font = '400 24px Inter, -apple-system, sans-serif';
+        curProfileY += 48;
+        ctx.font = '500 22px Inter, -apple-system, sans-serif';
+        const roleM = ctx.measureText(role);
+        const roleW = roleM.width;
+        const rhPad = 14, rvPad = 8;
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        canvasRoundRect(ctx, centerX - roleW / 2 - rhPad, curProfileY - 18 - rvPad, roleW + rhPad * 2, 26 + rvPad * 2, 8);
+        ctx.fill();
+        ctx.fillStyle = '#555';
         ctx.fillText(role, centerX, curProfileY);
       }
 
-      curProfileY += 40;
-      canvasSeparator(ctx, cx + 60, cr - 60, curProfileY);
+      curProfileY += 50;
+      canvasSeparator(ctx, cx + 80, cr - 80, curProfileY);
 
       const metadata = opts.metadata;
       if (metadata && metadata.length) {
-        curProfileY += 48;
+        curProfileY += 40;
         ctx.textAlign = 'left';
-        const metaX = cx + 40;
+        const chipX = cx + 20;
+        const chipMaxW = cw - 40;
         for (const item of metadata.slice(0, 3)) {
-          ctx.font = '600 20px Inter, -apple-system, sans-serif';
-          ctx.fillStyle = accent1;
-          ctx.fillText(item.label, metaX, curProfileY);
+          const chipText = item.value ? item.label + '  :  ' + item.value : item.label;
+          ctx.font = '500 19px Inter, -apple-system, sans-serif';
+          const tw = ctx.measureText(chipText).width;
+          const cPadH = 20, cPadV = 14, cH = 24 + cPadV * 2, cR = cH / 2;
+          const chipW = Math.min(tw + cPadH * 2, chipMaxW);
+
+          ctx.save();
+          ctx.shadowColor = 'rgba(0,0,0,0.06)';
+          ctx.shadowBlur = 8;
+          ctx.shadowOffsetY = 2;
+          ctx.fillStyle = 'rgba(255,255,255,0.7)';
+          canvasRoundRect(ctx, chipX, curProfileY, chipW, cH, cR);
+          ctx.fill();
+          ctx.restore();
+
+          ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+          ctx.lineWidth = 1;
+          canvasRoundRect(ctx, chipX, curProfileY, chipW, cH, cR);
+          ctx.stroke();
+
+          const tY = curProfileY + cH / 2 + 7;
           if (item.value) {
+            ctx.font = '600 19px Inter, -apple-system, sans-serif';
+            ctx.fillStyle = accent1;
+            ctx.fillText(item.label, chipX + cPadH, tY);
             const lblW = ctx.measureText(item.label).width;
-            ctx.fillStyle = '#888';
-            ctx.font = '400 20px Inter, -apple-system, sans-serif';
-            ctx.fillText('  :  ', metaX + lblW, curProfileY);
+            ctx.fillStyle = '#aaa';
+            ctx.font = '400 19px Inter, -apple-system, sans-serif';
+            ctx.fillText('  :  ', chipX + cPadH + lblW, tY);
             const sepW = ctx.measureText('  :  ').width;
             ctx.fillStyle = '#333';
-            ctx.font = '500 20px Inter, -apple-system, sans-serif';
-            ctx.fillText(item.value, metaX + lblW + sepW, curProfileY);
+            ctx.font = '500 19px Inter, -apple-system, sans-serif';
+            let valText = item.value;
+            const valMaxW = chipW - cPadH * 2 - lblW - sepW;
+            while (ctx.measureText(valText).width > valMaxW && valText.length > 1) valText = valText.slice(0, -1);
+            if (valText.length < item.value.length) valText += '\u2026';
+            ctx.fillText(valText, chipX + cPadH + lblW + sepW, tY);
+          } else {
+            ctx.font = '600 19px Inter, -apple-system, sans-serif';
+            ctx.fillStyle = '#333';
+            ctx.fillText(item.label, chipX + cPadH, tY);
           }
-          curProfileY += 46;
+          curProfileY += cH + 14;
         }
       }
       ctx.textAlign = 'left';
 
       if (logoImg) {
         const lh = 28, lw = lh * (logoImg.width / logoImg.height);
-        ctx.textAlign = 'left';
         ctx.font = '600 20px Inter, -apple-system, sans-serif';
         const snw = ctx.measureText(siteName).width;
         const totalW = lw + 10 + snw;
