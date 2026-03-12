@@ -419,11 +419,13 @@
   const contentLayouts = {
     default: {
       bodyClass: '',
+      handlesCover: false,
       renderBody(body) { return `<div class="article-body">${renderMd(body)}</div>`; },
       headerLayout: 'standard',
     },
     poem: {
       bodyClass: 'poem-layout',
+      handlesCover: true,
       renderBody(body, frontmatter) {
         const coverUrl = frontmatter.cover || '';
         const coverHtml = coverUrl
@@ -435,6 +437,7 @@
     },
     novel: {
       bodyClass: 'novel-layout',
+      handlesCover: false,
       renderBody(body, frontmatter) {
         const series = frontmatter.series || '';
         const chapter = frontmatter.chapter || '';
@@ -556,7 +559,7 @@
           </div>`;
 
       const coverUrl = resolvePath(frontmatter.cover || post.cover) || '';
-      const coverHtml = coverUrl
+      const coverHtml = (coverUrl && !layout.handlesCover)
         ? `<div class="article-cover"><img src="${escapeHtml(coverUrl)}" alt="" loading="lazy"></div>`
         : '';
 
@@ -578,7 +581,7 @@
         ${postNavHtml}
         ${contentFooter(frontmatter.author)}
       `);
-      initShareButton(post.title);
+      initShareButton(post.title, { coverUrl, author: frontmatter.author });
       initReadingMode(frontmatter);
       initArticleImages();
       initContentLinks();
@@ -684,7 +687,7 @@
         <div class="article-body">${html}</div>
         ${contentFooter(frontmatter.author)}
       `);
-      initShareButton(item.title);
+      initShareButton(item.title, { author: frontmatter.author });
       initArticleImages();
       initContentLinks();
       scrollToAnchor();
@@ -1009,13 +1012,107 @@
     </button>`;
   }
 
-  function initShareButton(title) {
+  function loadImageCors(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      const timeout = setTimeout(() => { img.src = ''; reject(); }, 4000);
+      img.onload = () => { clearTimeout(timeout); resolve(img); };
+      img.onerror = () => { clearTimeout(timeout); reject(); };
+      img.src = url;
+    });
+  }
+
+  function canvasWrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
+    const words = text.split(' ');
+    let line = '';
+    const lines = [];
+    for (const word of words) {
+      const test = line + (line ? ' ' : '') + word;
+      if (ctx.measureText(test).width > maxWidth && line) {
+        if (maxLines && lines.length >= maxLines - 1) { lines.push(line + '...'); line = ''; break; }
+        lines.push(line);
+        line = word;
+      } else { line = test; }
+    }
+    if (line) lines.push(line);
+    for (let i = 0; i < lines.length; i++) ctx.fillText(lines[i], x, y + i * lineHeight);
+    return lines.length;
+  }
+
+  async function generateShareImage(title, author, coverUrl) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 1200;
+    canvas.height = 630;
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--gradient-1').trim() || '#6366f1';
+
+    let hasCover = false;
+    if (coverUrl) {
+      try {
+        const img = await loadImageCors(coverUrl);
+        const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
+        const w = img.width * scale, h = img.height * scale;
+        ctx.filter = 'blur(8px) brightness(0.35)';
+        ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+        ctx.filter = 'none';
+        hasCover = true;
+      } catch {}
+    }
+
+    if (!hasCover) {
+      const g = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      g.addColorStop(0, '#0a0a14'); g.addColorStop(1, '#12122a');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.globalAlpha = 0.15;
+      const g2 = ctx.createRadialGradient(300, 200, 0, 300, 200, 300);
+      g2.addColorStop(0, accent); g2.addColorStop(1, 'transparent');
+      ctx.fillStyle = g2; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const g3 = ctx.createRadialGradient(950, 480, 0, 950, 480, 250);
+      g3.addColorStop(0, accent); g3.addColorStop(1, 'transparent');
+      ctx.fillStyle = g3; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.fillStyle = accent;
+    ctx.fillRect(0, canvas.height - 6, canvas.width, 6);
+
+    const siteName = (state.config && state.config.hero_title) || 'Raksara';
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '500 22px Inter, -apple-system, sans-serif';
+    ctx.fillText('\u25C6 ' + siteName, 64, 68);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 48px Inter, -apple-system, sans-serif';
+    canvasWrapText(ctx, title || '', 64, 240, canvas.width - 128, 62, 4);
+
+    if (author) {
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.font = '400 22px Inter, -apple-system, sans-serif';
+      ctx.fillText(author, 64, canvas.height - 44);
+    }
+
+    return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  }
+
+  function initShareButton(title, opts) {
+    const { coverUrl, author } = opts || {};
     const btn = document.querySelector('.share-btn');
     if (!btn) return;
     btn.addEventListener('click', async () => {
       const url = window.location.href;
       if (navigator.share) {
-        try { await navigator.share({ title, text: title, url }); } catch {}
+        const shareData = { title, text: title, url };
+        const resolvedAuthor = author || (state.config && state.config.author) || '';
+        try {
+          const testFile = new File([''], 't.png', { type: 'image/png' });
+          if (navigator.canShare && navigator.canShare({ files: [testFile] })) {
+            const blob = await generateShareImage(title, resolvedAuthor, coverUrl);
+            if (blob) shareData.files = [new File([blob], 'share.png', { type: 'image/png' })];
+          }
+        } catch {}
+        try { await navigator.share(shareData); } catch {}
         return;
       }
       try {
