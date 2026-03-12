@@ -1149,7 +1149,7 @@
     if (coverImg) {
       const scale = Math.max(S / coverImg.width, S / coverImg.height);
       const w = coverImg.width * scale, h = coverImg.height * scale;
-      ctx.filter = 'blur(12px) brightness(0.28)';
+      ctx.filter = 'blur(6px) brightness(0.32)';
       ctx.drawImage(coverImg, (S - w) / 2, (S - h) / 2, w, h);
       ctx.filter = 'none';
     } else {
@@ -1283,48 +1283,54 @@
         ctx.textAlign = 'left';
         const chipX = cx + 20;
         const chipMaxW = cw - 40;
+        const cPadH = 22, cPadV = 14, cH = 24 + cPadV * 2, cR = cH / 2;
         for (const item of metadata.slice(0, 3)) {
-          const chipText = item.value ? item.label + '  :  ' + item.value : item.label;
-          ctx.font = '500 19px Inter, -apple-system, sans-serif';
-          const tw = ctx.measureText(chipText).width;
-          const cPadH = 20, cPadV = 14, cH = 24 + cPadV * 2, cR = cH / 2;
-          const chipW = Math.min(tw + cPadH * 2, chipMaxW);
+          ctx.font = '700 19px Inter, -apple-system, sans-serif';
+          const lblW = ctx.measureText(item.label).width;
+          let fullW = lblW;
+          let sepW = 0, valW = 0, valText = item.value || '';
+          if (valText) {
+            ctx.font = '400 19px Inter, -apple-system, sans-serif';
+            sepW = ctx.measureText('  :  ').width;
+            ctx.font = '500 19px Inter, -apple-system, sans-serif';
+            valW = ctx.measureText(valText).width;
+            fullW = lblW + sepW + valW;
+            const maxInner = chipMaxW - cPadH * 2;
+            if (fullW > maxInner) {
+              const valMaxW = maxInner - lblW - sepW;
+              while (ctx.measureText(valText).width > valMaxW && valText.length > 1) valText = valText.slice(0, -1);
+              if (valText.length < item.value.length) valText += '\u2026';
+              valW = ctx.measureText(valText).width;
+              fullW = lblW + sepW + valW;
+            }
+          }
+          const chipW = Math.min(fullW + cPadH * 2, chipMaxW);
 
           ctx.save();
-          ctx.shadowColor = 'rgba(0,0,0,0.06)';
-          ctx.shadowBlur = 8;
+          ctx.shadowColor = 'rgba(0,0,0,0.08)';
+          ctx.shadowBlur = 6;
           ctx.shadowOffsetY = 2;
-          ctx.fillStyle = 'rgba(255,255,255,0.7)';
+          ctx.fillStyle = 'rgba(0,0,0,0.06)';
           canvasRoundRect(ctx, chipX, curProfileY, chipW, cH, cR);
           ctx.fill();
           ctx.restore();
 
-          ctx.strokeStyle = 'rgba(0,0,0,0.08)';
-          ctx.lineWidth = 1;
+          ctx.strokeStyle = 'rgba(0,0,0,0.10)';
+          ctx.lineWidth = 1.2;
           canvasRoundRect(ctx, chipX, curProfileY, chipW, cH, cR);
           ctx.stroke();
 
           const tY = curProfileY + cH / 2 + 7;
+          ctx.font = '700 19px Inter, -apple-system, sans-serif';
+          ctx.fillStyle = '#111';
+          ctx.fillText(item.label, chipX + cPadH, tY);
           if (item.value) {
-            ctx.font = '600 19px Inter, -apple-system, sans-serif';
-            ctx.fillStyle = accent1;
-            ctx.fillText(item.label, chipX + cPadH, tY);
-            const lblW = ctx.measureText(item.label).width;
-            ctx.fillStyle = '#aaa';
+            ctx.fillStyle = '#999';
             ctx.font = '400 19px Inter, -apple-system, sans-serif';
             ctx.fillText('  :  ', chipX + cPadH + lblW, tY);
-            const sepW = ctx.measureText('  :  ').width;
-            ctx.fillStyle = '#333';
+            ctx.fillStyle = '#444';
             ctx.font = '500 19px Inter, -apple-system, sans-serif';
-            let valText = item.value;
-            const valMaxW = chipW - cPadH * 2 - lblW - sepW;
-            while (ctx.measureText(valText).width > valMaxW && valText.length > 1) valText = valText.slice(0, -1);
-            if (valText.length < item.value.length) valText += '\u2026';
             ctx.fillText(valText, chipX + cPadH + lblW + sepW, tY);
-          } else {
-            ctx.font = '600 19px Inter, -apple-system, sans-serif';
-            ctx.fillStyle = '#333';
-            ctx.fillText(item.label, chipX + cPadH, tY);
           }
           curProfileY += cH + 14;
         }
