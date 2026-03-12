@@ -410,7 +410,7 @@
       ${foldersHtml}
       <div class="post-list">${postsHtml || '<div class="empty-state"><p>No posts in this directory.</p></div>'}</div>
     `);
-    initShareButton(title, { isDirectory: true, pageCount: isRoot ? state.posts.length : total, dirPostTitles: dirPosts.slice(0, 3).map(p => p.title) });
+    initShareButton(title, { isDirectory: true, pageCount: isRoot ? state.posts.length : total, dirPostTitles: dirPosts.slice(0, 4).map(p => p.title) });
     initLazyImages();
   }
 
@@ -718,13 +718,13 @@
           <div class="gallery-card-header">
             <div class="gallery-card-title">${escapeHtml(g.title)}</div>
             <button class="gallery-share-btn" data-gallery-index="${galleryIndex}" data-gallery-title="${escapeHtml(g.title)}" aria-label="Share image">${shareIconSvg}</button>
-            <div class="gallery-card-date">${formatDate(g.date)}</div>
           </div>
           ${g.caption ? `<div class="gallery-card-caption">${escapeHtml(g.caption)}</div>` : ''}
           ${desc ? `<div class="gallery-card-desc${hasLongDesc ? ' collapsed' : ''}">
             <div class="gallery-card-desc-text">${escapeHtml(desc)}</div>
             ${hasLongDesc ? '<button class="gallery-card-toggle">Show more</button>' : ''}
           </div>` : ''}
+          <div class="gallery-card-footer"><div class="gallery-card-date">${formatDate(g.date)}</div></div>
         </div>
       </div>`;
     }).join('');
@@ -1043,11 +1043,12 @@
   }
 
   function loadImageCors(url) {
+    if (_imgCache[url]) return Promise.resolve(_imgCache[url]);
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
-      const timeout = setTimeout(() => { img.src = ''; reject(); }, 4000);
-      img.onload = () => { clearTimeout(timeout); resolve(img); };
+      const timeout = setTimeout(() => { img.src = ''; reject(); }, 2000);
+      img.onload = () => { clearTimeout(timeout); _imgCache[url] = img; resolve(img); };
       img.onerror = () => { clearTimeout(timeout); reject(); };
       img.src = url;
     });
@@ -1143,8 +1144,8 @@
         loads.push(loadImageCors(url).then(img => { galleryImgs[idx] = img; }).catch(() => {}));
       });
     }
+    loads.push(Promise.race([document.fonts.load('700 52px "Playfair Display"'), new Promise(r => setTimeout(r, 500))]));
     await Promise.all(loads);
-    try { await document.fonts.load('700 58px "Playfair Display"'); } catch {}
 
     if (coverImg) {
       const scale = Math.max(S / coverImg.width, S / coverImg.height);
@@ -1390,27 +1391,49 @@
         ctx.fillText(siteName, lx + lw + 10, fcy + 8);
       }
     } else {
-      const topY = ct + 22;
-      if (readTime) {
-        ctx.fillStyle = '#666';
-        ctx.font = '500 17px Inter, -apple-system, sans-serif';
-        ctx.fillText(readTime + ' min read', cx, topY);
+      const hasCover = !!coverImg;
+      const coverH = hasCover ? Math.floor(cardH * 0.25) : 0;
+      if (hasCover) {
+        ctx.save();
+        canvasRoundRect(ctx, mg, mg, cardW, cardH, cardR);
+        ctx.clip();
+        const cvs = Math.max(cardW / coverImg.width, coverH / coverImg.height);
+        ctx.drawImage(coverImg, mg + (cardW - coverImg.width * cvs) / 2, mg + (coverH - coverImg.height * cvs) / 2, coverImg.width * cvs, coverImg.height * cvs);
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.fillRect(mg, mg, cardW, coverH);
+        ctx.restore();
       }
-      ctx.font = '500 17px Inter, -apple-system, sans-serif';
-      ctx.fillStyle = '#888';
-      const nW = ctx.measureText(siteName).width;
-      ctx.fillText(siteName, cr - nW, topY);
+
+      const contentTop = mg + coverH + pad;
+      let curY = contentTop;
+
       if (logoImg) {
-        const lh = 24, lw = lh * (logoImg.width / logoImg.height);
-        ctx.drawImage(logoImg, cr - nW - lw - 8, topY - lh + 6, lw, lh);
+        const lh = 22, lw = lh * (logoImg.width / logoImg.height);
+        ctx.drawImage(logoImg, cx, curY - lh + 6, lw, lh);
+        ctx.fillStyle = '#888';
+        ctx.font = '500 16px Inter, -apple-system, sans-serif';
+        ctx.fillText(siteName, cx + lw + 8, curY + 2);
+        if (readTime) {
+          ctx.fillStyle = '#aaa';
+          ctx.fillText('\u00B7  ' + readTime + ' min read', cx + lw + 8 + ctx.measureText(siteName + '  ').width, curY + 2);
+        }
       }
-      canvasSeparator(ctx, cx, cr, ct + 52);
+      curY += 28;
+      canvasSeparator(ctx, cx, cr, curY);
+      curY += 28;
 
       ctx.fillStyle = '#1a1a1a';
-      ctx.font = '700 58px "Playfair Display", Georgia, serif';
-      const titleY = ct + 108;
-      const titleLines = canvasWrapText(ctx, title || '', cx, titleY, cw, 72, 3);
-      let curY = titleY + titleLines * 72;
+      ctx.font = '700 52px "Playfair Display", Georgia, serif';
+      const titleLines = canvasWrapText(ctx, title || '', cx, curY, cw, 64, 3);
+      curY += titleLines * 64;
+
+      if (summary) {
+        curY += 12;
+        ctx.fillStyle = '#666';
+        ctx.font = '400 20px Inter, -apple-system, sans-serif';
+        const sumLines = canvasWrapText(ctx, summary, cx, curY, cw, 30, 3);
+        curY += sumLines * 30;
+      }
 
       const chipLabels = [];
       if (category) chipLabels.push(category);
@@ -1441,8 +1464,6 @@
         }
         curY += 30;
       }
-      curY += 20;
-      canvasSeparator(ctx, cx, cr, curY);
 
       if (isThoughts) {
         const availH = footerTop - curY - 40;
@@ -1492,18 +1513,15 @@
         const gridCount = Math.min(imgs.length, 4);
         if (gridCount) {
           const mGap = 14, mR = 10;
-          const gridAvailH = footerTop - curY - 28;
-          const mH = Math.floor((gridAvailH - mGap) / 2);
-          const mW = mH;
-          const gridTotalW = mW * 2 + mGap;
-          const gridStartX = cx + (cw - gridTotalW) / 2;
+          const mW = Math.floor((cw - mGap) / 2);
+          const mH = mW;
           const mStartY = curY + 20;
           ctx.save();
-          canvasRoundRect(ctx, mg, mg, cardW, cardH - footerH, cardR);
+          canvasRoundRect(ctx, mg, mg, cardW, cardH, cardR);
           ctx.clip();
           for (let i = 0; i < 4; i++) {
             const col = i % 2, row = Math.floor(i / 2);
-            const mx = gridStartX + col * (mW + mGap);
+            const mx = cx + col * (mW + mGap);
             const my = mStartY + row * (mH + mGap);
             ctx.save();
             ctx.shadowColor = 'rgba(0,0,0,0.10)';
@@ -1536,18 +1554,15 @@
       } else if (isDirectory) {
         const titles = dirPostTitles || [];
         const mGap = 14, mR = 10;
-        const gridAvailH = footerTop - curY - 28;
-        const mH = Math.floor((gridAvailH - mGap) / 2);
-        const mW = mH;
-        const gridTotalW = mW * 2 + mGap;
-        const gridStartX = cx + (cw - gridTotalW) / 2;
+        const mW = Math.floor((cw - mGap) / 2);
+        const mH = mW;
         const mStartY = curY + 20;
         ctx.save();
-        canvasRoundRect(ctx, mg, mg, cardW, cardH - footerH, cardR);
+        canvasRoundRect(ctx, mg, mg, cardW, cardH, cardR);
         ctx.clip();
         for (let i = 0; i < 4; i++) {
           const col = i % 2, row = Math.floor(i / 2);
-          const mx = gridStartX + col * (mW + mGap);
+          const mx = cx + col * (mW + mGap);
           const my = mStartY + row * (mH + mGap);
           ctx.save();
           ctx.shadowColor = 'rgba(0,0,0,0.08)';
@@ -1585,11 +1600,6 @@
         ctx.font = 'bold 28px Inter, -apple-system, sans-serif';
         ctx.fillText(pageCount + ' ' + label + (pageCount !== 1 ? 's' : ''), fcx + 52, fcy + 11);
       } else {
-        if (summary) {
-          ctx.fillStyle = '#444';
-          ctx.font = '400 22px Inter, -apple-system, sans-serif';
-          canvasWrapText(ctx, summary, cx, curY + 32, cw, 34, 5);
-        }
         if (author) {
           ctx.fillStyle = 'rgba(255,255,255,0.95)';
           ctx.font = 'bold 22px Inter, -apple-system, sans-serif';
@@ -1601,11 +1611,25 @@
     return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
   }
 
+  const _imgCache = {};
+  function prefetchImage(url) {
+    if (!url || _imgCache[url]) return;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => { _imgCache[url] = img; };
+    img.src = url;
+  }
+
   function initShareButton(title, opts) {
     const btn = document.querySelector('.share-btn');
     if (!btn) return;
+    if (opts && opts.coverUrl) prefetchImage(opts.coverUrl);
     btn.addEventListener('click', async () => {
       const url = window.location.href;
+      const label = btn.querySelector('span');
+      const origText = label ? label.textContent : '';
+      if (label) label.textContent = 'Generating...';
+      try {
       if (navigator.share) {
         const shareData = { title, text: title, url };
         try {
@@ -1616,6 +1640,7 @@
             if (blob) shareData.files = [new File([blob], 'share.png', { type: 'image/png' })];
           }
         } catch {}
+        if (label) label.textContent = origText;
         try { await navigator.share(shareData); } catch {}
         return;
       }
@@ -1624,16 +1649,17 @@
         const blob = await generateShareImage(title, { ...opts, author: resolvedAuthor });
         const items = [new ClipboardItem({ 'text/plain': new Blob([title ? `${title} : ${url}` : url], { type: 'text/plain' }), ...(blob ? { 'image/png': blob } : {}) })];
         await navigator.clipboard.write(items);
-        const label = btn.querySelector('span');
-        label.textContent = 'Copied!';
-        setTimeout(() => { label.textContent = 'Share'; }, 2000);
+        if (label) label.textContent = 'Copied!';
+        setTimeout(() => { if (label) label.textContent = origText; }, 2000);
       } catch {
         try {
           await navigator.clipboard.writeText(title ? `${title} : ${url}` : url);
-          const label = btn.querySelector('span');
-          label.textContent = 'Copied!';
-          setTimeout(() => { label.textContent = 'Share'; }, 2000);
+          if (label) label.textContent = 'Copied!';
+          setTimeout(() => { if (label) label.textContent = origText; }, 2000);
         } catch {}
+      }
+      } finally {
+        if (label && label.textContent === 'Generating...') label.textContent = origText;
       }
     });
   }

@@ -1254,6 +1254,11 @@ body {
   min-width: 0;
 }
 
+.gallery-card-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
 .gallery-card-date {
   font-size: 11px;
   font-family: var(--font-mono);
