@@ -922,8 +922,8 @@
         <div class="article-body">${html}</div>
       `);
       initParallax();
-      const socialLabels = Object.entries(linkDefs).filter(([k]) => frontmatter[k]).map(([, def]) => def.label);
-      initShareButton(name, { isProfile: true, coverUrl, avatarUrl, role, socials: socialLabels });
+      const metaForShare = metaItems.slice(0, 3).map(m => typeof m === 'string' ? { label: m, value: '' } : { label: m.label || '', value: m.value || '' });
+      initShareButton(name, { isProfile: true, coverUrl, avatarUrl, role, metadata: metaForShare });
       initProfileMedia(coverUrl);
       initArticleImages();
     } catch { showContent('<div class="empty-state"><h3>Profile not found</h3></div>'); }
@@ -1191,8 +1191,30 @@
     const siteName = (state.config && state.config.hero_title) || 'Raksara';
 
     if (isProfile) {
+      const coverH = 220;
+      ctx.save();
+      canvasRoundRect(ctx, mg, mg, cardW, cardH, cardR);
+      ctx.clip();
+      if (coverImg) {
+        const cvs = Math.max(cardW / coverImg.width, coverH / coverImg.height);
+        ctx.filter = 'blur(2px) brightness(0.45)';
+        ctx.drawImage(coverImg, mg + (cardW - coverImg.width * cvs) / 2, mg + (coverH - coverImg.height * cvs) / 2, coverImg.width * cvs, coverImg.height * cvs);
+        ctx.filter = 'none';
+      } else {
+        const cvg = ctx.createLinearGradient(mg, mg, mg + cardW, mg + coverH);
+        cvg.addColorStop(0, '#1a1a2e'); cvg.addColorStop(1, '#12122a');
+        ctx.fillStyle = cvg;
+        ctx.fillRect(mg, mg, cardW, coverH);
+      }
+      const fadeG = ctx.createLinearGradient(0, mg + coverH - 50, 0, mg + coverH);
+      fadeG.addColorStop(0, 'rgba(255,255,255,0)');
+      fadeG.addColorStop(1, '#ffffff');
+      ctx.fillStyle = fadeG;
+      ctx.fillRect(mg, mg + coverH - 50, cardW, 50);
+      ctx.restore();
+
+      const aSize = 200, aCy = mg + coverH;
       if (avatarImg) {
-        const aSize = 160, aCy = ct + 50 + aSize / 2;
         ctx.save();
         ctx.beginPath();
         ctx.arc(centerX, aCy, aSize / 2, 0, Math.PI * 2);
@@ -1201,28 +1223,42 @@
         ctx.drawImage(avatarImg, centerX - avatarImg.width * aS / 2, aCy - avatarImg.height * aS / 2, avatarImg.width * aS, avatarImg.height * aS);
         ctx.restore();
         ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 5;
         ctx.beginPath();
         ctx.arc(centerX, aCy, aSize / 2 + 2, 0, Math.PI * 2);
         ctx.stroke();
       }
 
-      const nameY = ct + 50 + 160 + 60;
+      const nameY = aCy + aSize / 2 + 50;
       ctx.textAlign = 'center';
       ctx.fillStyle = '#1a1a1a';
       ctx.font = '700 48px "Playfair Display", Georgia, serif';
       ctx.fillText(title, centerX, nameY);
       if (role) {
-        ctx.fillStyle = '#666';
+        ctx.fillStyle = '#777';
         ctx.font = '400 22px Inter, -apple-system, sans-serif';
         ctx.fillText(role, centerX, nameY + 42);
       }
-      const pSepY = nameY + (role ? 74 : 34);
+
+      const pSepY = nameY + (role ? 72 : 30);
       canvasSeparator(ctx, cx + 100, cr - 100, pSepY);
-      if (socials && socials.length) {
-        ctx.fillStyle = accent1;
-        ctx.font = '500 19px Inter, -apple-system, sans-serif';
-        ctx.fillText(socials.join('  \u00b7  '), centerX, pSepY + 42);
+
+      const metadata = opts.metadata;
+      if (metadata && metadata.length) {
+        let metaY = pSepY + 42;
+        ctx.textAlign = 'left';
+        for (const item of metadata.slice(0, 3)) {
+          const lbl = item.label, val = item.value ? ' :  ' + item.value : '';
+          ctx.font = '500 17px Inter, -apple-system, sans-serif';
+          const lblW = ctx.measureText(lbl).width;
+          const valW = ctx.measureText(val).width;
+          const mStartX = centerX - (lblW + valW) / 2;
+          ctx.fillStyle = '#999';
+          ctx.fillText(lbl, mStartX, metaY);
+          ctx.fillStyle = '#444';
+          ctx.fillText(val, mStartX + lblW, metaY);
+          metaY += 38;
+        }
       }
       ctx.textAlign = 'left';
 
