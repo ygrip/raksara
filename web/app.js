@@ -1230,13 +1230,13 @@
     const siteName = (state.config && state.config.hero_title) || 'Raksara';
 
     if (isProfile) {
-      const coverH = 300;
+      const coverH = cardH - footerH + mg;
       ctx.save();
       canvasRoundRect(ctx, mg, mg, cardW, cardH, cardR);
       ctx.clip();
       if (coverImg) {
-        const cvs = Math.max(cardW / coverImg.width, coverH / coverImg.height);
-        ctx.filter = 'blur(2px) brightness(0.5)';
+        const cvs = Math.max(cardW / coverImg.width, (coverH) / coverImg.height);
+        ctx.filter = 'blur(4px) brightness(0.4)';
         ctx.drawImage(coverImg, mg + (cardW - coverImg.width * cvs) / 2, mg + (coverH - coverImg.height * cvs) / 2, coverImg.width * cvs, coverImg.height * cvs);
         ctx.filter = 'none';
       } else {
@@ -1247,15 +1247,34 @@
       }
       ctx.restore();
 
-      const aSize = 240;
-      const aCy = mg + coverH;
+      const panelTop = mg + 260;
+      const panelH = footerTop - panelTop;
+      ctx.save();
+      canvasRoundRect(ctx, mg, mg, cardW, cardH, cardR);
+      ctx.clip();
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.15)';
+      ctx.shadowBlur = 30;
+      ctx.shadowOffsetY = -4;
+      ctx.fillStyle = 'rgba(255,255,255,0.88)';
+      canvasRoundRect(ctx, mg + barW, panelTop, cardW - barW, panelH, 16);
+      ctx.fill();
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      ctx.lineWidth = 1.5;
+      canvasRoundRect(ctx, mg + barW, panelTop, cardW - barW, panelH, 16);
+      ctx.stroke();
+      ctx.restore();
+
+      const aSize = 200;
+      const aCy = panelTop - 10;
       if (avatarImg) {
         ctx.save();
         ctx.shadowColor = 'rgba(0,0,0,0.3)';
         ctx.shadowBlur = 20;
         ctx.shadowOffsetY = 4;
         ctx.beginPath();
-        ctx.arc(centerX, aCy, aSize / 2 + 4, 0, Math.PI * 2);
+        ctx.arc(centerX, aCy, aSize / 2 + 5, 0, Math.PI * 2);
         ctx.fillStyle = '#fff';
         ctx.fill();
         ctx.restore();
@@ -1268,52 +1287,55 @@
         ctx.restore();
       }
 
-      const nameY = aCy + aSize / 2 + 52;
+      const nameY = aCy + aSize / 2 + 48;
       ctx.textAlign = 'center';
-      ctx.font = '700 44px "Playfair Display", Georgia, serif';
-      ctx.fillStyle = '#1a1a1a';
-      canvasWrapText(ctx, title || '', centerX, nameY, cw - 40, 54, 2);
+      ctx.font = '700 42px "Playfair Display", Georgia, serif';
+      const nameM = ctx.measureText(title || '');
+      const nhPad = 18, nvPad = 10;
+      ctx.fillStyle = 'rgba(0,0,0,0.75)';
+      canvasRoundRect(ctx, centerX - nameM.width / 2 - nhPad, nameY - 34 - nvPad, nameM.width + nhPad * 2, 44 + nvPad * 2, 10);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.fillText(title || '', centerX, nameY);
 
-      const words = (title || '').split(' ');
-      let tLines = 1, tLine = '';
-      for (const w of words) {
-        const test = tLine + (tLine ? ' ' : '') + w;
-        if (ctx.measureText(test).width > cw - 40 && tLine) { tLines++; tLine = w; }
-        else tLine = test;
-      }
-      let curProfileY = nameY + (tLines - 1) * 54;
+      let curProfileY = nameY;
 
       if (role) {
-        curProfileY += 38;
-        ctx.fillStyle = '#666';
-        ctx.font = '500 21px Inter, -apple-system, sans-serif';
+        curProfileY += 44;
+        ctx.font = '500 20px Inter, -apple-system, sans-serif';
+        const roleM = ctx.measureText(role);
+        const rhPad = 14, rvPad = 7;
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        canvasRoundRect(ctx, centerX - roleM.width / 2 - rhPad, curProfileY - 16 - rvPad, roleM.width + rhPad * 2, 24 + rvPad * 2, 8);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.95)';
         ctx.fillText(role, centerX, curProfileY);
       }
 
-      curProfileY += 36;
-      ctx.strokeStyle = 'rgba(0,0,0,0.15)';
-      ctx.lineWidth = 1.5;
+      curProfileY += 38;
+      ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(cx + 80, curProfileY);
-      ctx.lineTo(cr - 80, curProfileY);
+      ctx.moveTo(cx + 60, curProfileY);
+      ctx.lineTo(cr - 60, curProfileY);
       ctx.stroke();
 
       const metadata = opts.metadata;
       if (metadata && metadata.length) {
-        curProfileY += 30;
+        curProfileY += 24;
         ctx.textAlign = 'left';
         const chipX = cx + 20;
         const chipMaxW = cw - 40;
-        const cPadH = 22, cPadV = 12, cH = 24 + cPadV * 2, cR = cH / 2;
+        const cPadH = 20, cPadV = 11, cH = 22 + cPadV * 2, cR = cH / 2;
         for (const item of metadata.slice(0, 3)) {
-          ctx.font = '700 18px Inter, -apple-system, sans-serif';
+          ctx.font = '700 17px Inter, -apple-system, sans-serif';
           const lblW = ctx.measureText(item.label).width;
           let fullW = lblW;
           let sepW = 0, valText = item.value || '';
           if (valText) {
-            ctx.font = '400 18px Inter, -apple-system, sans-serif';
+            ctx.font = '400 17px Inter, -apple-system, sans-serif';
             sepW = ctx.measureText('  :  ').width;
-            ctx.font = '500 18px Inter, -apple-system, sans-serif';
+            ctx.font = '500 17px Inter, -apple-system, sans-serif';
             fullW = lblW + sepW + ctx.measureText(valText).width;
             const maxInner = chipMaxW - cPadH * 2;
             if (fullW > maxInner) {
@@ -1326,30 +1348,30 @@
           const chipW = Math.min(fullW + cPadH * 2, chipMaxW);
 
           ctx.save();
-          ctx.shadowColor = 'rgba(0,0,0,0.06)';
-          ctx.shadowBlur = 6;
+          ctx.shadowColor = 'rgba(0,0,0,0.12)';
+          ctx.shadowBlur = 8;
           ctx.shadowOffsetY = 2;
-          ctx.fillStyle = 'rgba(240,240,244,0.85)';
+          ctx.fillStyle = 'rgba(40,40,50,0.75)';
           canvasRoundRect(ctx, chipX, curProfileY, chipW, cH, cR);
           ctx.fill();
           ctx.restore();
-          ctx.strokeStyle = 'rgba(0,0,0,0.10)';
+          ctx.strokeStyle = 'rgba(255,255,255,0.15)';
           ctx.lineWidth = 1;
           canvasRoundRect(ctx, chipX, curProfileY, chipW, cH, cR);
           ctx.stroke();
 
           const tY = curProfileY + cH / 2 + 6;
-          ctx.font = '700 18px Inter, -apple-system, sans-serif';
-          ctx.fillStyle = '#222';
+          ctx.font = '700 17px Inter, -apple-system, sans-serif';
+          ctx.fillStyle = '#fff';
           ctx.fillText(item.label, chipX + cPadH, tY);
           if (item.value) {
             const lW = ctx.measureText(item.label).width;
-            ctx.fillStyle = '#aaa';
-            ctx.font = '400 18px Inter, -apple-system, sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.45)';
+            ctx.font = '400 17px Inter, -apple-system, sans-serif';
             ctx.fillText('  :  ', chipX + cPadH + lW, tY);
             const sW = ctx.measureText('  :  ').width;
-            ctx.fillStyle = '#555';
-            ctx.font = '500 18px Inter, -apple-system, sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.85)';
+            ctx.font = '500 17px Inter, -apple-system, sans-serif';
             ctx.fillText(valText, chipX + cPadH + lW + sW, tY);
           }
           curProfileY += cH + 10;
@@ -1424,29 +1446,36 @@
 
       if (isThoughts) {
         const availH = footerTop - curY - 40;
-        const iconCx = centerX, iconCy = curY + 20 + availH / 2;
-        const iconR = Math.min(availH * 0.35, 140);
+        const bCx = centerX, bCy = curY + 20 + availH * 0.42;
+        const bW = 260, bH = 180, bR = 28;
         ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.06)';
-        ctx.shadowBlur = 20;
-        ctx.shadowOffsetY = 4;
-        ctx.fillStyle = 'rgba(0,0,0,0.04)';
-        ctx.beginPath();
-        ctx.arc(iconCx, iconCy, iconR, 0, Math.PI * 2);
+        ctx.shadowColor = 'rgba(0,0,0,0.08)';
+        ctx.shadowBlur = 24;
+        ctx.shadowOffsetY = 6;
+        ctx.fillStyle = 'rgba(0,0,0,0.05)';
+        canvasRoundRect(ctx, bCx - bW / 2, bCy - bH / 2, bW, bH, bR);
         ctx.fill();
         ctx.restore();
         ctx.strokeStyle = 'rgba(0,0,0,0.08)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(iconCx, iconCy, iconR, 0, Math.PI * 2);
+        ctx.lineWidth = 1.5;
+        canvasRoundRect(ctx, bCx - bW / 2, bCy - bH / 2, bW, bH, bR);
         ctx.stroke();
+        const dotY = bCy + bH / 2 + 20;
+        ctx.fillStyle = 'rgba(0,0,0,0.06)';
+        ctx.beginPath(); ctx.arc(bCx - 20, dotY, 14, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(bCx - 48, dotY + 24, 8, 0, Math.PI * 2); ctx.fill();
+
+        ctx.fillStyle = 'rgba(0,0,0,0.06)';
+        for (let i = 0; i < 3; i++) {
+          const lw = bW * (0.7 - i * 0.15);
+          canvasRoundRect(ctx, bCx - lw / 2, bCy - bH / 2 + 38 + i * 28, lw, 10, 5);
+          ctx.fill();
+        }
+
         ctx.textAlign = 'center';
-        ctx.fillStyle = accent1;
-        ctx.font = 'bold ' + Math.round(iconR * 1.1) + 'px "Playfair Display", Georgia, serif';
-        ctx.fillText('?', iconCx, iconCy + iconR * 0.38);
-        ctx.font = '400 20px Inter, -apple-system, sans-serif';
         ctx.fillStyle = '#999';
-        ctx.fillText('Random ideas that pop in my mind', iconCx, iconCy + iconR + 36);
+        ctx.font = '400 19px Inter, -apple-system, sans-serif';
+        ctx.fillText('Random ideas that pop in my mind', bCx, bCy + bH / 2 + 70);
         ctx.textAlign = 'left';
         if (logoImg) {
           const lh = 28, lw = lh * (logoImg.width / logoImg.height);
@@ -1462,61 +1491,64 @@
         const imgs = galleryImgs.filter(Boolean);
         const gridCount = Math.min(imgs.length, 4);
         if (gridCount) {
-          const mW = Math.floor((cw - 22) / 2);
-          const mH = Math.floor((cw - 22) / 2 * 0.75);
-          const mGap = 22, mR = 12;
-          const rows = Math.ceil(gridCount / 2);
-          const totalH = rows * mH + (rows - 1) * mGap;
-          const availH = footerTop - curY - 40;
-          const mStartY = curY + 20 + (availH - totalH) / 2;
-          for (let i = 0; i < gridCount; i++) {
+          const mGap = 18, mR = 12;
+          const mW = Math.floor((cw - mGap) / 2);
+          const mH = mW;
+          const mStartY = curY + 24;
+          for (let i = 0; i < 4; i++) {
             const col = i % 2, row = Math.floor(i / 2);
             const mx = cx + col * (mW + mGap);
             const my = mStartY + row * (mH + mGap);
             ctx.save();
-            ctx.shadowColor = 'rgba(0,0,0,0.12)';
-            ctx.shadowBlur = 14;
-            ctx.shadowOffsetY = 4;
+            ctx.shadowColor = 'rgba(0,0,0,0.10)';
+            ctx.shadowBlur = 12;
+            ctx.shadowOffsetY = 3;
+            ctx.fillStyle = 'rgba(255,255,255,0.5)';
             canvasRoundRect(ctx, mx, my, mW, mH, mR);
-            ctx.fillStyle = '#e8e8e8';
             ctx.fill();
             ctx.restore();
-            ctx.save();
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+            ctx.lineWidth = 1;
             canvasRoundRect(ctx, mx, my, mW, mH, mR);
-            ctx.clip();
-            const img = imgs[i];
-            const iScale = Math.max(mW / img.width, mH / img.height);
-            ctx.drawImage(img, mx + (mW - img.width * iScale) / 2, my + (mH - img.height * iScale) / 2, img.width * iScale, img.height * iScale);
-            ctx.restore();
+            ctx.stroke();
+            if (i < gridCount) {
+              ctx.save();
+              canvasRoundRect(ctx, mx, my, mW, mH, mR);
+              ctx.clip();
+              const img = imgs[i];
+              const iScale = Math.max(mW / img.width, mH / img.height);
+              ctx.drawImage(img, mx + (mW - img.width * iScale) / 2, my + (mH - img.height * iScale) / 2, img.width * iScale, img.height * iScale);
+              ctx.restore();
+            }
           }
         }
         const gCount = galleryCount || 0;
         ctx.fillStyle = 'rgba(255,255,255,0.9)';
         ctx.font = 'bold 28px Inter, -apple-system, sans-serif';
-        const imgLabel = gCount + ' photo' + (gCount !== 1 ? 's' : '');
-        ctx.fillText(imgLabel, fcx, fcy + 11);
+        ctx.fillText(gCount + ' photo' + (gCount !== 1 ? 's' : ''), fcx, fcy + 11);
       } else if (isDirectory) {
         const titles = dirPostTitles || [];
-        const cardCount = Math.min(titles.length, 4);
-        if (cardCount) {
-          const mW = Math.floor((cw - 22) / 2);
-          const mH = 150, mGap = 22, mR = 10;
-          const rows = Math.ceil(cardCount / 2);
-          const totalH = rows * mH + (rows - 1) * mGap;
-          const availH = footerTop - curY - 40;
-          const mStartY = curY + 20 + (availH - totalH) / 2;
-          for (let i = 0; i < cardCount; i++) {
-            const col = i % 2, row = Math.floor(i / 2);
-            const mx = cx + col * (mW + mGap);
-            const my = mStartY + row * (mH + mGap);
-            ctx.save();
-            ctx.shadowColor = 'rgba(0,0,0,0.1)';
-            ctx.shadowBlur = 12;
-            ctx.shadowOffsetY = 3;
-            canvasRoundRect(ctx, mx, my, mW, mH, mR);
-            ctx.fillStyle = '#f5f5f8';
-            ctx.fill();
-            ctx.restore();
+        const mGap = 18, mR = 12;
+        const mW = Math.floor((cw - mGap) / 2);
+        const mH = mW;
+        const mStartY = curY + 24;
+        for (let i = 0; i < 4; i++) {
+          const col = i % 2, row = Math.floor(i / 2);
+          const mx = cx + col * (mW + mGap);
+          const my = mStartY + row * (mH + mGap);
+          ctx.save();
+          ctx.shadowColor = 'rgba(0,0,0,0.08)';
+          ctx.shadowBlur = 10;
+          ctx.shadowOffsetY = 3;
+          ctx.fillStyle = 'rgba(255,255,255,0.55)';
+          canvasRoundRect(ctx, mx, my, mW, mH, mR);
+          ctx.fill();
+          ctx.restore();
+          ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+          ctx.lineWidth = 1;
+          canvasRoundRect(ctx, mx, my, mW, mH, mR);
+          ctx.stroke();
+          if (i < titles.length) {
             ctx.save();
             canvasRoundRect(ctx, mx, my, mW, mH, mR);
             ctx.clip();
@@ -1530,17 +1562,14 @@
             while (ctx.measureText(dt).width > maxTw && dt.length > 1) dt = dt.slice(0, -1);
             if (dt.length < (titles[i] || '').length) dt += '\u2026';
             ctx.fillText(dt, mx + 14, my + 32);
-            ctx.fillStyle = '#ddd';
+            ctx.fillStyle = 'rgba(0,0,0,0.08)';
             for (let l = 0; l < 3; l++) {
-              canvasRoundRect(ctx, mx + 14, my + 54 + l * 18, mW * (0.78 - l * 0.1), 7, 3);
+              canvasRoundRect(ctx, mx + 14, my + 54 + l * 18, mW * (0.7 - l * 0.12), 7, 3);
               ctx.fill();
             }
-            ctx.fillStyle = '#e8e8e8';
-            canvasRoundRect(ctx, mx + 14, my + mH - 26, mW * 0.35, 6, 3);
-            ctx.fill();
           }
         }
-        const label = pageLabel || 'page';
+        const label = pageLabel || 'post';
         canvasFolderIcon(ctx, fcx, fcy + 14, 38, 'rgba(255,255,255,0.9)');
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 28px Inter, -apple-system, sans-serif';
