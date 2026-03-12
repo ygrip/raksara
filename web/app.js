@@ -1225,29 +1225,10 @@
     const siteName = (state.config && state.config.hero_title) || 'Raksara';
 
     if (isProfile) {
-      const coverH = 220;
-      ctx.save();
-      canvasRoundRect(ctx, mg, mg, cardW, cardH, cardR);
-      ctx.clip();
-      if (coverImg) {
-        const cvs = Math.max(cardW / coverImg.width, coverH / coverImg.height);
-        ctx.filter = 'blur(2px) brightness(0.45)';
-        ctx.drawImage(coverImg, mg + (cardW - coverImg.width * cvs) / 2, mg + (coverH - coverImg.height * cvs) / 2, coverImg.width * cvs, coverImg.height * cvs);
-        ctx.filter = 'none';
-      } else {
-        const cvg = ctx.createLinearGradient(mg, mg, mg + cardW, mg + coverH);
-        cvg.addColorStop(0, '#1a1a2e'); cvg.addColorStop(1, '#12122a');
-        ctx.fillStyle = cvg;
-        ctx.fillRect(mg, mg, cardW, coverH);
-      }
-      const fadeG = ctx.createLinearGradient(0, mg + coverH - 50, 0, mg + coverH);
-      fadeG.addColorStop(0, 'rgba(255,255,255,0)');
-      fadeG.addColorStop(1, '#ffffff');
-      ctx.fillStyle = fadeG;
-      ctx.fillRect(mg, mg + coverH - 50, cardW, 50);
-      ctx.restore();
+      const aSize = 180;
+      const avatarTop = mg + 60;
+      const aCy = avatarTop + aSize / 2;
 
-      const aSize = 200, aCy = mg + coverH;
       if (avatarImg) {
         ctx.save();
         ctx.beginPath();
@@ -1256,48 +1237,58 @@
         const aS = Math.max(aSize / avatarImg.width, aSize / avatarImg.height);
         ctx.drawImage(avatarImg, centerX - avatarImg.width * aS / 2, aCy - avatarImg.height * aS / 2, avatarImg.width * aS, avatarImg.height * aS);
         ctx.restore();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 5;
+        ctx.strokeStyle = '#e0e0e0';
+        ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.arc(centerX, aCy, aSize / 2 + 2, 0, Math.PI * 2);
         ctx.stroke();
       }
 
-      const nameY = aCy + aSize / 2 + 50;
+      const nameY = aCy + aSize / 2 + 58;
       ctx.textAlign = 'center';
       ctx.fillStyle = '#1a1a1a';
-      ctx.font = '700 48px "Playfair Display", Georgia, serif';
-      ctx.fillText(title, centerX, nameY);
+      ctx.font = '700 46px "Playfair Display", Georgia, serif';
+      const nameLinesCount = canvasWrapText(ctx, title || '', centerX, nameY, cw, 58, 2);
+      const nameBottom = nameY + (nameLinesCount - 1) * 58;
+      let curProfileY = nameBottom;
+
       if (role) {
-        ctx.fillStyle = '#777';
-        ctx.font = '400 22px Inter, -apple-system, sans-serif';
-        ctx.fillText(role, centerX, nameY + 42);
+        curProfileY += 36;
+        ctx.fillStyle = '#666';
+        ctx.font = '400 24px Inter, -apple-system, sans-serif';
+        ctx.fillText(role, centerX, curProfileY);
       }
 
-      const pSepY = nameY + (role ? 72 : 30);
-      canvasSeparator(ctx, cx + 100, cr - 100, pSepY);
+      curProfileY += 40;
+      canvasSeparator(ctx, cx + 60, cr - 60, curProfileY);
 
       const metadata = opts.metadata;
       if (metadata && metadata.length) {
-        let metaY = pSepY + 42;
+        curProfileY += 48;
         ctx.textAlign = 'left';
+        const metaX = cx + 40;
         for (const item of metadata.slice(0, 3)) {
-          const lbl = item.label, val = item.value ? ' :  ' + item.value : '';
-          ctx.font = '500 17px Inter, -apple-system, sans-serif';
-          const lblW = ctx.measureText(lbl).width;
-          const valW = ctx.measureText(val).width;
-          const mStartX = centerX - (lblW + valW) / 2;
-          ctx.fillStyle = '#999';
-          ctx.fillText(lbl, mStartX, metaY);
-          ctx.fillStyle = '#444';
-          ctx.fillText(val, mStartX + lblW, metaY);
-          metaY += 38;
+          ctx.font = '600 20px Inter, -apple-system, sans-serif';
+          ctx.fillStyle = accent1;
+          ctx.fillText(item.label, metaX, curProfileY);
+          if (item.value) {
+            const lblW = ctx.measureText(item.label).width;
+            ctx.fillStyle = '#888';
+            ctx.font = '400 20px Inter, -apple-system, sans-serif';
+            ctx.fillText('  :  ', metaX + lblW, curProfileY);
+            const sepW = ctx.measureText('  :  ').width;
+            ctx.fillStyle = '#333';
+            ctx.font = '500 20px Inter, -apple-system, sans-serif';
+            ctx.fillText(item.value, metaX + lblW + sepW, curProfileY);
+          }
+          curProfileY += 46;
         }
       }
       ctx.textAlign = 'left';
 
       if (logoImg) {
         const lh = 28, lw = lh * (logoImg.width / logoImg.height);
+        ctx.textAlign = 'left';
         ctx.font = '600 20px Inter, -apple-system, sans-serif';
         const snw = ctx.measureText(siteName).width;
         const totalW = lw + 10 + snw;
