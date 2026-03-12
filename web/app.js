@@ -410,7 +410,7 @@
       ${foldersHtml}
       <div class="post-list">${postsHtml || '<div class="empty-state"><p>No posts in this directory.</p></div>'}</div>
     `);
-    initShareButton(title, { isDirectory: true, pageCount: isRoot ? state.posts.length : total });
+    initShareButton(title, { isDirectory: true, pageCount: isRoot ? state.posts.length : total, dirPostTitles: dirPosts.slice(0, 3).map(p => p.title) });
     initLazyImages();
   }
 
@@ -582,7 +582,7 @@
         ${postNavHtml}
         ${contentFooter(frontmatter.author)}
       `);
-      initShareButton(post.title, { coverUrl, author: frontmatter.author, readTime, summary: post.summary });
+      initShareButton(post.title, { coverUrl, author: frontmatter.author, readTime, summary: post.summary, category: post.category, tags: post.tags });
       initReadingMode(frontmatter);
       initArticleImages();
       initContentLinks();
@@ -689,7 +689,7 @@
         <div class="article-body">${html}</div>
         ${contentFooter(frontmatter.author)}
       `);
-      initShareButton(item.title, { author: frontmatter.author, readTime });
+      initShareButton(item.title, { author: frontmatter.author, readTime, category: item.category, tags: item.tags });
       initArticleImages();
       initContentLinks();
       scrollToAnchor();
@@ -1056,19 +1056,16 @@
     ctx.closePath();
   }
 
-  function canvasFavicon(ctx, cx, cy, size, color1, color2) {
-    const half = size / 2;
-    const grad = ctx.createLinearGradient(cx - half, cy - half, cx + half, cy + half);
-    grad.addColorStop(0, color1);
-    grad.addColorStop(1, color2);
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - half);
-    ctx.lineTo(cx + half, cy);
-    ctx.lineTo(cx, cy + half);
-    ctx.lineTo(cx - half, cy);
-    ctx.closePath();
-    ctx.fill();
+  function createLogoImage(color) {
+    return new Promise((resolve, reject) => {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-14 -10 124 120" fill="${color}" stroke="${color}"><path d="M50 8 L8 50 L50 92 L92 50" stroke-width="10" stroke-linejoin="miter" stroke-linecap="butt" fill="none"/><path d="M 50 8 L 68 26" stroke-width="10" stroke-linecap="butt" fill="none"/><rect x="52" y="45" width="40" height="10" stroke="none"/><path d="M 35 22 C 22 8, 6 -2, -8 -4 C -4 4, 10 18, 26 32 Z" stroke="none"/><path d="M 26 68 C 10 84, -4 96, -8 104 C 4 96, 18 82, 35 78 Z" stroke="none"/></svg>`;
+      const blob = new Blob([svg], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(); };
+      img.src = url;
+    });
   }
 
   function canvasFolderIcon(ctx, x, y, size, color) {
@@ -1087,16 +1084,16 @@
   }
 
   function canvasSeparator(ctx, x1, x2, y) {
-    ctx.strokeStyle = '#e5e5e5';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#bbb';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(x1, y + 0.5);
-    ctx.lineTo(x2, y + 0.5);
+    ctx.moveTo(x1, y);
+    ctx.lineTo(x2, y);
     ctx.stroke();
   }
 
   async function generateShareImage(title, opts) {
-    const { coverUrl, author, readTime, summary, isDirectory, pageCount } = opts || {};
+    const { coverUrl, author, readTime, summary, isDirectory, pageCount, category, tags, dirPostTitles } = opts || {};
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const S = 1080;
@@ -1106,20 +1103,18 @@
     const accent1 = cs.getPropertyValue('--gradient-1').trim() || '#6366f1';
     const accent2 = cs.getPropertyValue('--gradient-2').trim() || '#8b5cf6';
 
-    let hasCover = false;
-    if (coverUrl) {
-      try {
-        const img = await loadImageCors(coverUrl);
-        const scale = Math.max(S / img.width, S / img.height);
-        const w = img.width * scale, h = img.height * scale;
-        ctx.filter = 'blur(20px) brightness(0.25)';
-        ctx.drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
-        ctx.filter = 'none';
-        hasCover = true;
-      } catch {}
-    }
+    let coverImg = null, logoImg = null;
+    const loads = [createLogoImage(accent1).then(i => { logoImg = i; }).catch(() => {})];
+    if (coverUrl) loads.push(loadImageCors(coverUrl).then(i => { coverImg = i; }).catch(() => {}));
+    await Promise.all(loads);
 
-    if (!hasCover) {
+    if (coverImg) {
+      const scale = Math.max(S / coverImg.width, S / coverImg.height);
+      const w = coverImg.width * scale, h = coverImg.height * scale;
+      ctx.filter = 'blur(20px) brightness(0.25)';
+      ctx.drawImage(coverImg, (S - w) / 2, (S - h) / 2, w, h);
+      ctx.filter = 'none';
+    } else {
       const bg = ctx.createLinearGradient(0, 0, S, S);
       bg.addColorStop(0, '#0f0f1a'); bg.addColorStop(1, '#1a1a2e');
       ctx.fillStyle = bg;
@@ -1135,7 +1130,8 @@
     }
 
     const mg = 56, cardW = S - mg * 2, cardH = S - mg * 2, cardR = 18;
-    const barW = 5, pad = 48;
+    const barW = 5, pad = 44;
+    const footerH = 130, footerTop = mg + cardH - footerH;
 
     ctx.save();
     ctx.shadowColor = 'rgba(0,0,0,0.3)';
@@ -1153,54 +1149,159 @@
     ctx.fillRect(mg, mg, barW, cardH);
     ctx.restore();
 
-    const cx = mg + barW + pad;
-    const cr = mg + cardW - pad;
-    const ct = mg + pad;
-    const cb = mg + cardH - pad;
-    const cw = cr - cx;
+    ctx.save();
+    canvasRoundRect(ctx, mg, mg, cardW, cardH, cardR);
+    ctx.clip();
+    if (coverImg) {
+      const fs = Math.max(cardW / coverImg.width, footerH * 2 / coverImg.height);
+      ctx.filter = 'blur(8px) brightness(0.3)';
+      ctx.drawImage(coverImg, mg + (cardW - coverImg.width * fs) / 2, footerTop + (footerH - coverImg.height * fs) / 2, coverImg.width * fs, coverImg.height * fs);
+      ctx.filter = 'none';
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.fillRect(mg, footerTop, cardW, footerH);
+    } else {
+      const fg = ctx.createLinearGradient(mg, footerTop, mg + cardW, footerTop + footerH);
+      fg.addColorStop(0, '#1a1a2e'); fg.addColorStop(1, '#12122a');
+      ctx.fillStyle = fg;
+      ctx.fillRect(mg, footerTop, cardW, footerH);
+      ctx.globalAlpha = 0.2;
+      const fo = ctx.createRadialGradient(mg + cardW * 0.3, footerTop + footerH / 2, 0, mg + cardW * 0.3, footerTop + footerH / 2, 250);
+      fo.addColorStop(0, accent1); fo.addColorStop(1, 'transparent');
+      ctx.fillStyle = fo;
+      ctx.fillRect(mg, footerTop, cardW, footerH);
+      ctx.globalAlpha = 1;
+    }
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(mg, footerTop);
+    ctx.lineTo(mg + cardW, footerTop);
+    ctx.stroke();
+    ctx.restore();
 
-    const topY = ct + 18;
+    const fcx = mg + barW + pad, fcr = mg + cardW - pad;
+    const fcy = footerTop + footerH / 2;
+    if (isDirectory && pageCount != null) {
+      canvasFolderIcon(ctx, fcx, fcy + 14, 38, 'rgba(255,255,255,0.9)');
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 28px Inter, -apple-system, sans-serif';
+      ctx.fillText(pageCount + ' page' + (pageCount !== 1 ? 's' : ''), fcx + 52, fcy + 11);
+    } else if (author) {
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.font = '500 22px Inter, -apple-system, sans-serif';
+      ctx.fillText(author, fcx, fcy + 8);
+    }
+
+    const cx = mg + barW + pad, cr = mg + cardW - pad;
+    const ct = mg + pad, cw = cr - cx;
+
+    const topY = ct + 22;
     if (readTime) {
-      ctx.fillStyle = '#888888';
+      ctx.fillStyle = '#888';
       ctx.font = '500 17px Inter, -apple-system, sans-serif';
       ctx.fillText(readTime + ' min read', cx, topY);
     }
-
     const siteName = (state.config && state.config.hero_title) || 'Raksara';
     ctx.font = '500 17px Inter, -apple-system, sans-serif';
-    ctx.fillStyle = '#aaaaaa';
-    const logoW = ctx.measureText(siteName).width;
-    ctx.fillText(siteName, cr - logoW, topY);
-    canvasFavicon(ctx, cr - logoW - 16, topY - 5, 14, accent1, accent2);
-
-    canvasSeparator(ctx, cx, cr, ct + 46);
-
-    ctx.fillStyle = '#1a1a1a';
-    ctx.font = 'bold 46px Inter, -apple-system, sans-serif';
-    const titleY = ct + 92;
-    const titleLines = canvasWrapText(ctx, title || '', cx, titleY, cw, 58, 4);
-
-    const sep2Y = titleY + titleLines * 58 + 24;
-    canvasSeparator(ctx, cx, cr, sep2Y);
-
-    if (summary) {
-      ctx.fillStyle = '#666666';
-      ctx.font = '400 19px Inter, -apple-system, sans-serif';
-      canvasWrapText(ctx, summary, cx, sep2Y + 30, cw, 28, 4);
+    ctx.fillStyle = '#aaa';
+    const nameW = ctx.measureText(siteName).width;
+    ctx.fillText(siteName, cr - nameW, topY);
+    if (logoImg) {
+      const lh = 24, lw = lh * (logoImg.width / logoImg.height);
+      ctx.drawImage(logoImg, cr - nameW - lw - 8, topY - lh + 6, lw, lh);
     }
 
-    canvasSeparator(ctx, cx, cr, cb - 48);
+    canvasSeparator(ctx, cx, cr, ct + 52);
 
-    const bottomY = cb - 12;
-    if (isDirectory && pageCount != null) {
-      canvasFolderIcon(ctx, cx, bottomY, 22, accent1);
-      ctx.fillStyle = '#555555';
-      ctx.font = '400 18px Inter, -apple-system, sans-serif';
-      ctx.fillText(pageCount + ' page' + (pageCount !== 1 ? 's' : ''), cx + 30, bottomY - 3);
-    } else if (author) {
-      ctx.fillStyle = '#444444';
-      ctx.font = '400 19px Inter, -apple-system, sans-serif';
-      ctx.fillText(author, cx, bottomY);
+    ctx.fillStyle = '#1a1a1a';
+    ctx.font = 'bold 58px Inter, -apple-system, sans-serif';
+    ctx.letterSpacing = '-0.5px';
+    const titleY = ct + 108;
+    const titleLines = canvasWrapText(ctx, title || '', cx, titleY, cw, 72, 3);
+    ctx.letterSpacing = '0px';
+    let curY = titleY + titleLines * 72;
+
+    const chipLabels = [];
+    if (category) chipLabels.push(category);
+    if (tags && tags.length) {
+      for (const t of tags) { if (t !== category && chipLabels.length < 3) chipLabels.push(t); }
+    }
+    if (chipLabels.length) {
+      curY += 18;
+      let chipX = cx;
+      ctx.font = '500 15px Inter, -apple-system, sans-serif';
+      for (const label of chipLabels) {
+        const tw = ctx.measureText(label).width;
+        const cW = tw + 22, cH = 30, cR = 7;
+        if (chipX + cW > cr) break;
+        ctx.globalAlpha = 0.12;
+        ctx.fillStyle = accent1;
+        canvasRoundRect(ctx, chipX, curY, cW, cH, cR);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = accent1;
+        ctx.globalAlpha = 0.3;
+        ctx.lineWidth = 1;
+        canvasRoundRect(ctx, chipX, curY, cW, cH, cR);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = accent1;
+        ctx.fillText(label, chipX + 11, curY + 20);
+        chipX += cW + 10;
+      }
+      curY += 30;
+    }
+
+    curY += 20;
+    canvasSeparator(ctx, cx, cr, curY);
+
+    if (isDirectory) {
+      const titles = dirPostTitles || [];
+      const cardCount = Math.min(titles.length, 3);
+      if (cardCount) {
+        const mW = 220, mH = 150, mGap = 22, mR = 10;
+        const totalW = cardCount * mW + (cardCount - 1) * mGap;
+        const mStartX = cx + (cw - totalW) / 2;
+        const availH = footerTop - curY - 40;
+        const mStartY = curY + 20 + (availH - mH) / 2;
+        for (let i = 0; i < cardCount; i++) {
+          const mx = mStartX + i * (mW + mGap);
+          const my = mStartY;
+          ctx.save();
+          ctx.shadowColor = 'rgba(0,0,0,0.1)';
+          ctx.shadowBlur = 12;
+          ctx.shadowOffsetY = 3;
+          canvasRoundRect(ctx, mx, my, mW, mH, mR);
+          ctx.fillStyle = '#f5f5f8';
+          ctx.fill();
+          ctx.restore();
+          ctx.save();
+          canvasRoundRect(ctx, mx, my, mW, mH, mR);
+          ctx.clip();
+          ctx.fillStyle = accent1;
+          ctx.fillRect(mx, my, mW, 5);
+          ctx.restore();
+          ctx.fillStyle = '#333';
+          ctx.font = 'bold 14px Inter, -apple-system, sans-serif';
+          let dt = titles[i] || '';
+          const maxTw = mW - 24;
+          while (ctx.measureText(dt).width > maxTw && dt.length > 1) dt = dt.slice(0, -1);
+          if (dt.length < (titles[i] || '').length) dt += '\u2026';
+          ctx.fillText(dt, mx + 12, my + 30);
+          ctx.fillStyle = '#ddd';
+          for (let l = 0; l < 3; l++) {
+            canvasRoundRect(ctx, mx + 12, my + 50 + l * 17, mW * (0.78 - l * 0.12), 7, 3);
+            ctx.fill();
+          }
+          ctx.fillStyle = '#e8e8e8';
+          canvasRoundRect(ctx, mx + 12, my + mH - 26, mW * 0.35, 6, 3);
+          ctx.fill();
+        }
+      }
+    } else if (summary) {
+      ctx.fillStyle = '#555';
+      ctx.font = '400 22px Inter, -apple-system, sans-serif';
+      canvasWrapText(ctx, summary, cx, curY + 32, cw, 34, 5);
     }
 
     return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
