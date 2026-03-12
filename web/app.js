@@ -1307,17 +1307,21 @@
           const chipW = Math.min(fullW + cPadH * 2, chipMaxW);
 
           ctx.save();
-          ctx.shadowColor = 'rgba(0,0,0,0.08)';
-          ctx.shadowBlur = 6;
-          ctx.shadowOffsetY = 2;
-          ctx.fillStyle = 'rgba(0,0,0,0.06)';
+          ctx.shadowColor = 'rgba(0,0,0,0.10)';
+          ctx.shadowBlur = 10;
+          ctx.shadowOffsetY = 3;
+          ctx.fillStyle = '#f0f0f4';
           canvasRoundRect(ctx, chipX, curProfileY, chipW, cH, cR);
           ctx.fill();
           ctx.restore();
 
-          ctx.strokeStyle = 'rgba(0,0,0,0.10)';
-          ctx.lineWidth = 1.2;
+          ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+          ctx.lineWidth = 1.5;
           canvasRoundRect(ctx, chipX, curProfileY, chipW, cH, cR);
+          ctx.stroke();
+          ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+          ctx.lineWidth = 1;
+          canvasRoundRect(ctx, chipX + 0.5, curProfileY + 0.5, chipW - 1, cH - 1, cR);
           ctx.stroke();
 
           const tY = curProfileY + cH / 2 + 7;
