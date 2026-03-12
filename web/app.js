@@ -555,6 +555,11 @@
             </div>
           </div>`;
 
+      const coverUrl = resolvePath(frontmatter.cover || post.cover) || '';
+      const coverHtml = coverUrl
+        ? `<div class="article-cover"><img src="${escapeHtml(coverUrl)}" alt="" loading="lazy"></div>`
+        : '';
+
       if (layout.bodyClass) document.getElementById('page-content').setAttribute('data-layout', type);
       else document.getElementById('page-content').removeAttribute('data-layout');
 
@@ -568,6 +573,7 @@
           </div>
         </div>
         ${headerHtml}
+        ${coverHtml}
         ${bodyHtml}
         ${postNavHtml}
         ${contentFooter(frontmatter.author)}

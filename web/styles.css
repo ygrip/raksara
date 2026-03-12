@@ -1722,6 +1722,20 @@ body {
 
 .article-meta .tag { padding: 3px 10px; font-size: 11px; }
 
+.article-cover {
+  margin: 0 auto 32px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-glass);
+}
+
+.article-cover img {
+  width: 100%;
+  display: block;
+  object-fit: cover;
+  max-height: 420px;
+}
+
 .article-body {
   overflow-wrap: break-word;
   word-break: break-word;
