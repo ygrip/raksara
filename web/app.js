@@ -646,7 +646,7 @@
       </div>
       <div class="timeline">${timelineHtml}</div>
     `);
-    initShareButton('Portfolio');
+    initShareButton('Portfolio', { isDirectory: true, pageCount: state.portfolio.length, dirPostTitles: sorted.slice(0, 4).map(p => p.title), pageLabel: 'project' });
     initPortfolioCards();
   }
 
@@ -698,7 +698,8 @@
 
   // ── Gallery ───────────────────────────────────────────
 
-  function renderGallery() {
+  function renderGallery(autoOpenIndex) {
+    const shareIconSvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 8.5v5a1 1 0 001 1h6a1 1 0 001-1v-5M8 1v8.5M5 4l3-3 3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     const items = state.gallery.map((g, galleryIndex) => {
       const images = getGalleryImages(g);
       if (!images.length) return '';
@@ -712,6 +713,7 @@
         <div class="gallery-card-img" onclick="window.__openGallery(${galleryIndex})">
           <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(g.title)}" loading="lazy">
           ${countBadge}
+          <button class="gallery-share-btn" data-gallery-index="${galleryIndex}" data-gallery-title="${escapeHtml(g.title)}" aria-label="Share image" onclick="event.stopPropagation()">${shareIconSvg}</button>
         </div>
         <div class="gallery-card-info">
           <div class="gallery-card-header">
@@ -727,6 +729,11 @@
       </div>`;
     }).join('');
 
+    const galleryImageUrls = state.gallery.slice(0, 4).map(g => {
+      const imgs = getGalleryImages(g);
+      return imgs.length ? resolvePath(imgs[0].src) : '';
+    }).filter(Boolean);
+
     showContent(`
       <div class="page-header">
         <div>
@@ -737,9 +744,13 @@
       </div>
       <div class="gallery-list">${items}</div>
     `);
-    initShareButton('Gallery');
+    initShareButton('Gallery', { isGallery: true, galleryImageUrls, galleryCount: state.gallery.length });
     initGalleryToggles();
+    initGalleryShareButtons();
     initLazyImages();
+    if (typeof autoOpenIndex === 'number' && autoOpenIndex >= 0) {
+      setTimeout(() => window.__openGallery(autoOpenIndex), 100);
+    }
   }
 
   function initGalleryToggles() {
@@ -748,6 +759,22 @@
         const desc = btn.closest('.gallery-card-desc');
         const isCollapsed = desc.classList.toggle('collapsed');
         btn.textContent = isCollapsed ? 'Show more' : 'Show less';
+      });
+    });
+  }
+
+  function initGalleryShareButtons() {
+    document.querySelectorAll('.gallery-share-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = btn.dataset.galleryIndex;
+        const title = btn.dataset.galleryTitle;
+        const baseUrl = window.location.origin + window.location.pathname;
+        const url = baseUrl + '#/gallery/' + idx;
+        navigator.clipboard.writeText(title + ' : ' + url).then(() => {
+          btn.classList.add('copied');
+          setTimeout(() => btn.classList.remove('copied'), 2000);
+        }).catch(() => {});
       });
     });
   }
@@ -1094,8 +1121,9 @@
   }
 
   async function generateShareImage(title, opts) {
-    const { coverUrl, author, readTime, summary, isDirectory, pageCount,
-      category, tags, dirPostTitles, isProfile, avatarUrl, role, socials } = opts || {};
+    const { coverUrl, author, readTime, summary, isDirectory, pageCount, pageLabel,
+      category, tags, dirPostTitles, isProfile, avatarUrl, role, socials,
+      isGallery, galleryImageUrls, galleryCount } = opts || {};
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const S = 1080;
@@ -1106,9 +1134,15 @@
     const accent2 = cs.getPropertyValue('--gradient-2').trim() || '#8b5cf6';
 
     let coverImg = null, logoImg = null, avatarImg = null;
+    const galleryImgs = [];
     const loads = [createLogoImage(accent1).then(i => { logoImg = i; }).catch(() => {})];
     if (coverUrl) loads.push(loadImageCors(coverUrl).then(i => { coverImg = i; }).catch(() => {}));
     if (isProfile && avatarUrl) loads.push(loadImageCors(avatarUrl).then(i => { avatarImg = i; }).catch(() => {}));
+    if (isGallery && galleryImageUrls) {
+      galleryImageUrls.slice(0, 4).forEach((url, idx) => {
+        loads.push(loadImageCors(url).then(img => { galleryImgs[idx] = img; }).catch(() => {}));
+      });
+    }
     await Promise.all(loads);
     try { await document.fonts.load('700 58px "Playfair Display"'); } catch {}
 
@@ -1327,7 +1361,44 @@
       curY += 20;
       canvasSeparator(ctx, cx, cr, curY);
 
-      if (isDirectory) {
+      if (isGallery) {
+        const imgs = galleryImgs.filter(Boolean);
+        const gridCount = Math.min(imgs.length, 4);
+        if (gridCount) {
+          const mW = Math.floor((cw - 22) / 2);
+          const mH = Math.floor((cw - 22) / 2 * 0.75);
+          const mGap = 22, mR = 12;
+          const rows = Math.ceil(gridCount / 2);
+          const totalH = rows * mH + (rows - 1) * mGap;
+          const availH = footerTop - curY - 40;
+          const mStartY = curY + 20 + (availH - totalH) / 2;
+          for (let i = 0; i < gridCount; i++) {
+            const col = i % 2, row = Math.floor(i / 2);
+            const mx = cx + col * (mW + mGap);
+            const my = mStartY + row * (mH + mGap);
+            ctx.save();
+            ctx.shadowColor = 'rgba(0,0,0,0.12)';
+            ctx.shadowBlur = 14;
+            ctx.shadowOffsetY = 4;
+            canvasRoundRect(ctx, mx, my, mW, mH, mR);
+            ctx.fillStyle = '#e8e8e8';
+            ctx.fill();
+            ctx.restore();
+            ctx.save();
+            canvasRoundRect(ctx, mx, my, mW, mH, mR);
+            ctx.clip();
+            const img = imgs[i];
+            const iScale = Math.max(mW / img.width, mH / img.height);
+            ctx.drawImage(img, mx + (mW - img.width * iScale) / 2, my + (mH - img.height * iScale) / 2, img.width * iScale, img.height * iScale);
+            ctx.restore();
+          }
+        }
+        const gCount = galleryCount || 0;
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.font = 'bold 28px Inter, -apple-system, sans-serif';
+        const imgLabel = gCount + ' photo' + (gCount !== 1 ? 's' : '');
+        ctx.fillText(imgLabel, fcx, fcy + 11);
+      } else if (isDirectory) {
         const titles = dirPostTitles || [];
         const cardCount = Math.min(titles.length, 4);
         if (cardCount) {
@@ -1372,10 +1443,11 @@
             ctx.fill();
           }
         }
+        const label = pageLabel || 'page';
         canvasFolderIcon(ctx, fcx, fcy + 14, 38, 'rgba(255,255,255,0.9)');
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 28px Inter, -apple-system, sans-serif';
-        ctx.fillText(pageCount + ' page' + (pageCount !== 1 ? 's' : ''), fcx + 52, fcy + 11);
+        ctx.fillText(pageCount + ' ' + label + (pageCount !== 1 ? 's' : ''), fcx + 52, fcy + 11);
       } else {
         if (summary) {
           ctx.fillStyle = '#555';
@@ -1598,6 +1670,7 @@
     else if (parts[0] === 'blog') renderBlogDir('');
     else if (parts[0] === 'portfolio' && parts[1]) await renderPortfolioItem(parts[1]);
     else if (parts[0] === 'portfolio') renderPortfolioList();
+    else if (parts[0] === 'gallery' && parts[1]) renderGallery(parseInt(parts[1]));
     else if (parts[0] === 'gallery') renderGallery();
     else if (parts[0] === 'thoughts') renderThoughts();
     else if (parts[0] === 'tags') renderTags();
