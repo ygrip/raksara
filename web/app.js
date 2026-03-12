@@ -347,14 +347,21 @@
   }
 
   function renderPostCard(p) {
+    const coverSrc = p.cover ? resolvePath(p.cover) : '';
+    const thumbHtml = coverSrc
+      ? `<div class="post-card-thumb"><img src="${escapeHtml(coverSrc)}" alt="" loading="lazy"></div>`
+      : '';
     return `
-      <a href="#/blog/post/${p.slug}" class="post-card">
-        <div class="post-card-title">${escapeHtml(p.title)}</div>
-        <div class="post-card-summary">${escapeHtml(p.summary || '')}</div>
-        <div class="post-card-meta">
-          <span class="post-card-date">${formatDate(p.date)}</span>
-          ${p.category ? `<span class="post-card-category">${escapeHtml(p.category)}</span>` : ''}
-          ${(p.tags || []).map((t) => `<span class="tag" style="padding:2px 8px;font-size:11px">${escapeHtml(t)}</span>`).join('')}
+      <a href="#/blog/post/${p.slug}" class="post-card${coverSrc ? ' has-thumb' : ''}">
+        ${thumbHtml}
+        <div class="post-card-body">
+          <div class="post-card-title">${escapeHtml(p.title)}</div>
+          <div class="post-card-summary">${escapeHtml(p.summary || '')}</div>
+          <div class="post-card-meta">
+            <span class="post-card-date">${formatDate(p.date)}</span>
+            ${p.category ? `<span class="post-card-category">${escapeHtml(p.category)}</span>` : ''}
+            ${(p.tags || []).map((t) => `<span class="tag" style="padding:2px 8px;font-size:11px">${escapeHtml(t)}</span>`).join('')}
+          </div>
         </div>
       </a>`;
   }
@@ -404,6 +411,7 @@
       <div class="post-list">${postsHtml || '<div class="empty-state"><p>No posts in this directory.</p></div>'}</div>
     `);
     initShareButton(title);
+    initLazyImages();
   }
 
   // ── Content Type System ───────────────────────────────
@@ -776,13 +784,20 @@
 
   function renderFilteredItem(item) {
     const sectionLabel = item.section ? `<span class="post-card-category">${escapeHtml(item.section)}</span>` : '';
+    const coverSrc = item.cover ? resolvePath(item.cover) : '';
+    const thumbHtml = coverSrc
+      ? `<div class="post-card-thumb"><img src="${escapeHtml(coverSrc)}" alt="" loading="lazy"></div>`
+      : '';
     return `
-      <a href="${itemHref(item)}" class="post-card">
-        <div class="post-card-title">${escapeHtml(item.title)}</div>
-        <div class="post-card-summary">${escapeHtml(item.summary || item.body || '')}</div>
-        <div class="post-card-meta">
-          ${item.date ? `<span class="post-card-date">${formatDate(item.date)}</span>` : ''}
-          ${sectionLabel}
+      <a href="${itemHref(item)}" class="post-card${coverSrc ? ' has-thumb' : ''}">
+        ${thumbHtml}
+        <div class="post-card-body">
+          <div class="post-card-title">${escapeHtml(item.title)}</div>
+          <div class="post-card-summary">${escapeHtml(item.summary || item.body || '')}</div>
+          <div class="post-card-meta">
+            ${item.date ? `<span class="post-card-date">${formatDate(item.date)}</span>` : ''}
+            ${sectionLabel}
+          </div>
         </div>
       </a>`;
   }
@@ -807,6 +822,7 @@
       <p class="page-subtitle">${filtered.length} item${filtered.length !== 1 ? 's' : ''}</p>
       <div class="post-list">${html || '<div class="empty-state"><p>No items with this tag.</p></div>'}</div>
     `);
+    initLazyImages();
   }
 
   function renderCategories() {
@@ -827,6 +843,7 @@
       <p class="page-subtitle">${filtered.length} item${filtered.length !== 1 ? 's' : ''}</p>
       <div class="post-list">${html || '<div class="empty-state"><p>No items in this category.</p></div>'}</div>
     `);
+    initLazyImages();
   }
 
   // ── Profile (Parallax Hero) ───────────────────────────
