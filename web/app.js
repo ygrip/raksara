@@ -922,7 +922,8 @@
         <div class="article-body">${html}</div>
       `);
       initParallax();
-      initShareButton(name);
+      const socialLabels = Object.entries(linkDefs).filter(([k]) => frontmatter[k]).map(([, def]) => def.label);
+      initShareButton(name, { isProfile: true, coverUrl, avatarUrl, role, socials: socialLabels });
       initProfileMedia(coverUrl);
       initArticleImages();
     } catch { showContent('<div class="empty-state"><h3>Profile not found</h3></div>'); }
@@ -1093,7 +1094,8 @@
   }
 
   async function generateShareImage(title, opts) {
-    const { coverUrl, author, readTime, summary, isDirectory, pageCount, category, tags, dirPostTitles } = opts || {};
+    const { coverUrl, author, readTime, summary, isDirectory, pageCount,
+      category, tags, dirPostTitles, isProfile, avatarUrl, role, socials } = opts || {};
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const S = 1080;
@@ -1103,15 +1105,17 @@
     const accent1 = cs.getPropertyValue('--gradient-1').trim() || '#6366f1';
     const accent2 = cs.getPropertyValue('--gradient-2').trim() || '#8b5cf6';
 
-    let coverImg = null, logoImg = null;
+    let coverImg = null, logoImg = null, avatarImg = null;
     const loads = [createLogoImage(accent1).then(i => { logoImg = i; }).catch(() => {})];
     if (coverUrl) loads.push(loadImageCors(coverUrl).then(i => { coverImg = i; }).catch(() => {}));
+    if (isProfile && avatarUrl) loads.push(loadImageCors(avatarUrl).then(i => { avatarImg = i; }).catch(() => {}));
     await Promise.all(loads);
+    try { await document.fonts.load('700 58px "Playfair Display"'); } catch {}
 
     if (coverImg) {
       const scale = Math.max(S / coverImg.width, S / coverImg.height);
       const w = coverImg.width * scale, h = coverImg.height * scale;
-      ctx.filter = 'blur(20px) brightness(0.25)';
+      ctx.filter = 'blur(12px) brightness(0.28)';
       ctx.drawImage(coverImg, (S - w) / 2, (S - h) / 2, w, h);
       ctx.filter = 'none';
     } else {
@@ -1154,10 +1158,10 @@
     ctx.clip();
     if (coverImg) {
       const fs = Math.max(cardW / coverImg.width, footerH * 2 / coverImg.height);
-      ctx.filter = 'blur(8px) brightness(0.3)';
+      ctx.filter = 'blur(4px) brightness(0.35)';
       ctx.drawImage(coverImg, mg + (cardW - coverImg.width * fs) / 2, footerTop + (footerH - coverImg.height * fs) / 2, coverImg.width * fs, coverImg.height * fs);
       ctx.filter = 'none';
-      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.fillStyle = 'rgba(0,0,0,0.18)';
       ctx.fillRect(mg, footerTop, cardW, footerH);
     } else {
       const fg = ctx.createLinearGradient(mg, footerTop, mg + cardW, footerTop + footerH);
@@ -1171,137 +1175,183 @@
       ctx.fillRect(mg, footerTop, cardW, footerH);
       ctx.globalAlpha = 1;
     }
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.moveTo(mg, footerTop);
+    ctx.moveTo(mg + barW, footerTop);
     ctx.lineTo(mg + cardW, footerTop);
     ctx.stroke();
     ctx.restore();
 
-    const fcx = mg + barW + pad, fcr = mg + cardW - pad;
-    const fcy = footerTop + footerH / 2;
-    if (isDirectory && pageCount != null) {
-      canvasFolderIcon(ctx, fcx, fcy + 14, 38, 'rgba(255,255,255,0.9)');
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 28px Inter, -apple-system, sans-serif';
-      ctx.fillText(pageCount + ' page' + (pageCount !== 1 ? 's' : ''), fcx + 52, fcy + 11);
-    } else if (author) {
-      ctx.fillStyle = 'rgba(255,255,255,0.92)';
-      ctx.font = '500 22px Inter, -apple-system, sans-serif';
-      ctx.fillText(author, fcx, fcy + 8);
-    }
-
     const cx = mg + barW + pad, cr = mg + cardW - pad;
     const ct = mg + pad, cw = cr - cx;
-
-    const topY = ct + 22;
-    if (readTime) {
-      ctx.fillStyle = '#888';
-      ctx.font = '500 17px Inter, -apple-system, sans-serif';
-      ctx.fillText(readTime + ' min read', cx, topY);
-    }
+    const centerX = (cx + cr) / 2;
+    const fcx = mg + barW + pad, fcr = mg + cardW - pad;
+    const fcy = footerTop + footerH / 2;
     const siteName = (state.config && state.config.hero_title) || 'Raksara';
-    ctx.font = '500 17px Inter, -apple-system, sans-serif';
-    ctx.fillStyle = '#aaa';
-    const nameW = ctx.measureText(siteName).width;
-    ctx.fillText(siteName, cr - nameW, topY);
-    if (logoImg) {
-      const lh = 24, lw = lh * (logoImg.width / logoImg.height);
-      ctx.drawImage(logoImg, cr - nameW - lw - 8, topY - lh + 6, lw, lh);
-    }
 
-    canvasSeparator(ctx, cx, cr, ct + 52);
-
-    ctx.fillStyle = '#1a1a1a';
-    ctx.font = 'bold 58px Inter, -apple-system, sans-serif';
-    ctx.letterSpacing = '-0.5px';
-    const titleY = ct + 108;
-    const titleLines = canvasWrapText(ctx, title || '', cx, titleY, cw, 72, 3);
-    ctx.letterSpacing = '0px';
-    let curY = titleY + titleLines * 72;
-
-    const chipLabels = [];
-    if (category) chipLabels.push(category);
-    if (tags && tags.length) {
-      for (const t of tags) { if (t !== category && chipLabels.length < 3) chipLabels.push(t); }
-    }
-    if (chipLabels.length) {
-      curY += 18;
-      let chipX = cx;
-      ctx.font = '500 15px Inter, -apple-system, sans-serif';
-      for (const label of chipLabels) {
-        const tw = ctx.measureText(label).width;
-        const cW = tw + 22, cH = 30, cR = 7;
-        if (chipX + cW > cr) break;
-        ctx.globalAlpha = 0.12;
-        ctx.fillStyle = accent1;
-        canvasRoundRect(ctx, chipX, curY, cW, cH, cR);
-        ctx.fill();
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = accent1;
-        ctx.globalAlpha = 0.3;
-        ctx.lineWidth = 1;
-        canvasRoundRect(ctx, chipX, curY, cW, cH, cR);
+    if (isProfile) {
+      if (avatarImg) {
+        const aSize = 160, aCy = ct + 50 + aSize / 2;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(centerX, aCy, aSize / 2, 0, Math.PI * 2);
+        ctx.clip();
+        const aS = Math.max(aSize / avatarImg.width, aSize / avatarImg.height);
+        ctx.drawImage(avatarImg, centerX - avatarImg.width * aS / 2, aCy - avatarImg.height * aS / 2, avatarImg.width * aS, avatarImg.height * aS);
+        ctx.restore();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(centerX, aCy, aSize / 2 + 2, 0, Math.PI * 2);
         ctx.stroke();
-        ctx.globalAlpha = 1;
-        ctx.fillStyle = accent1;
-        ctx.fillText(label, chipX + 11, curY + 20);
-        chipX += cW + 10;
       }
-      curY += 30;
-    }
 
-    curY += 20;
-    canvasSeparator(ctx, cx, cr, curY);
+      const nameY = ct + 50 + 160 + 60;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#1a1a1a';
+      ctx.font = '700 48px "Playfair Display", Georgia, serif';
+      ctx.fillText(title, centerX, nameY);
+      if (role) {
+        ctx.fillStyle = '#666';
+        ctx.font = '400 22px Inter, -apple-system, sans-serif';
+        ctx.fillText(role, centerX, nameY + 42);
+      }
+      const pSepY = nameY + (role ? 74 : 34);
+      canvasSeparator(ctx, cx + 100, cr - 100, pSepY);
+      if (socials && socials.length) {
+        ctx.fillStyle = accent1;
+        ctx.font = '500 19px Inter, -apple-system, sans-serif';
+        ctx.fillText(socials.join('  \u00b7  '), centerX, pSepY + 42);
+      }
+      ctx.textAlign = 'left';
 
-    if (isDirectory) {
-      const titles = dirPostTitles || [];
-      const cardCount = Math.min(titles.length, 3);
-      if (cardCount) {
-        const mW = 220, mH = 150, mGap = 22, mR = 10;
-        const totalW = cardCount * mW + (cardCount - 1) * mGap;
-        const mStartX = cx + (cw - totalW) / 2;
-        const availH = footerTop - curY - 40;
-        const mStartY = curY + 20 + (availH - mH) / 2;
-        for (let i = 0; i < cardCount; i++) {
-          const mx = mStartX + i * (mW + mGap);
-          const my = mStartY;
-          ctx.save();
-          ctx.shadowColor = 'rgba(0,0,0,0.1)';
-          ctx.shadowBlur = 12;
-          ctx.shadowOffsetY = 3;
-          canvasRoundRect(ctx, mx, my, mW, mH, mR);
-          ctx.fillStyle = '#f5f5f8';
-          ctx.fill();
-          ctx.restore();
-          ctx.save();
-          canvasRoundRect(ctx, mx, my, mW, mH, mR);
-          ctx.clip();
+      if (logoImg) {
+        const lh = 28, lw = lh * (logoImg.width / logoImg.height);
+        ctx.font = '600 20px Inter, -apple-system, sans-serif';
+        const snw = ctx.measureText(siteName).width;
+        const totalW = lw + 10 + snw;
+        const lx = centerX - totalW / 2;
+        ctx.drawImage(logoImg, lx, fcy - lh / 2 + 2, lw, lh);
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.fillText(siteName, lx + lw + 10, fcy + 8);
+      }
+    } else {
+      const topY = ct + 22;
+      if (readTime) {
+        ctx.fillStyle = '#888';
+        ctx.font = '500 17px Inter, -apple-system, sans-serif';
+        ctx.fillText(readTime + ' min read', cx, topY);
+      }
+      ctx.font = '500 17px Inter, -apple-system, sans-serif';
+      ctx.fillStyle = '#aaa';
+      const nW = ctx.measureText(siteName).width;
+      ctx.fillText(siteName, cr - nW, topY);
+      if (logoImg) {
+        const lh = 24, lw = lh * (logoImg.width / logoImg.height);
+        ctx.drawImage(logoImg, cr - nW - lw - 8, topY - lh + 6, lw, lh);
+      }
+      canvasSeparator(ctx, cx, cr, ct + 52);
+
+      ctx.fillStyle = '#1a1a1a';
+      ctx.font = '700 58px "Playfair Display", Georgia, serif';
+      const titleY = ct + 108;
+      const titleLines = canvasWrapText(ctx, title || '', cx, titleY, cw, 72, 3);
+      let curY = titleY + titleLines * 72;
+
+      const chipLabels = [];
+      if (category) chipLabels.push(category);
+      if (tags && tags.length) {
+        for (const t of tags) { if (t !== category && chipLabels.length < 3) chipLabels.push(t); }
+      }
+      if (chipLabels.length) {
+        curY += 18;
+        let chipX = cx;
+        ctx.font = '500 15px Inter, -apple-system, sans-serif';
+        for (const label of chipLabels) {
+          const tw = ctx.measureText(label).width;
+          const cW = tw + 22, cH = 30, cR = 7;
+          if (chipX + cW > cr) break;
+          ctx.globalAlpha = 0.12;
           ctx.fillStyle = accent1;
-          ctx.fillRect(mx, my, mW, 5);
-          ctx.restore();
-          ctx.fillStyle = '#333';
-          ctx.font = 'bold 14px Inter, -apple-system, sans-serif';
-          let dt = titles[i] || '';
-          const maxTw = mW - 24;
-          while (ctx.measureText(dt).width > maxTw && dt.length > 1) dt = dt.slice(0, -1);
-          if (dt.length < (titles[i] || '').length) dt += '\u2026';
-          ctx.fillText(dt, mx + 12, my + 30);
-          ctx.fillStyle = '#ddd';
-          for (let l = 0; l < 3; l++) {
-            canvasRoundRect(ctx, mx + 12, my + 50 + l * 17, mW * (0.78 - l * 0.12), 7, 3);
+          canvasRoundRect(ctx, chipX, curY, cW, cH, cR);
+          ctx.fill();
+          ctx.globalAlpha = 0.3;
+          ctx.strokeStyle = accent1;
+          ctx.lineWidth = 1;
+          canvasRoundRect(ctx, chipX, curY, cW, cH, cR);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = accent1;
+          ctx.fillText(label, chipX + 11, curY + 20);
+          chipX += cW + 10;
+        }
+        curY += 30;
+      }
+      curY += 20;
+      canvasSeparator(ctx, cx, cr, curY);
+
+      if (isDirectory) {
+        const titles = dirPostTitles || [];
+        const cardCount = Math.min(titles.length, 4);
+        if (cardCount) {
+          const mW = Math.floor((cw - 22) / 2);
+          const mH = 150, mGap = 22, mR = 10;
+          const rows = Math.ceil(cardCount / 2);
+          const totalH = rows * mH + (rows - 1) * mGap;
+          const availH = footerTop - curY - 40;
+          const mStartY = curY + 20 + (availH - totalH) / 2;
+          for (let i = 0; i < cardCount; i++) {
+            const col = i % 2, row = Math.floor(i / 2);
+            const mx = cx + col * (mW + mGap);
+            const my = mStartY + row * (mH + mGap);
+            ctx.save();
+            ctx.shadowColor = 'rgba(0,0,0,0.1)';
+            ctx.shadowBlur = 12;
+            ctx.shadowOffsetY = 3;
+            canvasRoundRect(ctx, mx, my, mW, mH, mR);
+            ctx.fillStyle = '#f5f5f8';
+            ctx.fill();
+            ctx.restore();
+            ctx.save();
+            canvasRoundRect(ctx, mx, my, mW, mH, mR);
+            ctx.clip();
+            ctx.fillStyle = accent1;
+            ctx.fillRect(mx, my, mW, 5);
+            ctx.restore();
+            ctx.fillStyle = '#333';
+            ctx.font = 'bold 15px Inter, -apple-system, sans-serif';
+            let dt = titles[i] || '';
+            const maxTw = mW - 28;
+            while (ctx.measureText(dt).width > maxTw && dt.length > 1) dt = dt.slice(0, -1);
+            if (dt.length < (titles[i] || '').length) dt += '\u2026';
+            ctx.fillText(dt, mx + 14, my + 32);
+            ctx.fillStyle = '#ddd';
+            for (let l = 0; l < 3; l++) {
+              canvasRoundRect(ctx, mx + 14, my + 54 + l * 18, mW * (0.78 - l * 0.1), 7, 3);
+              ctx.fill();
+            }
+            ctx.fillStyle = '#e8e8e8';
+            canvasRoundRect(ctx, mx + 14, my + mH - 26, mW * 0.35, 6, 3);
             ctx.fill();
           }
-          ctx.fillStyle = '#e8e8e8';
-          canvasRoundRect(ctx, mx + 12, my + mH - 26, mW * 0.35, 6, 3);
-          ctx.fill();
+        }
+        canvasFolderIcon(ctx, fcx, fcy + 14, 38, 'rgba(255,255,255,0.9)');
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 28px Inter, -apple-system, sans-serif';
+        ctx.fillText(pageCount + ' page' + (pageCount !== 1 ? 's' : ''), fcx + 52, fcy + 11);
+      } else {
+        if (summary) {
+          ctx.fillStyle = '#555';
+          ctx.font = '400 22px Inter, -apple-system, sans-serif';
+          canvasWrapText(ctx, summary, cx, curY + 32, cw, 34, 5);
+        }
+        if (author) {
+          ctx.fillStyle = 'rgba(255,255,255,0.95)';
+          ctx.font = 'bold 22px Inter, -apple-system, sans-serif';
+          ctx.fillText('by : ' + author, fcx, fcy + 9);
         }
       }
-    } else if (summary) {
-      ctx.fillStyle = '#555';
-      ctx.font = '400 22px Inter, -apple-system, sans-serif';
-      canvasWrapText(ctx, summary, cx, curY + 32, cw, 34, 5);
     }
 
     return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
