@@ -1446,36 +1446,36 @@
 
       if (isThoughts) {
         const availH = footerTop - curY - 40;
-        const bCx = centerX, bCy = curY + 20 + availH * 0.42;
-        const bW = 260, bH = 180, bR = 28;
+        const bCx = centerX, bCy = curY + 16 + availH * 0.4;
+        const bW = 380, bH = 260, bR = 32;
         ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.08)';
-        ctx.shadowBlur = 24;
-        ctx.shadowOffsetY = 6;
-        ctx.fillStyle = 'rgba(0,0,0,0.05)';
+        ctx.shadowColor = 'rgba(0,0,0,0.10)';
+        ctx.shadowBlur = 30;
+        ctx.shadowOffsetY = 8;
+        ctx.fillStyle = 'rgba(0,0,0,0.06)';
         canvasRoundRect(ctx, bCx - bW / 2, bCy - bH / 2, bW, bH, bR);
         ctx.fill();
         ctx.restore();
-        ctx.strokeStyle = 'rgba(0,0,0,0.08)';
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(0,0,0,0.10)';
+        ctx.lineWidth = 2;
         canvasRoundRect(ctx, bCx - bW / 2, bCy - bH / 2, bW, bH, bR);
         ctx.stroke();
-        const dotY = bCy + bH / 2 + 20;
-        ctx.fillStyle = 'rgba(0,0,0,0.06)';
-        ctx.beginPath(); ctx.arc(bCx - 20, dotY, 14, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(bCx - 48, dotY + 24, 8, 0, Math.PI * 2); ctx.fill();
+        const dotY = bCy + bH / 2 + 24;
+        ctx.fillStyle = 'rgba(0,0,0,0.07)';
+        ctx.beginPath(); ctx.arc(bCx - 24, dotY, 18, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(bCx - 58, dotY + 30, 10, 0, Math.PI * 2); ctx.fill();
 
-        ctx.fillStyle = 'rgba(0,0,0,0.06)';
-        for (let i = 0; i < 3; i++) {
-          const lw = bW * (0.7 - i * 0.15);
-          canvasRoundRect(ctx, bCx - lw / 2, bCy - bH / 2 + 38 + i * 28, lw, 10, 5);
+        ctx.fillStyle = 'rgba(0,0,0,0.07)';
+        for (let i = 0; i < 4; i++) {
+          const lw = bW * (0.75 - i * 0.12);
+          canvasRoundRect(ctx, bCx - lw / 2, bCy - bH / 2 + 48 + i * 36, lw, 14, 7);
           ctx.fill();
         }
 
         ctx.textAlign = 'center';
-        ctx.fillStyle = '#999';
-        ctx.font = '400 19px Inter, -apple-system, sans-serif';
-        ctx.fillText('Random ideas that pop in my mind', bCx, bCy + bH / 2 + 70);
+        ctx.fillStyle = '#777';
+        ctx.font = '500 24px Inter, -apple-system, sans-serif';
+        ctx.fillText('Random ideas that pop in my mind', bCx, bCy + bH / 2 + 80);
         ctx.textAlign = 'left';
         if (logoImg) {
           const lh = 28, lw = lh * (logoImg.width / logoImg.height);
@@ -1491,23 +1491,29 @@
         const imgs = galleryImgs.filter(Boolean);
         const gridCount = Math.min(imgs.length, 4);
         if (gridCount) {
-          const mGap = 18, mR = 12;
-          const mW = Math.floor((cw - mGap) / 2);
-          const mH = mW;
-          const mStartY = curY + 24;
+          const mGap = 14, mR = 10;
+          const gridAvailH = footerTop - curY - 28;
+          const mH = Math.floor((gridAvailH - mGap) / 2);
+          const mW = mH;
+          const gridTotalW = mW * 2 + mGap;
+          const gridStartX = cx + (cw - gridTotalW) / 2;
+          const mStartY = curY + 20;
+          ctx.save();
+          canvasRoundRect(ctx, mg, mg, cardW, cardH - footerH, cardR);
+          ctx.clip();
           for (let i = 0; i < 4; i++) {
             const col = i % 2, row = Math.floor(i / 2);
-            const mx = cx + col * (mW + mGap);
+            const mx = gridStartX + col * (mW + mGap);
             const my = mStartY + row * (mH + mGap);
             ctx.save();
             ctx.shadowColor = 'rgba(0,0,0,0.10)';
-            ctx.shadowBlur = 12;
+            ctx.shadowBlur = 10;
             ctx.shadowOffsetY = 3;
-            ctx.fillStyle = 'rgba(255,255,255,0.5)';
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
             canvasRoundRect(ctx, mx, my, mW, mH, mR);
             ctx.fill();
             ctx.restore();
-            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+            ctx.strokeStyle = 'rgba(255,255,255,0.4)';
             ctx.lineWidth = 1;
             canvasRoundRect(ctx, mx, my, mW, mH, mR);
             ctx.stroke();
@@ -1521,6 +1527,7 @@
               ctx.restore();
             }
           }
+          ctx.restore();
         }
         const gCount = galleryCount || 0;
         ctx.fillStyle = 'rgba(255,255,255,0.9)';
@@ -1528,23 +1535,29 @@
         ctx.fillText(gCount + ' photo' + (gCount !== 1 ? 's' : ''), fcx, fcy + 11);
       } else if (isDirectory) {
         const titles = dirPostTitles || [];
-        const mGap = 18, mR = 12;
-        const mW = Math.floor((cw - mGap) / 2);
-        const mH = mW;
-        const mStartY = curY + 24;
+        const mGap = 14, mR = 10;
+        const gridAvailH = footerTop - curY - 28;
+        const mH = Math.floor((gridAvailH - mGap) / 2);
+        const mW = mH;
+        const gridTotalW = mW * 2 + mGap;
+        const gridStartX = cx + (cw - gridTotalW) / 2;
+        const mStartY = curY + 20;
+        ctx.save();
+        canvasRoundRect(ctx, mg, mg, cardW, cardH - footerH, cardR);
+        ctx.clip();
         for (let i = 0; i < 4; i++) {
           const col = i % 2, row = Math.floor(i / 2);
-          const mx = cx + col * (mW + mGap);
+          const mx = gridStartX + col * (mW + mGap);
           const my = mStartY + row * (mH + mGap);
           ctx.save();
           ctx.shadowColor = 'rgba(0,0,0,0.08)';
           ctx.shadowBlur = 10;
           ctx.shadowOffsetY = 3;
-          ctx.fillStyle = 'rgba(255,255,255,0.55)';
+          ctx.fillStyle = 'rgba(255,255,255,0.7)';
           canvasRoundRect(ctx, mx, my, mW, mH, mR);
           ctx.fill();
           ctx.restore();
-          ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+          ctx.strokeStyle = 'rgba(255,255,255,0.4)';
           ctx.lineWidth = 1;
           canvasRoundRect(ctx, mx, my, mW, mH, mR);
           ctx.stroke();
@@ -1556,19 +1569,16 @@
             ctx.fillRect(mx, my, mW, 5);
             ctx.restore();
             ctx.fillStyle = '#333';
-            ctx.font = 'bold 15px Inter, -apple-system, sans-serif';
-            let dt = titles[i] || '';
-            const maxTw = mW - 28;
-            while (ctx.measureText(dt).width > maxTw && dt.length > 1) dt = dt.slice(0, -1);
-            if (dt.length < (titles[i] || '').length) dt += '\u2026';
-            ctx.fillText(dt, mx + 14, my + 32);
-            ctx.fillStyle = 'rgba(0,0,0,0.08)';
+            ctx.font = 'bold 18px Inter, -apple-system, sans-serif';
+            canvasWrapText(ctx, titles[i] || '', mx + 14, my + 30, mW - 28, 24, 2);
+            ctx.fillStyle = 'rgba(0,0,0,0.07)';
             for (let l = 0; l < 3; l++) {
-              canvasRoundRect(ctx, mx + 14, my + 54 + l * 18, mW * (0.7 - l * 0.12), 7, 3);
+              canvasRoundRect(ctx, mx + 14, my + 82 + l * 18, mW * (0.65 - l * 0.1), 8, 4);
               ctx.fill();
             }
           }
         }
+        ctx.restore();
         const label = pageLabel || 'post';
         canvasFolderIcon(ctx, fcx, fcy + 14, 38, 'rgba(255,255,255,0.9)');
         ctx.fillStyle = '#ffffff';
