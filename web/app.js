@@ -713,11 +713,11 @@
         <div class="gallery-card-img" onclick="window.__openGallery(${galleryIndex})">
           <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(g.title)}" loading="lazy">
           ${countBadge}
-          <button class="gallery-share-btn" data-gallery-index="${galleryIndex}" data-gallery-title="${escapeHtml(g.title)}" aria-label="Share image" onclick="event.stopPropagation()">${shareIconSvg}</button>
         </div>
         <div class="gallery-card-info">
           <div class="gallery-card-header">
             <div class="gallery-card-title">${escapeHtml(g.title)}</div>
+            <button class="gallery-share-btn" data-gallery-index="${galleryIndex}" data-gallery-title="${escapeHtml(g.title)}" aria-label="Share image">${shareIconSvg}</button>
             <div class="gallery-card-date">${formatDate(g.date)}</div>
           </div>
           ${g.caption ? `<div class="gallery-card-caption">${escapeHtml(g.caption)}</div>` : ''}
@@ -807,7 +807,7 @@
       </div>
       <div class="thoughts-list">${html || '<div class="empty-state"><p>No thoughts yet. Brain empty.</p></div>'}</div>
     `);
-    initShareButton('Shower Thoughts');
+    initShareButton('Shower Thoughts', { isThoughts: true });
   }
 
   // ── Shared filtered item renderer ─────────────────────
@@ -1112,8 +1112,8 @@
   }
 
   function canvasSeparator(ctx, x1, x2, y) {
-    ctx.strokeStyle = '#bbb';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(x1, y);
     ctx.lineTo(x2, y);
@@ -1123,7 +1123,7 @@
   async function generateShareImage(title, opts) {
     const { coverUrl, author, readTime, summary, isDirectory, pageCount, pageLabel,
       category, tags, dirPostTitles, isProfile, avatarUrl, role, socials,
-      isGallery, galleryImageUrls, galleryCount } = opts || {};
+      isGallery, galleryImageUrls, galleryCount, isThoughts } = opts || {};
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const S = 1080;
@@ -1172,13 +1172,18 @@
     const footerH = 130, footerTop = mg + cardH - footerH;
 
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+    ctx.shadowColor = 'rgba(0,0,0,0.35)';
     ctx.shadowBlur = 50;
     ctx.shadowOffsetY = 8;
     canvasRoundRect(ctx, mg, mg, cardW, cardH, cardR);
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = 'rgba(255,255,255,0.82)';
     ctx.fill();
     ctx.restore();
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1.5;
+    canvasRoundRect(ctx, mg, mg, cardW, cardH, cardR);
+    ctx.stroke();
 
     ctx.save();
     canvasRoundRect(ctx, mg, mg, cardW, cardH, cardR);
@@ -1225,118 +1230,129 @@
     const siteName = (state.config && state.config.hero_title) || 'Raksara';
 
     if (isProfile) {
-      const aSize = 280;
-      const avatarTop = mg + 40;
-      const aCy = avatarTop + aSize / 2;
+      const coverH = 300;
+      ctx.save();
+      canvasRoundRect(ctx, mg, mg, cardW, cardH, cardR);
+      ctx.clip();
+      if (coverImg) {
+        const cvs = Math.max(cardW / coverImg.width, coverH / coverImg.height);
+        ctx.filter = 'blur(2px) brightness(0.5)';
+        ctx.drawImage(coverImg, mg + (cardW - coverImg.width * cvs) / 2, mg + (coverH - coverImg.height * cvs) / 2, coverImg.width * cvs, coverImg.height * cvs);
+        ctx.filter = 'none';
+      } else {
+        const cvg = ctx.createLinearGradient(mg, mg, mg + cardW, mg + coverH);
+        cvg.addColorStop(0, '#1a1a2e'); cvg.addColorStop(1, '#12122a');
+        ctx.fillStyle = cvg;
+        ctx.fillRect(mg, mg, cardW, coverH);
+      }
+      ctx.restore();
 
+      const aSize = 240;
+      const aCy = mg + coverH;
       if (avatarImg) {
         ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.15)';
-        ctx.shadowBlur = 24;
-        ctx.shadowOffsetY = 6;
+        ctx.shadowColor = 'rgba(0,0,0,0.3)';
+        ctx.shadowBlur = 20;
+        ctx.shadowOffsetY = 4;
+        ctx.beginPath();
+        ctx.arc(centerX, aCy, aSize / 2 + 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+        ctx.restore();
+        ctx.save();
         ctx.beginPath();
         ctx.arc(centerX, aCy, aSize / 2, 0, Math.PI * 2);
         ctx.clip();
         const aS = Math.max(aSize / avatarImg.width, aSize / avatarImg.height);
         ctx.drawImage(avatarImg, centerX - avatarImg.width * aS / 2, aCy - avatarImg.height * aS / 2, avatarImg.width * aS, avatarImg.height * aS);
         ctx.restore();
-        ctx.strokeStyle = '#e0e0e0';
-        ctx.lineWidth = 5;
-        ctx.beginPath();
-        ctx.arc(centerX, aCy, aSize / 2 + 2, 0, Math.PI * 2);
-        ctx.stroke();
       }
 
-      const nameY = aCy + aSize / 2 + 56;
+      const nameY = aCy + aSize / 2 + 52;
       ctx.textAlign = 'center';
-      ctx.font = '700 48px "Playfair Display", Georgia, serif';
-      const nameM = ctx.measureText(title || '');
-      const nameW = nameM.width;
-      const nhPad = 16, nvPad = 10;
-      ctx.fillStyle = 'rgba(255,255,255,0.92)';
-      canvasRoundRect(ctx, centerX - nameW / 2 - nhPad, nameY - 38 - nvPad, nameW + nhPad * 2, 48 + nvPad * 2, 10);
-      ctx.fill();
-      ctx.fillStyle = '#111';
-      ctx.fillText(title || '', centerX, nameY);
+      ctx.font = '700 44px "Playfair Display", Georgia, serif';
+      ctx.fillStyle = '#1a1a1a';
+      canvasWrapText(ctx, title || '', centerX, nameY, cw - 40, 54, 2);
 
-      let curProfileY = nameY;
+      const words = (title || '').split(' ');
+      let tLines = 1, tLine = '';
+      for (const w of words) {
+        const test = tLine + (tLine ? ' ' : '') + w;
+        if (ctx.measureText(test).width > cw - 40 && tLine) { tLines++; tLine = w; }
+        else tLine = test;
+      }
+      let curProfileY = nameY + (tLines - 1) * 54;
 
       if (role) {
-        curProfileY += 48;
-        ctx.font = '500 22px Inter, -apple-system, sans-serif';
-        const roleM = ctx.measureText(role);
-        const roleW = roleM.width;
-        const rhPad = 14, rvPad = 8;
-        ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        canvasRoundRect(ctx, centerX - roleW / 2 - rhPad, curProfileY - 18 - rvPad, roleW + rhPad * 2, 26 + rvPad * 2, 8);
-        ctx.fill();
-        ctx.fillStyle = '#555';
+        curProfileY += 38;
+        ctx.fillStyle = '#666';
+        ctx.font = '500 21px Inter, -apple-system, sans-serif';
         ctx.fillText(role, centerX, curProfileY);
       }
 
-      curProfileY += 50;
-      canvasSeparator(ctx, cx + 80, cr - 80, curProfileY);
+      curProfileY += 36;
+      ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx + 80, curProfileY);
+      ctx.lineTo(cr - 80, curProfileY);
+      ctx.stroke();
 
       const metadata = opts.metadata;
       if (metadata && metadata.length) {
-        curProfileY += 40;
+        curProfileY += 30;
         ctx.textAlign = 'left';
         const chipX = cx + 20;
         const chipMaxW = cw - 40;
-        const cPadH = 22, cPadV = 14, cH = 24 + cPadV * 2, cR = cH / 2;
+        const cPadH = 22, cPadV = 12, cH = 24 + cPadV * 2, cR = cH / 2;
         for (const item of metadata.slice(0, 3)) {
-          ctx.font = '700 19px Inter, -apple-system, sans-serif';
+          ctx.font = '700 18px Inter, -apple-system, sans-serif';
           const lblW = ctx.measureText(item.label).width;
           let fullW = lblW;
-          let sepW = 0, valW = 0, valText = item.value || '';
+          let sepW = 0, valText = item.value || '';
           if (valText) {
-            ctx.font = '400 19px Inter, -apple-system, sans-serif';
+            ctx.font = '400 18px Inter, -apple-system, sans-serif';
             sepW = ctx.measureText('  :  ').width;
-            ctx.font = '500 19px Inter, -apple-system, sans-serif';
-            valW = ctx.measureText(valText).width;
-            fullW = lblW + sepW + valW;
+            ctx.font = '500 18px Inter, -apple-system, sans-serif';
+            fullW = lblW + sepW + ctx.measureText(valText).width;
             const maxInner = chipMaxW - cPadH * 2;
             if (fullW > maxInner) {
               const valMaxW = maxInner - lblW - sepW;
               while (ctx.measureText(valText).width > valMaxW && valText.length > 1) valText = valText.slice(0, -1);
               if (valText.length < item.value.length) valText += '\u2026';
-              valW = ctx.measureText(valText).width;
-              fullW = lblW + sepW + valW;
             }
+            fullW = lblW + sepW + ctx.measureText(valText).width;
           }
           const chipW = Math.min(fullW + cPadH * 2, chipMaxW);
 
           ctx.save();
-          ctx.shadowColor = 'rgba(0,0,0,0.10)';
-          ctx.shadowBlur = 10;
-          ctx.shadowOffsetY = 3;
-          ctx.fillStyle = '#f0f0f4';
+          ctx.shadowColor = 'rgba(0,0,0,0.06)';
+          ctx.shadowBlur = 6;
+          ctx.shadowOffsetY = 2;
+          ctx.fillStyle = 'rgba(240,240,244,0.85)';
           canvasRoundRect(ctx, chipX, curProfileY, chipW, cH, cR);
           ctx.fill();
           ctx.restore();
-
-          ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = 'rgba(0,0,0,0.10)';
+          ctx.lineWidth = 1;
           canvasRoundRect(ctx, chipX, curProfileY, chipW, cH, cR);
           ctx.stroke();
-          ctx.strokeStyle = 'rgba(0,0,0,0.06)';
-          ctx.lineWidth = 1;
-          canvasRoundRect(ctx, chipX + 0.5, curProfileY + 0.5, chipW - 1, cH - 1, cR);
-          ctx.stroke();
 
-          const tY = curProfileY + cH / 2 + 7;
-          ctx.font = '700 19px Inter, -apple-system, sans-serif';
-          ctx.fillStyle = '#111';
+          const tY = curProfileY + cH / 2 + 6;
+          ctx.font = '700 18px Inter, -apple-system, sans-serif';
+          ctx.fillStyle = '#222';
           ctx.fillText(item.label, chipX + cPadH, tY);
           if (item.value) {
-            ctx.fillStyle = '#999';
-            ctx.font = '400 19px Inter, -apple-system, sans-serif';
-            ctx.fillText('  :  ', chipX + cPadH + lblW, tY);
-            ctx.fillStyle = '#444';
-            ctx.font = '500 19px Inter, -apple-system, sans-serif';
-            ctx.fillText(valText, chipX + cPadH + lblW + sepW, tY);
+            const lW = ctx.measureText(item.label).width;
+            ctx.fillStyle = '#aaa';
+            ctx.font = '400 18px Inter, -apple-system, sans-serif';
+            ctx.fillText('  :  ', chipX + cPadH + lW, tY);
+            const sW = ctx.measureText('  :  ').width;
+            ctx.fillStyle = '#555';
+            ctx.font = '500 18px Inter, -apple-system, sans-serif';
+            ctx.fillText(valText, chipX + cPadH + lW + sW, tY);
           }
-          curProfileY += cH + 14;
+          curProfileY += cH + 10;
         }
       }
       ctx.textAlign = 'left';
@@ -1354,12 +1370,12 @@
     } else {
       const topY = ct + 22;
       if (readTime) {
-        ctx.fillStyle = '#888';
+        ctx.fillStyle = '#666';
         ctx.font = '500 17px Inter, -apple-system, sans-serif';
         ctx.fillText(readTime + ' min read', cx, topY);
       }
       ctx.font = '500 17px Inter, -apple-system, sans-serif';
-      ctx.fillStyle = '#aaa';
+      ctx.fillStyle = '#888';
       const nW = ctx.measureText(siteName).width;
       ctx.fillText(siteName, cr - nW, topY);
       if (logoImg) {
@@ -1406,7 +1422,43 @@
       curY += 20;
       canvasSeparator(ctx, cx, cr, curY);
 
-      if (isGallery) {
+      if (isThoughts) {
+        const availH = footerTop - curY - 40;
+        const iconCx = centerX, iconCy = curY + 20 + availH / 2;
+        const iconR = Math.min(availH * 0.35, 140);
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.06)';
+        ctx.shadowBlur = 20;
+        ctx.shadowOffsetY = 4;
+        ctx.fillStyle = 'rgba(0,0,0,0.04)';
+        ctx.beginPath();
+        ctx.arc(iconCx, iconCy, iconR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(iconCx, iconCy, iconR, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.textAlign = 'center';
+        ctx.fillStyle = accent1;
+        ctx.font = 'bold ' + Math.round(iconR * 1.1) + 'px "Playfair Display", Georgia, serif';
+        ctx.fillText('?', iconCx, iconCy + iconR * 0.38);
+        ctx.font = '400 20px Inter, -apple-system, sans-serif';
+        ctx.fillStyle = '#999';
+        ctx.fillText('Random ideas that pop in my mind', iconCx, iconCy + iconR + 36);
+        ctx.textAlign = 'left';
+        if (logoImg) {
+          const lh = 28, lw = lh * (logoImg.width / logoImg.height);
+          ctx.font = '600 20px Inter, -apple-system, sans-serif';
+          const snw = ctx.measureText(siteName).width;
+          const totalW = lw + 10 + snw;
+          const lx = centerX - totalW / 2;
+          ctx.drawImage(logoImg, lx, fcy - lh / 2 + 2, lw, lh);
+          ctx.fillStyle = 'rgba(255,255,255,0.9)';
+          ctx.fillText(siteName, lx + lw + 10, fcy + 8);
+        }
+      } else if (isGallery) {
         const imgs = galleryImgs.filter(Boolean);
         const gridCount = Math.min(imgs.length, 4);
         if (gridCount) {
@@ -1495,7 +1547,7 @@
         ctx.fillText(pageCount + ' ' + label + (pageCount !== 1 ? 's' : ''), fcx + 52, fcy + 11);
       } else {
         if (summary) {
-          ctx.fillStyle = '#555';
+          ctx.fillStyle = '#444';
           ctx.font = '400 22px Inter, -apple-system, sans-serif';
           canvasWrapText(ctx, summary, cx, curY + 32, cw, 34, 5);
         }
@@ -1529,11 +1581,21 @@
         return;
       }
       try {
-        await navigator.clipboard.writeText(title ? `${title} : ${url}` : url);
+        const resolvedAuthor = (opts && opts.author) || (state.config && state.config.author) || '';
+        const blob = await generateShareImage(title, { ...opts, author: resolvedAuthor });
+        const items = [new ClipboardItem({ 'text/plain': new Blob([title ? `${title} : ${url}` : url], { type: 'text/plain' }), ...(blob ? { 'image/png': blob } : {}) })];
+        await navigator.clipboard.write(items);
         const label = btn.querySelector('span');
         label.textContent = 'Copied!';
         setTimeout(() => { label.textContent = 'Share'; }, 2000);
-      } catch {}
+      } catch {
+        try {
+          await navigator.clipboard.writeText(title ? `${title} : ${url}` : url);
+          const label = btn.querySelector('span');
+          label.textContent = 'Copied!';
+          setTimeout(() => { label.textContent = 'Share'; }, 2000);
+        } catch {}
+      }
     });
   }
 
@@ -1890,6 +1952,14 @@
         el.textContent = '';
         el.appendChild(svg.cloneNode(true));
       });
+      const faviconSvg = svg.cloneNode(true);
+      faviconSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      const blob = new Blob([faviconSvg.outerHTML], { type: 'image/svg+xml' });
+      const faviconUrl = URL.createObjectURL(blob);
+      let link = document.querySelector('link[rel="icon"]');
+      if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+      link.type = 'image/svg+xml';
+      link.href = faviconUrl;
     } catch { /* logo not available, keep fallback */ }
   }
 
