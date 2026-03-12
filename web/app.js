@@ -410,7 +410,7 @@
       ${foldersHtml}
       <div class="post-list">${postsHtml || '<div class="empty-state"><p>No posts in this directory.</p></div>'}</div>
     `);
-    initShareButton(title);
+    initShareButton(title, { isDirectory: true });
     initLazyImages();
   }
 
@@ -503,6 +503,7 @@
     try {
       const raw = await loadMarkdown(post.path);
       const { frontmatter, body } = parseMarkdown(raw);
+      const readTime = Math.max(1, Math.ceil(body.trim().split(/\s+/).length / 200));
       const type = frontmatter.type || post.type || 'default';
       const layout = getContentLayout(type);
       const bodyHtml = layout.renderBody(body, frontmatter);
@@ -581,7 +582,7 @@
         ${postNavHtml}
         ${contentFooter(frontmatter.author)}
       `);
-      initShareButton(post.title, { coverUrl, author: frontmatter.author });
+      initShareButton(post.title, { coverUrl, author: frontmatter.author, readTime, summary: post.summary });
       initReadingMode(frontmatter);
       initArticleImages();
       initContentLinks();
@@ -665,6 +666,7 @@
     try {
       const raw = await loadMarkdown(item.path);
       const { frontmatter, body } = parseMarkdown(raw);
+      const readTime = Math.max(1, Math.ceil(body.trim().split(/\s+/).length / 200));
       const html = renderMd(body);
       const tagsHtml = (item.tags || []).map((t) => `<a href="#/tag/${encodeURIComponent(t)}" class="tag">${escapeHtml(t)}</a>`).join('');
       const links = [];
@@ -687,7 +689,7 @@
         <div class="article-body">${html}</div>
         ${contentFooter(frontmatter.author)}
       `);
-      initShareButton(item.title, { author: frontmatter.author });
+      initShareButton(item.title, { author: frontmatter.author, readTime });
       initArticleImages();
       initContentLinks();
       scrollToAnchor();
@@ -1030,7 +1032,7 @@
     for (const word of words) {
       const test = line + (line ? ' ' : '') + word;
       if (ctx.measureText(test).width > maxWidth && line) {
-        if (maxLines && lines.length >= maxLines - 1) { lines.push(line + '...'); line = ''; break; }
+        if (maxLines && lines.length >= maxLines - 1) { lines.push(line + '\u2026'); line = ''; break; }
         lines.push(line);
         line = word;
       } else { line = test; }
@@ -1040,7 +1042,46 @@
     return lines.length;
   }
 
-  async function generateShareImage(title, author, coverUrl) {
+  function canvasRoundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y, x + w, y + r, r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h, x, y + h - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
+  }
+
+  function canvasDiamond(ctx, cx, cy, size, color) {
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillRect(-size / 2, -size / 2, size, size);
+    ctx.restore();
+  }
+
+  function canvasFolderIcon(ctx, x, y, size, color) {
+    const w = size, h = size * 0.78;
+    const tabW = w * 0.38, tabH = h * 0.22;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x, y - h);
+    ctx.lineTo(x + tabW, y - h);
+    ctx.lineTo(x + tabW + tabH, y - h + tabH);
+    ctx.lineTo(x + w, y - h + tabH);
+    ctx.lineTo(x + w, y);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  async function generateShareImage(title, opts) {
+    const { coverUrl, author, readTime, summary, isDirectory } = opts || {};
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     canvas.width = 1200;
@@ -1053,7 +1094,7 @@
         const img = await loadImageCors(coverUrl);
         const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
         const w = img.width * scale, h = img.height * scale;
-        ctx.filter = 'blur(8px) brightness(0.35)';
+        ctx.filter = 'blur(18px) brightness(0.28)';
         ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
         ctx.filter = 'none';
         hasCover = true;
@@ -1062,53 +1103,96 @@
 
     if (!hasCover) {
       const g = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-      g.addColorStop(0, '#0a0a14'); g.addColorStop(1, '#12122a');
+      g.addColorStop(0, '#0f0f1a'); g.addColorStop(1, '#1a1a2e');
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.globalAlpha = 0.15;
-      const g2 = ctx.createRadialGradient(300, 200, 0, 300, 200, 300);
+      ctx.globalAlpha = 0.18;
+      const g2 = ctx.createRadialGradient(250, 180, 0, 250, 180, 400);
       g2.addColorStop(0, accent); g2.addColorStop(1, 'transparent');
       ctx.fillStyle = g2; ctx.fillRect(0, 0, canvas.width, canvas.height);
-      const g3 = ctx.createRadialGradient(950, 480, 0, 950, 480, 250);
+      const g3 = ctx.createRadialGradient(1000, 500, 0, 1000, 500, 350);
       g3.addColorStop(0, accent); g3.addColorStop(1, 'transparent');
       ctx.fillStyle = g3; ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.globalAlpha = 1;
     }
 
+    const cardX = 80, cardY = 65, cardW = 1040, cardH = 500, cardR = 16;
+    const barW = 5, pad = 44;
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.28)';
+    ctx.shadowBlur = 48;
+    ctx.shadowOffsetY = 8;
+    canvasRoundRect(ctx, cardX, cardY, cardW, cardH, cardR);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    canvasRoundRect(ctx, cardX, cardY, cardW, cardH, cardR);
+    ctx.clip();
     ctx.fillStyle = accent;
-    ctx.fillRect(0, canvas.height - 6, canvas.width, 6);
+    ctx.fillRect(cardX, cardY, barW, cardH);
+    ctx.restore();
+
+    const cx = cardX + barW + pad;
+    const cr = cardX + cardW - pad;
+    const ct = cardY + pad;
+    const cb = cardY + cardH - pad;
+    const cw = cr - cx;
+
+    if (readTime) {
+      ctx.fillStyle = '#888888';
+      ctx.font = '500 17px Inter, -apple-system, sans-serif';
+      ctx.fillText(readTime + ' min read', cx, ct + 16);
+    }
 
     const siteName = (state.config && state.config.hero_title) || 'Raksara';
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.font = '500 22px Inter, -apple-system, sans-serif';
-    ctx.fillText('\u25C6 ' + siteName, 64, 68);
+    ctx.font = '500 17px Inter, -apple-system, sans-serif';
+    ctx.fillStyle = '#aaaaaa';
+    const logoTextW = ctx.measureText(siteName).width;
+    ctx.fillText(siteName, cr - logoTextW, ct + 16);
+    canvasDiamond(ctx, cr - logoTextW - 16, ct + 10, 9, accent);
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 48px Inter, -apple-system, sans-serif';
-    canvasWrapText(ctx, title || '', 64, 240, canvas.width - 128, 62, 4);
+    ctx.fillStyle = '#1a1a1a';
+    ctx.font = 'bold 44px Inter, -apple-system, sans-serif';
+    const titleY = ct + 78;
+    const titleLines = canvasWrapText(ctx, title || '', cx, titleY, cw, 56, 3);
 
-    if (author) {
-      ctx.fillStyle = 'rgba(255,255,255,0.55)';
-      ctx.font = '400 22px Inter, -apple-system, sans-serif';
-      ctx.fillText(author, 64, canvas.height - 44);
+    if (summary) {
+      const sumY = titleY + titleLines * 56 + 18;
+      ctx.fillStyle = '#666666';
+      ctx.font = '400 19px Inter, -apple-system, sans-serif';
+      canvasWrapText(ctx, summary, cx, sumY, cw, 28, 2);
+    }
+
+    const bottomY = cb - 4;
+    if (isDirectory) {
+      canvasFolderIcon(ctx, cx, bottomY, 22, accent);
+      ctx.fillStyle = '#666666';
+      ctx.font = '400 18px Inter, -apple-system, sans-serif';
+      ctx.fillText('Directory', cx + 30, bottomY - 3);
+    } else if (author) {
+      ctx.fillStyle = '#444444';
+      ctx.font = '400 19px Inter, -apple-system, sans-serif';
+      ctx.fillText(author, cx, bottomY);
     }
 
     return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
   }
 
   function initShareButton(title, opts) {
-    const { coverUrl, author } = opts || {};
     const btn = document.querySelector('.share-btn');
     if (!btn) return;
     btn.addEventListener('click', async () => {
       const url = window.location.href;
       if (navigator.share) {
         const shareData = { title, text: title, url };
-        const resolvedAuthor = author || (state.config && state.config.author) || '';
         try {
           const testFile = new File([''], 't.png', { type: 'image/png' });
           if (navigator.canShare && navigator.canShare({ files: [testFile] })) {
-            const blob = await generateShareImage(title, resolvedAuthor, coverUrl);
+            const resolvedAuthor = (opts && opts.author) || (state.config && state.config.author) || '';
+            const blob = await generateShareImage(title, { ...opts, author: resolvedAuthor });
             if (blob) shareData.files = [new File([blob], 'share.png', { type: 'image/png' })];
           }
         } catch {}
