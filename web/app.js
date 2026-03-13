@@ -1148,11 +1148,15 @@
     await Promise.all(loads);
 
     if (coverImg) {
-      const scale = Math.max(S / coverImg.width, S / coverImg.height);
-      const w = coverImg.width * scale, h = coverImg.height * scale;
-      ctx.filter = 'blur(6px) brightness(0.32)';
-      ctx.drawImage(coverImg, (S - w) / 2, (S - h) / 2, w, h);
-      ctx.filter = 'none';
+      const thumbS = 128;
+      const tc = document.createElement('canvas');
+      tc.width = thumbS; tc.height = thumbS;
+      const tctx = tc.getContext('2d');
+      const ts = Math.max(thumbS / coverImg.width, thumbS / coverImg.height);
+      tctx.filter = 'blur(4px) brightness(0.32)';
+      tctx.drawImage(coverImg, (thumbS - coverImg.width * ts) / 2, (thumbS - coverImg.height * ts) / 2, coverImg.width * ts, coverImg.height * ts);
+      tctx.filter = 'none';
+      ctx.drawImage(tc, 0, 0, S, S);
     } else {
       const bg = ctx.createLinearGradient(0, 0, S, S);
       bg.addColorStop(0, '#0f0f1a'); bg.addColorStop(1, '#1a1a2e');
@@ -1396,45 +1400,74 @@
       }
     } else {
       const hasCover = !!coverImg;
-      const coverH = hasCover ? Math.floor(cardH * 0.25) : 0;
+      const maxCoverH = Math.floor(cardH * 0.25);
+      const coverH = hasCover ? maxCoverH : 0;
       if (hasCover) {
         ctx.save();
         canvasRoundRect(ctx, mg, mg, cardW, cardH, cardR);
         ctx.clip();
+        ctx.beginPath();
+        ctx.rect(mg, mg, cardW, coverH);
+        ctx.clip();
         const cvs = Math.max(cardW / coverImg.width, coverH / coverImg.height);
-        ctx.filter = 'blur(3px)';
+        ctx.filter = 'blur(2px)';
         ctx.drawImage(coverImg, mg + (cardW - coverImg.width * cvs) / 2, mg + (coverH - coverImg.height * cvs) / 2, coverImg.width * cvs, coverImg.height * cvs);
         ctx.filter = 'none';
-        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
         ctx.fillRect(mg, mg, cardW, coverH);
         ctx.restore();
       }
 
-      const contentTop = mg + coverH + 32;
+      const contentTop = mg + coverH + pad;
       let curY = contentTop;
 
       ctx.fillStyle = '#111';
       ctx.font = '700 54px "Playfair Display", Georgia, serif';
-      const titleLines = canvasWrapText(ctx, title || '', cx, curY, cw, 66, 3);
-      curY += titleLines * 66 + 8;
+      const rawTitleLines = [];
+      { const words = (title || '').split(' '); let line = '';
+        for (const word of words) {
+          const test = line + (line ? ' ' : '') + word;
+          if (ctx.measureText(test).width > cw - 20 && line) {
+            if (rawTitleLines.length >= 2) { rawTitleLines.push(line + '\u2026'); line = ''; break; }
+            rawTitleLines.push(line); line = word;
+          } else line = test;
+        }
+        if (line) rawTitleLines.push(rawTitleLines.length >= 3 ? line.slice(0, -1) + '\u2026' : line);
+      }
+      const tLh = 68;
+      if (hasCover) {
+        for (let i = 0; i < rawTitleLines.length; i++) {
+          const tw = ctx.measureText(rawTitleLines[i]).width;
+          const hlPad = 10;
+          ctx.fillStyle = 'rgba(255,255,255,0.92)';
+          canvasRoundRect(ctx, cx - hlPad, curY - 4 + i * tLh, tw + hlPad * 2, tLh - 4, 6);
+          ctx.fill();
+        }
+      }
+      ctx.fillStyle = '#111';
+      ctx.font = '700 54px "Playfair Display", Georgia, serif';
+      for (let i = 0; i < rawTitleLines.length; i++) ctx.fillText(rawTitleLines[i], cx, curY + 48 + i * tLh);
+      curY += rawTitleLines.length * tLh + 12;
 
-      canvasSeparator(ctx, cx, cr, curY);
-      curY += 16;
+      const hasSummary = !!summary;
+      const hasChips = !!(category || (tags && tags.length));
 
-      if (summary) {
+      if (hasSummary) {
+        canvasSeparator(ctx, cx, cr, curY);
+        curY += 18;
         ctx.fillStyle = '#444';
         ctx.font = '400 22px Inter, -apple-system, sans-serif';
         const sumLines = canvasWrapText(ctx, summary, cx, curY, cw, 32, 4);
-        curY += sumLines * 32 + 8;
+        curY += sumLines * 32 + 10;
       }
 
-      const chipLabels = [];
-      if (category) chipLabels.push(category);
-      if (tags && tags.length) {
-        for (const t of tags) { if (t !== category && chipLabels.length < 4) chipLabels.push(t); }
-      }
-      if (chipLabels.length) {
-        curY += 10;
+      if (hasChips) {
+        const chipLabels = [];
+        if (category) chipLabels.push(category);
+        if (tags && tags.length) {
+          for (const t of tags) { if (t !== category && chipLabels.length < 4) chipLabels.push(t); }
+        }
+        curY += 8;
         let chipX = cx;
         ctx.font = '600 15px Inter, -apple-system, sans-serif';
         for (const label of chipLabels) {
@@ -1452,15 +1485,14 @@
           ctx.fillText(label, chipX + 12, curY + 22);
           chipX += cW + 8;
         }
-        curY += 32;
+        curY += 40;
       }
 
       if (readTime && !isPortfolioDetail) {
-        curY += 10;
         ctx.fillStyle = '#aaa';
         ctx.font = '500 15px Inter, -apple-system, sans-serif';
         ctx.fillText(readTime + ' min read', cx, curY + 12);
-        curY += 22;
+        curY += 28;
       }
 
       const isDetailPage = !isDirectory && !isGallery && !isThoughts;
@@ -1493,24 +1525,24 @@
       }
 
       if (isPortfolioDetail) {
-        const availH = footerTop - curY - 20;
-        const aCx = centerX, aCy = curY + availH * 0.45;
-        const aR = 90;
+        const availH = footerTop - curY - 10;
+        const aSize = Math.min(availH, 260);
+        const aCx = centerX, aCy = curY + availH / 2;
         const abbrev = (title || '').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
         ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.08)';
-        ctx.shadowBlur = 24;
-        ctx.shadowOffsetY = 4;
-        const abGrad = ctx.createLinearGradient(aCx - aR, aCy - aR, aCx + aR, aCy + aR);
+        ctx.shadowColor = 'rgba(0,0,0,0.12)';
+        ctx.shadowBlur = 40;
+        ctx.shadowOffsetY = 6;
+        const abGrad = ctx.createLinearGradient(aCx - aSize / 2, aCy - aSize / 2, aCx + aSize / 2, aCy + aSize / 2);
         abGrad.addColorStop(0, accent1); abGrad.addColorStop(1, accent2);
         ctx.fillStyle = abGrad;
-        canvasRoundRect(ctx, aCx - aR, aCy - aR, aR * 2, aR * 2, 28);
+        canvasRoundRect(ctx, aCx - aSize / 2, aCy - aSize / 2, aSize, aSize, 36);
         ctx.fill();
         ctx.restore();
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 72px Inter, -apple-system, sans-serif';
+        ctx.font = 'bold ' + Math.round(aSize * 0.45) + 'px Inter, -apple-system, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(abbrev || 'P', aCx, aCy + 26);
+        ctx.fillText(abbrev || 'P', aCx, aCy + Math.round(aSize * 0.16));
         ctx.textAlign = 'left';
       } else if (isThoughts) {
         const availH = footerTop - curY - 40;
