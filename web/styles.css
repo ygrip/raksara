@@ -871,12 +871,13 @@ body {
   align-items: stretch;
   padding: 0;
   overflow: hidden;
-  max-height: 200px;
 }
 
 .post-card-thumb {
   flex-shrink: 0;
   width: 180px;
+  min-height: 160px;
+  max-height: 200px;
   background: var(--bg-glass);
   overflow: hidden;
 }
@@ -900,35 +901,34 @@ body {
 }
 
 .post-card.has-thumb .post-card-body {
-  padding: 18px 22px;
+  padding: 20px 24px;
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  overflow: visible;
 }
 
 @media (max-width: 640px) {
-  .post-card.has-thumb {
-    max-height: 160px;
-  }
   .post-card-thumb {
     width: 120px;
+    min-height: 130px;
+    max-height: 170px;
   }
   .post-card.has-thumb .post-card-body {
-    padding: 14px 16px;
+    padding: 16px 18px;
   }
 }
 
 @media (max-width: 480px) {
-  .post-card.has-thumb {
-    max-height: 140px;
-  }
   .post-card-thumb {
     width: 100px;
+    min-height: 110px;
+    max-height: 150px;
   }
   .post-card.has-thumb .post-card-body {
-    padding: 12px 14px;
+    padding: 14px 16px;
   }
 }
 
