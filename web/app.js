@@ -427,7 +427,7 @@
       bodyClass: 'poem-layout',
       handlesCover: true,
       renderBody(body, frontmatter) {
-        const coverUrl = frontmatter.cover || '';
+        const coverUrl = resolvePath(frontmatter.cover) || '';
         const coverHtml = coverUrl
           ? `<div class="poem-cover"><img src="${escapeHtml(coverUrl)}" alt="" loading="lazy"></div>`
           : '';
