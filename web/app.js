@@ -689,7 +689,7 @@
         <div class="article-body">${html}</div>
         ${contentFooter(frontmatter.author)}
       `);
-      initShareButton(item.title, { author: frontmatter.author, readTime, category: item.category, tags: item.tags });
+      initShareButton(item.title, { author: frontmatter.author, readTime, summary: item.summary, category: item.category, tags: item.tags, isPortfolioDetail: true });
       initArticleImages();
       initContentLinks();
       scrollToAnchor();
@@ -1124,7 +1124,7 @@
   async function generateShareImage(title, opts) {
     const { coverUrl, author, readTime, summary, isDirectory, pageCount, pageLabel,
       category, tags, dirPostTitles, isProfile, avatarUrl, role, socials,
-      isGallery, galleryImageUrls, galleryCount, isThoughts } = opts || {};
+      isGallery, galleryImageUrls, galleryCount, isThoughts, isPortfolioDetail } = opts || {};
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const S = 1080;
@@ -1193,10 +1193,14 @@
     ctx.fillRect(mg, mg, barW, cardH);
     ctx.restore();
 
+    const useWhiteFooter = !isProfile && !isThoughts && !isGallery && !isDirectory;
     ctx.save();
     canvasRoundRect(ctx, mg, mg, cardW, cardH, cardR);
     ctx.clip();
-    if (coverImg) {
+    if (useWhiteFooter) {
+      ctx.fillStyle = 'rgba(240,240,245,0.92)';
+      ctx.fillRect(mg, footerTop, cardW, footerH);
+    } else if (coverImg) {
       const fs = Math.max(cardW / coverImg.width, footerH * 2 / coverImg.height);
       ctx.filter = 'blur(4px) brightness(0.35)';
       ctx.drawImage(coverImg, mg + (cardW - coverImg.width * fs) / 2, footerTop + (footerH - coverImg.height * fs) / 2, coverImg.width * fs, coverImg.height * fs);
@@ -1215,8 +1219,8 @@
       ctx.fillRect(mg, footerTop, cardW, footerH);
       ctx.globalAlpha = 1;
     }
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = useWhiteFooter ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = useWhiteFooter ? 1 : 2.5;
     ctx.beginPath();
     ctx.moveTo(mg + barW, footerTop);
     ctx.lineTo(mg + cardW, footerTop);
@@ -1398,74 +1402,163 @@
         canvasRoundRect(ctx, mg, mg, cardW, cardH, cardR);
         ctx.clip();
         const cvs = Math.max(cardW / coverImg.width, coverH / coverImg.height);
+        ctx.filter = 'blur(3px)';
         ctx.drawImage(coverImg, mg + (cardW - coverImg.width * cvs) / 2, mg + (coverH - coverImg.height * cvs) / 2, coverImg.width * cvs, coverImg.height * cvs);
-        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.filter = 'none';
+        ctx.fillStyle = 'rgba(0,0,0,0.18)';
         ctx.fillRect(mg, mg, cardW, coverH);
         ctx.restore();
       }
 
-      const contentTop = mg + coverH + pad;
+      const contentTop = mg + coverH + 28;
       let curY = contentTop;
 
-      if (logoImg) {
-        const lh = 22, lw = lh * (logoImg.width / logoImg.height);
-        ctx.drawImage(logoImg, cx, curY - lh + 6, lw, lh);
-        ctx.fillStyle = '#888';
-        ctx.font = '500 16px Inter, -apple-system, sans-serif';
-        ctx.fillText(siteName, cx + lw + 8, curY + 2);
-        if (readTime) {
-          ctx.fillStyle = '#aaa';
-          ctx.fillText('\u00B7  ' + readTime + ' min read', cx + lw + 8 + ctx.measureText(siteName + '  ').width, curY + 2);
-        }
-      }
-      curY += 28;
-      canvasSeparator(ctx, cx, cr, curY);
-      curY += 28;
-
       ctx.fillStyle = '#1a1a1a';
-      ctx.font = '700 52px "Playfair Display", Georgia, serif';
-      const titleLines = canvasWrapText(ctx, title || '', cx, curY, cw, 64, 3);
-      curY += titleLines * 64;
+      ctx.font = '700 56px "Playfair Display", Georgia, serif';
+      const rawTitleLines = [];
+      { const words = (title || '').split(' '); let line = '';
+        for (const word of words) {
+          const test = line + (line ? ' ' : '') + word;
+          if (ctx.measureText(test).width > cw - 30 && line) {
+            if (rawTitleLines.length >= 2) { rawTitleLines.push(line + '\u2026'); line = ''; break; }
+            rawTitleLines.push(line); line = word;
+          } else line = test;
+        }
+        if (line) rawTitleLines.push(rawTitleLines.length >= 3 ? line.slice(0, -1) + '\u2026' : line);
+      }
+      const tLh = 70;
+      for (let i = 0; i < rawTitleLines.length; i++) {
+        const tw = ctx.measureText(rawTitleLines[i]).width;
+        const hlPad = 10;
+        ctx.fillStyle = 'rgba(255,255,255,0.92)';
+        canvasRoundRect(ctx, cx - hlPad, curY - 6 + i * tLh, tw + hlPad * 2, tLh - 6, 6);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#111';
+      ctx.font = '700 56px "Playfair Display", Georgia, serif';
+      for (let i = 0; i < rawTitleLines.length; i++) ctx.fillText(rawTitleLines[i], cx, curY + 48 + i * tLh);
+      curY += rawTitleLines.length * tLh + 10;
 
       if (summary) {
-        curY += 12;
-        ctx.fillStyle = '#666';
-        ctx.font = '400 20px Inter, -apple-system, sans-serif';
-        const sumLines = canvasWrapText(ctx, summary, cx, curY, cw, 30, 3);
-        curY += sumLines * 30;
+        curY += 8;
+        ctx.fillStyle = '#555';
+        ctx.font = '400 24px Inter, -apple-system, sans-serif';
+        const sumLines = canvasWrapText(ctx, summary, cx, curY, cw, 34, 3);
+        curY += sumLines * 34;
       }
 
       const chipLabels = [];
       if (category) chipLabels.push(category);
       if (tags && tags.length) {
-        for (const t of tags) { if (t !== category && chipLabels.length < 3) chipLabels.push(t); }
+        for (const t of tags) { if (t !== category && chipLabels.length < 4) chipLabels.push(t); }
       }
       if (chipLabels.length) {
         curY += 18;
         let chipX = cx;
-        ctx.font = '500 15px Inter, -apple-system, sans-serif';
+        ctx.font = '600 16px Inter, -apple-system, sans-serif';
         for (const label of chipLabels) {
           const tw = ctx.measureText(label).width;
-          const cW = tw + 22, cH = 30, cR = 7;
+          const cW = tw + 28, cH = 36, cR = 8;
           if (chipX + cW > cr) break;
-          ctx.globalAlpha = 0.12;
-          ctx.fillStyle = accent1;
+          ctx.fillStyle = 'rgba(255,255,255,0.88)';
           canvasRoundRect(ctx, chipX, curY, cW, cH, cR);
           ctx.fill();
-          ctx.globalAlpha = 0.3;
-          ctx.strokeStyle = accent1;
+          ctx.strokeStyle = 'rgba(0,0,0,0.08)';
           ctx.lineWidth = 1;
           canvasRoundRect(ctx, chipX, curY, cW, cH, cR);
           ctx.stroke();
-          ctx.globalAlpha = 1;
           ctx.fillStyle = accent1;
-          ctx.fillText(label, chipX + 11, curY + 20);
+          ctx.fillText(label, chipX + 14, curY + 24);
           chipX += cW + 10;
         }
-        curY += 30;
+        curY += 36;
       }
 
-      if (isThoughts) {
+      if (readTime && !isPortfolioDetail) {
+        curY += 12;
+        ctx.fillStyle = '#999';
+        ctx.font = '500 16px Inter, -apple-system, sans-serif';
+        ctx.fillText(readTime + ' min read', cx, curY + 14);
+        curY += 24;
+      }
+
+      if (author) {
+        const aPadH = 16, aPadV = 10, aFh = 18;
+        ctx.font = '600 ' + aFh + 'px Inter, -apple-system, sans-serif';
+        const aText = 'by  ' + author;
+        const aTw = ctx.measureText(aText).width;
+        const aW = aTw + aPadH * 2, aH = aFh + aPadV * 2, aR = aH / 2;
+        const aX = fcx, aY = fcy - aH / 2;
+        ctx.fillStyle = 'rgba(40,40,50,0.82)';
+        canvasRoundRect(ctx, aX, aY, aW, aH, aR);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.fillText(aText, aX + aPadH, aY + aPadV + aFh - 3);
+      }
+
+      if (logoImg) {
+        const lh = 22, lw = lh * (logoImg.width / logoImg.height);
+        ctx.font = '600 16px Inter, -apple-system, sans-serif';
+        const snw = ctx.measureText(siteName).width;
+        const chipW = lw + 10 + snw + 28, chipH = 38, chipR = chipH / 2;
+        const chipX = fcr - chipW, chipY = fcy - chipH / 2;
+        ctx.fillStyle = 'rgba(40,40,50,0.82)';
+        canvasRoundRect(ctx, chipX, chipY, chipW, chipH, chipR);
+        ctx.fill();
+        ctx.drawImage(logoImg, chipX + 14, chipY + (chipH - lh) / 2, lw, lh);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(siteName, chipX + 14 + lw + 8, fcy + 6);
+      }
+
+      if (isPortfolioDetail) {
+        const availH = footerTop - curY - 20;
+        const gCx = centerX, gCy = curY + availH * 0.45;
+        const gR = 80;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.08)';
+        ctx.shadowBlur = 30;
+        ctx.shadowOffsetY = 6;
+        ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(gCx, gCy, gR, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+        const teeth = 8, toothH = 16, toothW = 22;
+        ctx.fillStyle = 'rgba(0,0,0,0.06)';
+        for (let t = 0; t < teeth; t++) {
+          const angle = (Math.PI * 2 / teeth) * t;
+          ctx.save();
+          ctx.translate(gCx, gCy);
+          ctx.rotate(angle);
+          canvasRoundRect(ctx, -toothW / 2, -(gR + toothH), toothW, toothH + 6, 5);
+          ctx.fill();
+          ctx.restore();
+        }
+        ctx.fillStyle = 'rgba(0,0,0,0.05)';
+        ctx.beginPath(); ctx.arc(gCx, gCy, gR, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.82)';
+        ctx.beginPath(); ctx.arc(gCx, gCy, gR * 0.45, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(gCx, gCy, gR * 0.45, 0, Math.PI * 2); ctx.stroke();
+
+        const smR = 32, smOff = gR + 50;
+        ctx.fillStyle = 'rgba(0,0,0,0.04)';
+        ctx.beginPath(); ctx.arc(gCx + smOff, gCy - 20, smR, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(gCx + smOff, gCy - 20, smR, 0, Math.PI * 2); ctx.stroke();
+        const smTeeth = 6, smTH = 10, smTW = 14;
+        ctx.fillStyle = 'rgba(0,0,0,0.04)';
+        for (let t = 0; t < smTeeth; t++) {
+          const angle = (Math.PI * 2 / smTeeth) * t + 0.3;
+          ctx.save();
+          ctx.translate(gCx + smOff, gCy - 20);
+          ctx.rotate(angle);
+          canvasRoundRect(ctx, -smTW / 2, -(smR + smTH), smTW, smTH + 4, 4);
+          ctx.fill();
+          ctx.restore();
+        }
+      } else if (isThoughts) {
         const availH = footerTop - curY - 40;
         const bCx = centerX, bCy = curY + 16 + availH * 0.4;
         const bW = 380, bH = 260, bR = 32;
@@ -1485,14 +1578,12 @@
         ctx.fillStyle = 'rgba(0,0,0,0.07)';
         ctx.beginPath(); ctx.arc(bCx - 24, dotY, 18, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.arc(bCx - 58, dotY + 30, 10, 0, Math.PI * 2); ctx.fill();
-
         ctx.fillStyle = 'rgba(0,0,0,0.07)';
         for (let i = 0; i < 4; i++) {
           const lw = bW * (0.75 - i * 0.12);
           canvasRoundRect(ctx, bCx - lw / 2, bCy - bH / 2 + 48 + i * 36, lw, 14, 7);
           ctx.fill();
         }
-
         ctx.textAlign = 'center';
         ctx.fillStyle = '#777';
         ctx.font = '500 24px Inter, -apple-system, sans-serif';
@@ -1513,15 +1604,20 @@
         const gridCount = Math.min(imgs.length, 4);
         if (gridCount) {
           const mGap = 14, mR = 10;
-          const mW = Math.floor((cw - mGap) / 2);
-          const mH = mW;
-          const mStartY = curY + 20;
+          const gridAvailH = footerTop - curY - 10;
+          const mH = Math.floor((gridAvailH - mGap) / 2);
+          const mW = mH;
+          const gridTotalW = mW * 2 + mGap;
+          const gridStartX = cx + (cw - gridTotalW) / 2;
+          const mStartY = curY + 10;
           ctx.save();
+          ctx.beginPath();
+          ctx.rect(mg, mg, cardW, footerTop - mg);
           canvasRoundRect(ctx, mg, mg, cardW, cardH, cardR);
           ctx.clip();
           for (let i = 0; i < 4; i++) {
             const col = i % 2, row = Math.floor(i / 2);
-            const mx = cx + col * (mW + mGap);
+            const mx = gridStartX + col * (mW + mGap);
             const my = mStartY + row * (mH + mGap);
             ctx.save();
             ctx.shadowColor = 'rgba(0,0,0,0.10)';
@@ -1552,17 +1648,23 @@
         ctx.font = 'bold 28px Inter, -apple-system, sans-serif';
         ctx.fillText(gCount + ' photo' + (gCount !== 1 ? 's' : ''), fcx, fcy + 11);
       } else if (isDirectory) {
+        canvasSeparator(ctx, cx, cr, curY + 8);
         const titles = dirPostTitles || [];
         const mGap = 14, mR = 10;
-        const mW = Math.floor((cw - mGap) / 2);
-        const mH = mW;
-        const mStartY = curY + 20;
+        const gridAvailH = footerTop - curY - 24;
+        const mH = Math.floor((gridAvailH - mGap) / 2);
+        const mW = mH;
+        const gridTotalW = mW * 2 + mGap;
+        const gridStartX = cx + (cw - gridTotalW) / 2;
+        const mStartY = curY + 24;
         ctx.save();
+        ctx.beginPath();
+        ctx.rect(mg, mg, cardW, footerTop - mg);
         canvasRoundRect(ctx, mg, mg, cardW, cardH, cardR);
         ctx.clip();
         for (let i = 0; i < 4; i++) {
           const col = i % 2, row = Math.floor(i / 2);
-          const mx = cx + col * (mW + mGap);
+          const mx = gridStartX + col * (mW + mGap);
           const my = mStartY + row * (mH + mGap);
           ctx.save();
           ctx.shadowColor = 'rgba(0,0,0,0.08)';
@@ -1599,12 +1701,6 @@
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 28px Inter, -apple-system, sans-serif';
         ctx.fillText(pageCount + ' ' + label + (pageCount !== 1 ? 's' : ''), fcx + 52, fcy + 11);
-      } else {
-        if (author) {
-          ctx.fillStyle = 'rgba(255,255,255,0.95)';
-          ctx.font = 'bold 22px Inter, -apple-system, sans-serif';
-          ctx.fillText('by : ' + author, fcx, fcy + 9);
-        }
       }
     }
 
