@@ -144,6 +144,7 @@ raksara/
 - [MiniSearch](https://lucaong.github.io/minisearch/) — Client-side search
 - [gray-matter](https://github.com/jonschlinkert/gray-matter) — Frontmatter parsing
 - [fast-glob](https://github.com/mrmlnc/fast-glob) — File scanning
+- [mermaid](https://github.com/mermaid-js/mermaid) — Diagram rendering
 
 ## License
 
