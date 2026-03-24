@@ -215,7 +215,7 @@
       breaks: opts.breaks || false,
       gfm: true,
     });
-    return marked.parse(md);
+    return marked.parse(preprocessFileAttachments(md));
   }
 
   // ── Rendering Helpers ─────────────────────────────────
@@ -263,6 +263,159 @@
     )
       return p;
     return p.replace(/^\/+/, "");
+  }
+
+  // ── SEO Meta ──────────────────────────────────────────
+
+  function setMeta(selector, attr, value) {
+    let el = document.head.querySelector(selector);
+    if (!el) {
+      el = document.createElement("meta");
+      const parts = selector.match(/\[(\w+)=["']?([^"'\]]+)/);
+      if (parts) el.setAttribute(parts[1], parts[2]);
+      document.head.appendChild(el);
+    }
+    el.setAttribute(attr, value || "");
+  }
+
+  function updatePageMeta({ title, description, image, type, author, keywords, url } = {}) {
+    const siteName = (state.config && state.config.hero_title) || "Raksara";
+    const siteDesc =
+      (state.config && state.config.hero_subtitle) ||
+      "A place where ideas, knowledge, and engineering thoughts are recorded.";
+    const siteAuthor = (state.config && state.config.author) || "";
+    const siteImage = (state.config && state.config.og_image)
+      ? resolvePath(state.config.og_image)
+      : "";
+
+    const pageTitle = title ? `${title} — ${siteName}` : siteName;
+    const pageDesc = description || siteDesc;
+    const pageImage = image || siteImage;
+    const pageType = type || "website";
+    const pageAuthor = author || siteAuthor;
+    const pageKeywords = Array.isArray(keywords) ? keywords.join(", ") : (keywords || "");
+    const pageUrl = url || (window.location.origin + window.location.pathname + window.location.hash);
+
+    document.title = pageTitle;
+    setMeta('meta[name="description"]', "content", pageDesc);
+    setMeta('meta[name="author"]', "content", pageAuthor);
+    if (pageKeywords) setMeta('meta[name="keywords"]', "content", pageKeywords);
+    setMeta('meta[property="og:site_name"]', "content", siteName);
+    setMeta('meta[property="og:title"]', "content", pageTitle);
+    setMeta('meta[property="og:description"]', "content", pageDesc);
+    setMeta('meta[property="og:type"]', "content", pageType);
+    setMeta('meta[property="og:url"]', "content", pageUrl);
+    if (pageImage) setMeta('meta[property="og:image"]', "content", pageImage);
+    setMeta('meta[name="twitter:card"]', "content", pageImage ? "summary_large_image" : "summary");
+    setMeta('meta[name="twitter:title"]', "content", pageTitle);
+    setMeta('meta[name="twitter:description"]', "content", pageDesc);
+    if (pageImage) setMeta('meta[name="twitter:image"]', "content", pageImage);
+
+    let canonical = document.head.querySelector('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement("link");
+      canonical.rel = "canonical";
+      document.head.appendChild(canonical);
+    }
+    canonical.href = pageUrl;
+  }
+
+  // ── File Attachments ──────────────────────────────────
+
+  function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    if (bytes < 1024 * 1024 * 1024)
+      return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+    return (bytes / (1024 * 1024 * 1024)).toFixed(1) + " GB";
+  }
+
+  function getFileCategory(ext) {
+    const e = (ext || "").toLowerCase();
+    if (["pdf"].includes(e)) return "pdf";
+    if (["doc", "docx", "odt", "rtf"].includes(e)) return "doc";
+    if (["xls", "xlsx", "ods", "csv"].includes(e)) return "xls";
+    if (["ppt", "pptx", "odp"].includes(e)) return "ppt";
+    if (["zip", "rar", "gz", "tar", "7z", "bz2"].includes(e)) return "zip";
+    if (
+      ["jpg", "jpeg", "png", "gif", "svg", "webp", "bmp", "avif"].includes(e)
+    )
+      return "img";
+    if (["mp4", "mov", "avi", "mkv", "webm", "flv"].includes(e)) return "video";
+    if (["mp3", "wav", "ogg", "flac", "aac", "m4a"].includes(e)) return "audio";
+    if (
+      [
+        "js", "ts", "jsx", "tsx", "py", "java", "go", "rs", "c", "cpp",
+        "cs", "php", "rb", "sh", "bash", "html", "css", "json", "yml",
+        "yaml", "toml", "xml", "sql",
+      ].includes(e)
+    )
+      return "code";
+    if (["md", "txt", "log", "tex"].includes(e)) return "text";
+    return "file";
+  }
+
+  function getFileTypeLabel(ext) {
+    const e = (ext || "").toLowerCase();
+    const labels = {
+      pdf: "PDF", doc: "DOC", docx: "DOC", odt: "ODT", rtf: "RTF",
+      xls: "XLS", xlsx: "XLS", ods: "ODS", csv: "CSV",
+      ppt: "PPT", pptx: "PPT", odp: "ODP",
+      zip: "ZIP", rar: "RAR", gz: "GZ", tar: "TAR", "7z": "7Z", bz2: "BZ2",
+      jpg: "JPG", jpeg: "JPG", png: "PNG", gif: "GIF", svg: "SVG",
+      webp: "WEBP", bmp: "BMP", avif: "AVIF",
+      mp4: "MP4", mov: "MOV", avi: "AVI", mkv: "MKV", webm: "WEBM",
+      mp3: "MP3", wav: "WAV", ogg: "OGG", flac: "FLAC", aac: "AAC", m4a: "M4A",
+      md: "MD", txt: "TXT", log: "LOG", tex: "TEX",
+      js: "JS", ts: "TS", jsx: "JSX", tsx: "TSX", py: "PY", java: "JAVA",
+      go: "GO", rs: "RS", c: "C", cpp: "CPP", cs: "C#", php: "PHP",
+      rb: "RB", sh: "SH", bash: "SH", html: "HTML", css: "CSS",
+      json: "JSON", yml: "YAML", yaml: "YAML", toml: "TOML", xml: "XML", sql: "SQL",
+    };
+    return labels[e] || e.toUpperCase().slice(0, 5) || "FILE";
+  }
+
+  function renderFileAttachmentHtml(filePath, displayName) {
+    const resolved = resolvePath(filePath);
+    const filename = displayName || filePath.split("/").pop();
+    const dotIdx = filename.lastIndexOf(".");
+    const ext = dotIdx >= 0 ? filename.slice(dotIdx + 1).toLowerCase() : "";
+    const category = getFileCategory(ext);
+    const label = getFileTypeLabel(ext);
+    const fontSize = label.length > 3 ? "7" : "9";
+    const iconSvg = `<svg width="44" height="52" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.75" y="0.75" width="42.5" height="50.5" rx="5.25" fill="var(--bg-card)" stroke="var(--border-color)" stroke-width="1.5"/><path d="M27 1 L43 17 L27 17 Z" fill="var(--file-fold-color)" opacity="0.45"/><path d="M27 1 L27 17 L43 17" stroke="var(--border-color)" stroke-width="1.5" fill="none" stroke-linejoin="round"/><text x="22" y="37" text-anchor="middle" fill="var(--file-label-color)" font-weight="700" font-size="${fontSize}" font-family="system-ui,sans-serif" letter-spacing="0.8">${escapeHtml(label)}</text></svg>`;
+    return `<a class="file-attachment" href="${escapeHtml(resolved)}" download data-ext="${escapeHtml(ext)}" data-category="${escapeHtml(category)}"><div class="file-attachment-icon">${iconSvg}</div><div class="file-attachment-info"><span class="file-attachment-name">${escapeHtml(filename)}</span><span class="file-attachment-meta"><span class="file-attachment-badge">${escapeHtml(label || ext || "FILE")}</span><span class="file-attachment-size" data-size-url="${escapeHtml(resolved)}"></span></span></div><div class="file-attachment-dl"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 2v8.5M4.5 7.5l3.5 4 3.5-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.5 13.5h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div></a>`;
+  }
+
+  function preprocessFileAttachments(md) {
+    return md.replace(/::file\[([^\]\n]+)\]/g, (_match, inner) => {
+      const nameMatch = inner.match(/^(.*?)\s+"([^"]+)"$/);
+      const filePath = (nameMatch ? nameMatch[1] : inner).trim();
+      const displayName = nameMatch ? nameMatch[2] : null;
+      if (!filePath) return _match;
+      return renderFileAttachmentHtml(filePath, displayName);
+    });
+  }
+
+  async function initFileAttachments() {
+    const els = document.querySelectorAll(
+      ".file-attachment-size[data-size-url]",
+    );
+    await Promise.all(
+      Array.from(els).map(async (el) => {
+        const url = el.dataset.sizeUrl;
+        el.removeAttribute("data-size-url");
+        try {
+          const res = await fetch(url, { method: "HEAD" });
+          if (res.ok) {
+            const cl = res.headers.get("content-length");
+            el.textContent = cl ? formatFileSize(parseInt(cl, 10)) : "";
+          }
+        } catch {
+          // size unavailable — leave empty
+        }
+      }),
+    );
   }
 
   function getGalleryImages(g) {
@@ -412,6 +565,10 @@
           : ""
       }
     `);
+    updatePageMeta({
+      title: null,
+      description: heroSubtitle,
+    });
     initParallax();
     initPortfolioCards();
     initLazyImages();
@@ -520,6 +677,10 @@
       ${foldersHtml}
       <div class="post-list">${postsHtml || '<div class="empty-state"><p>No posts in this directory.</p></div>'}</div>
     `);
+    updatePageMeta({
+      title: isRoot ? "Blog" : title,
+      description: subtitle,
+    });
     initShareButton(title, {
       isDirectory: true,
       pageCount: isRoot ? state.posts.length : total,
@@ -738,6 +899,14 @@
         ${postNavHtml}
         ${contentFooter(frontmatter.author)}
       `);
+      updatePageMeta({
+        title: post.title,
+        description: post.summary || "",
+        image: coverUrl || "",
+        type: "article",
+        author: frontmatter.author || "",
+        keywords: post.tags || [],
+      });
       initShareButton(post.title, {
         coverUrl,
         author: frontmatter.author,
@@ -831,6 +1000,7 @@
       </div>
       <div class="timeline">${timelineHtml}</div>
     `);
+    updatePageMeta({ title: "Portfolio" });
     initShareButton("Portfolio", {
       isDirectory: true,
       pageCount: state.portfolio.length,
@@ -896,6 +1066,15 @@
         <div class="article-body">${html}</div>
         ${contentFooter(frontmatter.author)}
       `);
+      const portfolioCoverUrl = resolvePath(frontmatter.cover || item.cover) || "";
+      updatePageMeta({
+        title: item.title,
+        description: item.summary || "",
+        image: portfolioCoverUrl,
+        type: "article",
+        author: frontmatter.author || "",
+        keywords: item.tags || [],
+      });
       initShareButton(item.title, {
         author: frontmatter.author,
         readTime,
@@ -974,6 +1153,10 @@
       </div>
       <div class="gallery-list">${items}</div>
     `);
+    updatePageMeta({
+      title: "Gallery",
+      image: galleryImageUrls[0] || "",
+    });
     initShareButton("Gallery", {
       isGallery: true,
       galleryImageUrls,
@@ -1049,6 +1232,7 @@
       </div>
       <div class="thoughts-list">${html || '<div class="empty-state"><p>No thoughts yet. Brain empty.</p></div>'}</div>
     `);
+    updatePageMeta({ title: "Shower Thoughts", description: "Random ideas that pop in my mind" });
     initShareButton("Shower Thoughts", { isThoughts: true });
   }
 
@@ -1087,6 +1271,7 @@
   // ── Tags & Categories ─────────────────────────────────
 
   function renderTags() {
+    updatePageMeta({ title: "Tags" });
     const sorted = Object.entries(state.tags).sort((a, b) => b[1] - a[1]);
     const tagsHtml = sorted
       .map(
@@ -1100,6 +1285,7 @@
   }
 
   function renderTagPosts(tag) {
+    updatePageMeta({ title: `Tag: ${tag}`, keywords: [tag] });
     const allItems = [
       ...state.posts,
       ...state.portfolio,
@@ -1118,6 +1304,7 @@
   }
 
   function renderCategories() {
+    updatePageMeta({ title: "Categories" });
     const sorted = Object.entries(state.categories).sort((a, b) => b[1] - a[1]);
     const html = sorted
       .map(
@@ -1131,6 +1318,7 @@
   }
 
   function renderCategoryPosts(category) {
+    updatePageMeta({ title: `Category: ${category}`, keywords: [category] });
     const allItems = [
       ...state.posts,
       ...state.portfolio,
@@ -1234,6 +1422,12 @@
             ? { label: m, value: "" }
             : { label: m.label || "", value: m.value || "" },
         );
+      updatePageMeta({
+        title: name !== "Profile" ? name : null,
+        description: role || "",
+        image: coverUrl || "",
+        author: name !== "Profile" ? name : "",
+      });
       initShareButton(name, {
         isProfile: true,
         coverUrl,
@@ -1324,6 +1518,11 @@
       const { frontmatter, body } = parseMarkdown(raw);
       const html = renderMd(body);
       document.getElementById("page-content").removeAttribute("data-layout");
+      updatePageMeta({
+        title: frontmatter.title || slug,
+        description: frontmatter.summary || frontmatter.description || "",
+        author: frontmatter.author || "",
+      });
       showContent(
         `<div class="article-body">${html}</div>${contentFooter(frontmatter.author)}`,
       );
@@ -2476,6 +2675,7 @@
       img.addEventListener("click", () => openLightbox(img.src, img.alt));
     });
     initLazyImages();
+    initFileAttachments();
   }
 
   let _carouselImages = [];

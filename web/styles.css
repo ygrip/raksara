@@ -2212,6 +2212,128 @@ body {
     color: var(--text-primary);
 }
 
+/* ── File Attachments ───────────────────────────────────── */
+
+.file-attachment {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    margin: 16px 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    text-decoration: none !important;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition:
+        border-color var(--transition),
+        background var(--transition),
+        transform 0.15s var(--bounce),
+        box-shadow var(--transition);
+    --file-fold-color: var(--text-tertiary);
+    --file-label-color: var(--text-tertiary);
+}
+
+.file-attachment:hover {
+    border-color: var(--border-glass);
+    background: var(--bg-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px var(--shadow-color);
+    text-decoration: none !important;
+}
+
+.file-attachment[data-category="pdf"]   { --file-fold-color: #e53e3e; --file-label-color: #e53e3e; }
+.file-attachment[data-category="doc"]   { --file-fold-color: #3182ce; --file-label-color: #3182ce; }
+.file-attachment[data-category="xls"]   { --file-fold-color: #38a169; --file-label-color: #38a169; }
+.file-attachment[data-category="ppt"]   { --file-fold-color: #d97706; --file-label-color: #d97706; }
+.file-attachment[data-category="zip"]   { --file-fold-color: #b45309; --file-label-color: #b45309; }
+.file-attachment[data-category="img"]   { --file-fold-color: #0d9488; --file-label-color: #0d9488; }
+.file-attachment[data-category="video"] { --file-fold-color: #7c3aed; --file-label-color: #7c3aed; }
+.file-attachment[data-category="audio"] { --file-fold-color: #db2777; --file-label-color: #db2777; }
+.file-attachment[data-category="code"]  { --file-fold-color: #0891b2; --file-label-color: #0891b2; }
+
+.file-attachment-icon {
+    flex-shrink: 0;
+    width: 44px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.file-attachment-icon svg {
+    display: block;
+    overflow: visible;
+}
+
+.file-attachment-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.file-attachment-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
+
+.file-attachment-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.file-attachment-badge {
+    padding: 1px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: color-mix(in srgb, var(--file-label-color) 12%, transparent);
+    color: var(--file-label-color);
+    border: 1px solid color-mix(in srgb, var(--file-label-color) 35%, transparent);
+    line-height: 1.8;
+}
+
+.file-attachment-size {
+    color: var(--text-tertiary);
+    font-size: 11px;
+}
+
+.file-attachment-dl {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    background: var(--bg-glass);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-tertiary);
+    transition:
+        color var(--transition),
+        background var(--transition),
+        border-color var(--transition);
+}
+
+.file-attachment:hover .file-attachment-dl {
+    color: var(--accent);
+    border-color: var(--accent-border);
+    background: var(--accent-subtle);
+}
+
 /* ── Content Footer ─────────────────────────────────────── */
 
 .content-footer {

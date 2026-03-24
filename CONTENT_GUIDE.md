@@ -223,7 +223,61 @@ hyphens, and stripping special characters.
 
 ---
 
-## 2. Upload and Use Images
+## 2. File Attachments (Downloadable Files)
+
+Embed a downloadable file card anywhere in your markdown using the `::file[path]` syntax.
+The card shows a file-type icon, the filename, the file extension badge, and the file
+size (fetched automatically). Clicking the card downloads the file.
+
+### Syntax
+
+```markdown
+::file[content/assets/files/report.pdf]
+::file[content/assets/files/data.xlsx "Q4 Financial Report"]
+::file[https://example.com/whitepaper.pdf "External Whitepaper"]
+```
+
+- **First argument** — path to the file (relative to the web root or a full URL).
+- **Optional quoted label** — overrides the displayed filename.
+
+### Where to Put Files
+
+Store downloadable files in `assets/files/` in your content repo:
+
+```
+assets/
+  files/
+    report.pdf
+    data.xlsx
+    slides.pptx
+```
+
+Reference them from any post:
+
+```markdown
+::file[content/assets/files/report.pdf]
+```
+
+### Supported File Types
+
+| Category | Extensions |
+|---|---|
+| PDF | `.pdf` |
+| Word | `.doc` `.docx` `.odt` `.rtf` |
+| Excel | `.xls` `.xlsx` `.ods` `.csv` |
+| PowerPoint | `.ppt` `.pptx` `.odp` |
+| Archive | `.zip` `.rar` `.gz` `.tar` `.7z` `.bz2` |
+| Image | `.jpg` `.jpeg` `.png` `.gif` `.svg` `.webp` `.bmp` `.avif` |
+| Video | `.mp4` `.mov` `.avi` `.mkv` `.webm` |
+| Audio | `.mp3` `.wav` `.ogg` `.flac` `.aac` `.m4a` |
+| Code | `.js` `.ts` `.py` `.go` `.rs` `.sh` `.json` `.sql` … |
+| Text | `.md` `.txt` `.log` |
+
+Any other extension renders as a generic file card.
+
+---
+
+## 3. Upload and Use Images
 
 ### Where to Put Images
 
@@ -368,7 +422,7 @@ effect and open in a new tab.
 
 ---
 
-## 3. Create a New Shower Thought
+## 4. Create a New Shower Thought
 
 Create a `.md` file in `thoughts/`:
 
@@ -391,7 +445,7 @@ All thoughts appear on: `/#/thoughts`
 
 ---
 
-## 4. Create a Portfolio Project
+## 5. Create a Portfolio Project
 
 Create a `.md` file in `portfolio/`:
 
@@ -415,7 +469,7 @@ Detailed project description in markdown...
 
 ---
 
-## 5. Categories and Tags
+## 6. Categories and Tags
 
 Categories and tags are created automatically from your frontmatter. There is no
 separate config file.
@@ -429,7 +483,7 @@ tags:
 
 ---
 
-## 6. Publishing Changes
+## 7. Publishing Changes
 
 ### Automatic rebuild
 
@@ -459,7 +513,7 @@ npm run dev
 
 ---
 
-## 7. Site Configuration (`raksara.yml`)
+## 8. Site Configuration (`raksara.yml`)
 
 Create a `raksara.yml` file at the **root** of your content repository to
 customize your site.
@@ -495,10 +549,36 @@ to `purple`.
 |---|---|---|
 | `hero_title` | `Raksara` | Large display text on the homepage hero |
 | `hero_subtitle` | (built-in default) | Description text below the title |
+| `author` | _(empty)_ | Site author name, shown in meta tags and content footers |
+| `logo` | _(none)_ | Path to a logo image (e.g. `assets/images/logo.svg`). Replaces the text logo in the sidebar |
+| `og_image` | _(none)_ | Default social share image path (e.g. `assets/images/og.png`). Used as the Open Graph / Twitter Card fallback image on pages that don't have a cover image |
+
+### SEO & Open Graph
+
+Raksara automatically generates dynamic `<meta>` tags for every page —
+title, description, Open Graph (for social cards on LinkedIn, Slack, etc.),
+and Twitter/X Card.
+
+- **Blog posts** — use the post `title`, `summary`, `cover`, `tags`, and `author`.
+- **Portfolio items** — same as blog posts.
+- **Profile page** — uses the author name and hero cover as the OG image.
+- **Directory / list pages** — use a contextual title (e.g. "Blog", "Gallery", "Tag: golang").
+- **Fallback image** — set `og_image` in `raksara.yml` to provide a default social thumbnail
+  for pages without a cover photo.
+
+**Example `raksara.yml` with full SEO config:**
+
+```yaml
+color: green
+hero_title: Yunaz Gilang
+hero_subtitle: Engineering thoughts, creative work, and random ideas.
+author: Yunaz Gilang
+og_image: assets/images/og-card.png
+```
 
 ---
 
-## 8. Sharing
+## 9. Sharing
 
 Every page with content has a **Share** button — blog posts, blog directories,
 gallery, thoughts, portfolio listing, and portfolio detail pages.
