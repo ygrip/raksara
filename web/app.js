@@ -14,6 +14,7 @@
     searchIndex: null,
     miniSearch: null,
     config: {},
+    imageManifest: {},
     loaded: false,
   };
   const runtime = {
@@ -156,6 +157,9 @@
         categories,
         blogDirs,
         searchIndex,
+        config,
+        imageManifest,
+        homePrerender,
       ] = await Promise.all([
         loadJSON("metadata/posts.json"),
         loadJSON("metadata/portfolio.json"),
@@ -166,6 +170,9 @@
         loadJSON("metadata/categories.json"),
         loadJSON("metadata/blog-dirs.json"),
         loadJSON("metadata/search-index.json"),
+        loadJSON("metadata/config.json").catch(() => ({})),
+        loadJSON("metadata/image-manifest.json").catch(() => ({})),
+        loadJSON("metadata/home-prerender.json").catch(() => ({})),
       ]);
       Object.assign(state, {
         posts,
@@ -177,6 +184,9 @@
         categories,
         blogDirs,
         searchIndex,
+        config,
+        imageManifest,
+        homePrerender,
         loaded: true,
       });
 
@@ -184,12 +194,6 @@
         fields: ["title", "tags", "category", "body"],
         storeFields: ["title", "section", "slug", "category"],
       });
-
-      try {
-        state.config = await loadJSON("metadata/config.json");
-      } catch {
-        state.config = {};
-      }
       applyAccentColor((state.config && state.config.color) || "purple");
       if (state.config.logo) applyLogo("content/" + state.config.logo);
     } catch (err) {
@@ -300,7 +304,12 @@
     const renderer = new marked.Renderer();
     renderer.image = function (href, title, text) {
       const resolved = resolvePath(typeof href === "object" ? href.href : href);
-      return `<img src="${resolved}" alt="${text || ""}"${title ? ` title="${title}"` : ""} loading="lazy">`;
+      return `<img ${buildResponsiveImageAttrs(resolved, {
+        alt: text || "",
+        title: title || "",
+        loading: "lazy",
+        sizes: "(max-width: 832px) calc(100vw - 32px), 800px",
+      })}>`;
     };
     renderer.heading = function (tokenOrText, level) {
       const raw =
@@ -382,6 +391,63 @@
     )
       return p;
     return p.replace(/^\/+/, "");
+  }
+
+  function getImageManifestEntry(src) {
+    const resolved = resolvePath(src);
+    if (!resolved) return null;
+    return state.imageManifest[resolved] || null;
+  }
+
+  function buildResponsiveImageAttrs(src, options = {}) {
+    const resolved = resolvePath(src);
+    if (!resolved) return "";
+
+    const {
+      alt = "",
+      title = "",
+      className = "",
+      loading = "lazy",
+      fetchPriority = "auto",
+      sizes = "100vw",
+      decoding = "async",
+    } = options;
+
+    const attrs = [`src="${escapeHtml(resolved)}"`, `alt="${escapeHtml(alt)}"`];
+    const manifestEntry = getImageManifestEntry(resolved);
+
+    if (className) attrs.push(`class="${escapeHtml(className)}"`);
+    if (title) attrs.push(`title="${escapeHtml(title)}"`);
+    if (loading) attrs.push(`loading="${loading}"`);
+    if (decoding) attrs.push(`decoding="${decoding}"`);
+    if (fetchPriority && fetchPriority !== "auto") {
+      attrs.push(`fetchpriority="${fetchPriority}"`);
+    }
+
+    if (manifestEntry) {
+      const variants = Array.isArray(manifestEntry.variants)
+        ? manifestEntry.variants
+            .filter((variant) => variant && variant.path && variant.width)
+            .sort((left, right) => left.width - right.width)
+        : [];
+      const srcset = variants.map(
+        (variant) => `${escapeHtml(resolvePath(variant.path))} ${variant.width}w`,
+      );
+
+      if (manifestEntry.width) {
+        srcset.push(`${escapeHtml(resolved)} ${manifestEntry.width}w`);
+        attrs.push(`width="${manifestEntry.width}"`);
+      }
+      if (manifestEntry.height) {
+        attrs.push(`height="${manifestEntry.height}"`);
+      }
+      if (srcset.length) {
+        attrs.push(`srcset="${srcset.join(", ")}"`);
+        attrs.push(`sizes="${escapeHtml(sizes)}"`);
+      }
+    }
+
+    return attrs.join(" ");
   }
 
   // ── SEO Meta ──────────────────────────────────────────
@@ -555,20 +621,45 @@
     return [];
   }
 
+  function getImageShell(img) {
+    return img.closest(
+      ".post-card-thumb, .gallery-item, .gallery-card-img, .article-cover, .poem-cover, .profile-avatar-wrap",
+    );
+  }
+
+  async function settleImage(img) {
+    try {
+      if (typeof img.decode === "function") {
+        await img.decode();
+      }
+    } catch {
+      // Ignore decode failures and reveal the image anyway.
+    }
+
+    img.classList.add("loaded");
+    const shell = getImageShell(img);
+    if (shell) {
+      shell.classList.remove("is-loading");
+      shell.classList.add("is-loaded");
+    }
+  }
+
   function initLazyImages(root) {
     (root || document)
-      .querySelectorAll('img[loading="lazy"]:not(.loaded)')
+      .querySelectorAll("img:not(.loaded)")
       .forEach((img) => {
-        if (img.complete && img.naturalWidth > 0) {
-          img.classList.add("loaded");
-        } else {
-          img.addEventListener("load", () => img.classList.add("loaded"), {
-            once: true,
-          });
-          img.addEventListener("error", () => img.classList.add("loaded"), {
-            once: true,
-          });
+        const shell = getImageShell(img);
+        if (shell && !shell.classList.contains("is-loaded")) {
+          shell.classList.add("is-loading");
         }
+
+        if (img.complete) {
+          settleImage(img);
+          return;
+        }
+
+        img.addEventListener("load", () => settleImage(img), { once: true });
+        img.addEventListener("error", () => settleImage(img), { once: true });
       });
   }
 
@@ -616,10 +707,37 @@
   }
 
   function renderHome() {
+    const heroTitle = (state.config && state.config.hero_title) || "Raksara";
+    const heroSubtitle =
+      (state.config && state.config.hero_subtitle) ||
+      "A place where ideas, knowledge, and engineering thoughts are recorded.";
+
+    // Use prerendered markup if available
+    if (state.homePrerender && state.homePrerender.html) {
+      showContent(state.homePrerender.html);
+      updatePageMeta({
+        title: null,
+        description: heroSubtitle,
+      });
+      initParallax();
+      initPortfolioCards();
+      initLazyImages();
+      initHeroTyping(heroTitle);
+      return;
+    }
+
+    // Fallback to dynamic rendering
     const recentPosts = state.posts.slice(0, 3);
     const recentThoughts = state.thoughts.slice(0, 2);
 
-    let postsHtml = recentPosts.map(renderPostCard).join("");
+    let postsHtml = recentPosts
+      .map((post, index) =>
+        renderPostCard(post, {
+          imageLoading: index === 0 ? "eager" : "lazy",
+          fetchPriority: index === 0 ? "high" : "auto",
+        }),
+      )
+      .join("");
 
     let portfolioHtml = state.portfolio
       .slice(0, 4)
@@ -639,8 +757,12 @@
           ? `<div class="gallery-image-count"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="1" width="9" height="9" rx="1.5"/><rect x="5" y="5" width="9" height="9" rx="1.5"/></svg>${images.length}</div>`
           : "";
         return `
-      <div class="gallery-item${isMulti ? " multi-image" : ""}" onclick="window.__openGallery(${state.gallery.indexOf(g)})">
-        <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(g.title)}" loading="lazy">
+      <div class="gallery-item is-loading${isMulti ? " multi-image" : ""}" onclick="window.__openGallery(${state.gallery.indexOf(g)})">
+        <img ${buildResponsiveImageAttrs(imgSrc, {
+          alt: g.title,
+          loading: "lazy",
+          sizes: "(max-width: 768px) calc(50vw - 24px), 240px",
+        })}>
         <div class="gallery-item-overlay">
           <div class="gallery-item-title">${escapeHtml(g.title)}</div>
         </div>
@@ -648,11 +770,6 @@
       </div>`;
       })
       .join("");
-
-    const heroTitle = (state.config && state.config.hero_title) || "Raksara";
-    const heroSubtitle =
-      (state.config && state.config.hero_subtitle) ||
-      "A place where ideas, knowledge, and engineering thoughts are recorded.";
 
     const waveSvg = `<div class="hero-waves"><svg class="hero-wave hero-wave-back" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,45 C100,20 200,55 360,30 C480,12 560,50 720,35 C850,22 1000,55 1140,28 C1280,8 1380,42 1440,38 L1440,80 L0,80 Z"/></svg><svg class="hero-wave hero-wave-front" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,38 C80,52 180,15 320,42 C430,60 540,18 700,40 C820,55 960,12 1100,45 C1220,62 1340,22 1440,35 L1440,80 L0,80 Z"/></svg></div>`;
 
@@ -730,10 +847,17 @@
     return html;
   }
 
-  function renderPostCard(p) {
+  function renderPostCard(p, options = {}) {
     const coverSrc = p.cover ? resolvePath(p.cover) : "";
+    const imageLoading = options.imageLoading || "lazy";
+    const fetchPriority = options.fetchPriority || "auto";
     const thumbHtml = coverSrc
-      ? `<div class="post-card-thumb"><img src="${escapeHtml(coverSrc)}" alt="" loading="lazy"></div>`
+      ? `<div class="post-card-thumb is-loading"><img ${buildResponsiveImageAttrs(coverSrc, {
+          alt: p.title || "",
+          loading: imageLoading,
+          fetchPriority,
+          sizes: "(max-width: 480px) 100px, (max-width: 640px) 120px, 180px",
+        })}></div>`
       : "";
     return `
       <a href="#/blog/post/${p.slug}" class="post-card${coverSrc ? " has-thumb" : ""}">
@@ -837,7 +961,11 @@
       renderBody(body, frontmatter) {
         const coverUrl = resolvePath(frontmatter.cover) || "";
         const coverHtml = coverUrl
-          ? `<div class="poem-cover"><img src="${escapeHtml(coverUrl)}" alt="" loading="lazy"></div>`
+          ? `<div class="poem-cover is-loading"><img ${buildResponsiveImageAttrs(coverUrl, {
+              alt: frontmatter.title || "",
+              loading: "lazy",
+              sizes: "(max-width: 704px) calc(100vw - 32px), 640px",
+            })}></div>`
           : "";
         return `<div class="article-body poem-body">${coverHtml}${renderMd(body, { breaks: true })}</div>`;
       },
@@ -1000,7 +1128,11 @@
       const coverUrl = resolvePath(frontmatter.cover || post.cover) || "";
       const coverHtml =
         coverUrl && !layout.handlesCover
-          ? `<div class="article-cover"><img src="${escapeHtml(coverUrl)}" alt="" loading="lazy"></div>`
+          ? `<div class="article-cover is-loading"><img ${buildResponsiveImageAttrs(coverUrl, {
+              alt: frontmatter.title || "",
+              loading: "lazy",
+              sizes: "(max-width: 832px) calc(100vw - 32px), 800px",
+            })}></div>`
           : "";
 
       if (layout.bodyClass)
@@ -1253,8 +1385,12 @@
         const hasLongDesc = desc.length > 120;
         return `
       <div class="gallery-card${isMulti ? " multi-image" : ""}">
-        <div class="gallery-card-img" onclick="window.__openGallery(${galleryIndex})">
-          <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(g.title)}" loading="lazy">
+        <div class="gallery-card-img is-loading" onclick="window.__openGallery(${galleryIndex})">
+          <img ${buildResponsiveImageAttrs(imgSrc, {
+            alt: g.title,
+            loading: "lazy",
+            sizes: "(max-width: 832px) calc(100vw - 32px), 800px",
+          })}>
           ${countBadge}
         </div>
         <div class="gallery-card-info">
@@ -1393,7 +1529,11 @@
       : "";
     const coverSrc = item.cover ? resolvePath(item.cover) : "";
     const thumbHtml = coverSrc
-      ? `<div class="post-card-thumb"><img src="${escapeHtml(coverSrc)}" alt="" loading="lazy"></div>`
+      ? `<div class="post-card-thumb is-loading"><img ${buildResponsiveImageAttrs(coverSrc, {
+          alt: item.title || "",
+          loading: "lazy",
+          sizes: "(max-width: 480px) 100px, (max-width: 640px) 120px, 180px",
+        })}></div>`
       : "";
     return `
       <a href="${itemHref(item)}" class="post-card${coverSrc ? " has-thumb" : ""}">
@@ -1543,7 +1683,12 @@
           <div class="profile-hero-overlay"></div>
           <div class="profile-hero-share">${shareButton(name)}</div>
           <div class="profile-hero-content">
-            ${avatarUrl ? `<div class="profile-avatar-wrap"><img class="profile-avatar" src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(name)}" loading="lazy"></div>` : ""}
+            ${avatarUrl ? `<div class="profile-avatar-wrap is-loading"><img ${buildResponsiveImageAttrs(avatarUrl, {
+              alt: name,
+              className: "profile-avatar",
+              loading: "lazy",
+              sizes: "110px",
+            })}></div>` : ""}
             <div class="profile-info">
               <h1>${escapeHtml(name)}</h1>
               ${role ? `<div class="profile-role">${escapeHtml(role)}</div>` : ""}
@@ -1603,16 +1748,23 @@
     const avatar = avatarWrap && avatarWrap.querySelector(".profile-avatar");
     if (avatar) {
       if (avatar.complete && avatar.naturalWidth > 0) {
-        avatarWrap.classList.add("loaded");
+        avatarWrap.classList.remove("is-loading");
+        avatarWrap.classList.add("loaded", "is-loaded");
       } else {
         avatar.addEventListener(
           "load",
-          () => avatarWrap.classList.add("loaded"),
+          () => {
+            avatarWrap.classList.remove("is-loading");
+            avatarWrap.classList.add("loaded", "is-loaded");
+          },
           { once: true },
         );
         avatar.addEventListener(
           "error",
-          () => avatarWrap.classList.add("loaded"),
+          () => {
+            avatarWrap.classList.remove("is-loading");
+            avatarWrap.classList.add("loaded", "is-loaded");
+          },
           { once: true },
         );
       }
@@ -1631,20 +1783,53 @@
       document.getElementById("home-hero-bg");
     if (!heroBg) return;
     const hero = heroBg.parentElement;
+    let heroTop = 0;
+    let heroHeight = 0;
     let ticking = false;
+
+    const measureHero = () => {
+      heroTop = hero.offsetTop;
+      heroHeight = hero.offsetHeight;
+    };
+
+    const updateParallax = () => {
+      const scrollTop = window.scrollY;
+      const viewportBottom = scrollTop + window.innerHeight;
+      if (viewportBottom >= heroTop && scrollTop <= heroTop + heroHeight) {
+        const delta = scrollTop - heroTop;
+        heroBg.style.transform = `translate3d(0, ${-delta * 0.35}px, 0) scale(1.1)`;
+      }
+    };
+
     const onScroll = () => {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(() => {
-        const rect = hero.getBoundingClientRect();
-        if (rect.bottom >= 0 && rect.top <= window.innerHeight) {
-          heroBg.style.transform = `translateY(${-rect.top * 0.35}px) scale(1.1)`;
-        }
+        updateParallax();
         ticking = false;
       });
     };
+    const onResize = () => {
+      measureHero();
+      onScroll();
+    };
+    measureHero();
     window.addEventListener("scroll", onScroll, { passive: true });
-    _parallaxCleanup = () => window.removeEventListener("scroll", onScroll);
+    window.addEventListener("resize", onResize, { passive: true });
+    if (typeof ResizeObserver === "function") {
+      const resizeObserver = new ResizeObserver(() => onResize());
+      resizeObserver.observe(hero);
+      _parallaxCleanup = () => {
+        window.removeEventListener("scroll", onScroll);
+        window.removeEventListener("resize", onResize);
+        resizeObserver.disconnect();
+      };
+    } else {
+      _parallaxCleanup = () => {
+        window.removeEventListener("scroll", onScroll);
+        window.removeEventListener("resize", onResize);
+      };
+    }
     onScroll();
   }
 
@@ -2801,7 +2986,11 @@
       player.className = "video-player";
       player.addEventListener("click", () => window.open(href, "_blank"));
       player.innerHTML = `
-        <img src="${thumbSrc}" alt="${escapeHtml(title)}" loading="lazy">
+        <img ${buildResponsiveImageAttrs(thumbSrc, {
+          alt: title,
+          loading: "lazy",
+          sizes: "(max-width: 832px) calc(100vw - 32px), 800px",
+        })}>
         <div class="video-player-overlay">
           <div class="video-player-play">
             <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>

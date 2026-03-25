@@ -655,7 +655,12 @@ body {
 
 .home-hero {
     position: relative;
-    margin: -48px -32px 0;
+    width: 100vw;
+    margin-left: calc(-50vw + 50%);
+    margin-right: calc(-50vw + 50%);
+    margin-top: -48px;
+    margin-bottom: 0;
+    padding-top: 48px;
     height: 360px;
     overflow: hidden;
 }
@@ -1015,6 +1020,7 @@ body {
 }
 
 .post-card-thumb {
+    position: relative;
     flex-shrink: 0;
     width: 180px;
     min-height: 160px;
@@ -1023,7 +1029,29 @@ body {
     overflow: hidden;
 }
 
+.post-card-thumb.is-loading::before,
+.gallery-item.is-loading::before,
+.gallery-card-img.is-loading::before,
+.article-cover.is-loading::before,
+.poem-cover.is-loading::before,
+.profile-avatar-wrap.is-loading::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        var(--bg-glass) 25%,
+        var(--bg-hover) 50%,
+        var(--bg-glass) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.3s ease-in-out infinite;
+    z-index: 0;
+}
+
 .post-card-thumb img {
+    position: relative;
+    z-index: 1;
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -1279,12 +1307,7 @@ body {
     border: 1px solid var(--border-glass);
     transition: all 0.35s var(--bounce);
     background: var(--bg-glass);
-    animation: shimmerOpacity 1.5s ease-in-out infinite;
     will-change: transform, box-shadow;
-}
-
-.gallery-item img.loaded {
-    animation: none;
 }
 
 .gallery-item:hover {
@@ -1294,6 +1317,8 @@ body {
 }
 
 .gallery-item img {
+    position: relative;
+    z-index: 1;
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -1314,6 +1339,7 @@ body {
 .gallery-item-overlay {
     position: absolute;
     inset: 0;
+    z-index: 1;
     background: linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, transparent 60%);
     display: flex;
     flex-direction: column;
@@ -1368,14 +1394,11 @@ body {
     max-height: 480px;
     min-height: 200px;
     background: var(--bg-glass);
-    animation: shimmerOpacity 1.5s ease-in-out infinite;
-}
-
-.gallery-card-img img.loaded {
-    animation: none !important;
 }
 
 .gallery-card-img img {
+    position: relative;
+    z-index: 1;
     width: 100%;
     display: block;
     object-fit: cover;
@@ -1707,7 +1730,6 @@ body {
     height: 110px;
     border-radius: 50%;
     background: var(--bg-glass);
-    animation: shimmerOpacity 1.5s ease-in-out infinite;
     will-change: transform;
 }
 
@@ -1721,6 +1743,8 @@ body {
 }
 
 .profile-avatar {
+    position: relative;
+    z-index: 1;
     width: 110px;
     height: 110px;
     border-radius: 50%;
@@ -1968,6 +1992,7 @@ body {
 }
 
 .article-cover {
+    position: relative;
     margin: 0 auto 32px;
     border-radius: var(--radius-lg);
     overflow: hidden;
@@ -1975,6 +2000,8 @@ body {
 }
 
 .article-cover img {
+    position: relative;
+    z-index: 1;
     width: 100%;
     display: block;
     object-fit: cover;
@@ -2179,17 +2206,11 @@ body {
         transform 0.3s var(--bounce),
         opacity 0.35s ease;
     background: var(--bg-glass);
-    animation: shimmerOpacity 1.5s ease-in-out infinite;
     min-height: 100px;
     will-change: transform;
 }
 
 .article-body img.loaded {
-    animation: none;
-}
-
-.article-body img.loaded {
-    animation: none;
     background: none;
 }
 
@@ -2357,6 +2378,7 @@ body {
 }
 
 .poem-cover {
+    position: relative;
     max-width: 100%;
     margin: 0 auto 32px;
     border-radius: var(--radius-md);
@@ -2364,6 +2386,8 @@ body {
 }
 
 .poem-cover img {
+    position: relative;
+    z-index: 1;
     width: 100%;
     object-fit: cover;
     object-position: center;

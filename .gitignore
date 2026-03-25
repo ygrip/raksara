@@ -9,6 +9,7 @@ content
 metadata/
 web/metadata/
 web/content/
+web/content/.raksara-responsive/
 
 # Only keep core frontend sources tracked in /web
 web/*
