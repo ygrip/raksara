@@ -46,6 +46,8 @@ jobs:
         run: npm ci
 
       - name: Build metadata
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
         run: node scripts/build-metadata.js
 
       - name: Setup Pages
