@@ -885,12 +885,47 @@ function minifyCSS() {
   }
 }
 
+function minifyJS() {
+  try {
+    const jsPath = path.join(WEB_DIR, "app.js");
+    const minJsPath = path.join(WEB_DIR, "app.min.js");
+
+    if (!fs.existsSync(jsPath)) {
+      console.log("  ⚠ app.js not found, skipping JS minification");
+      return;
+    }
+
+    const js = fs.readFileSync(jsPath, "utf-8");
+
+    // Conservative minification: strip block comments and collapse whitespace.
+    // Deliberately does NOT strip single-line comments or operator whitespace to
+    // avoid corrupting string/regex literals (e.g. "http://...").
+    let minified = js
+      .replace(/\/\*[\s\S]*?\*\//g, "")   // Remove block comments
+      .replace(/\n\s*\n/g, "\n")           // Collapse blank lines
+      .replace(/[ \t]+/g, " ")             // Collapse horizontal whitespace
+      .replace(/^ /gm, "")                 // Strip single leading space per line
+      .trim();
+
+    fs.writeFileSync(minJsPath, minified, "utf-8");
+
+    const originalSize = js.length;
+    const minifiedSize = minified.length;
+    const savings = ((1 - minifiedSize / originalSize) * 100).toFixed(1);
+
+    console.log(`  ✓ JS minified: ${(originalSize/1024).toFixed(1)} KB → ${(minifiedSize/1024).toFixed(1)} KB (${savings}% savings)`);
+  } catch (err) {
+    console.error("  ✗ JS minification failed:", err.message);
+  }
+}
+
 async function runBuild() {
   const cleanupSymlink = setupLocalContentSymlink();
   CONTENT_DIR = resolveContentDir();
   try {
     await buildMetadata();
     minifyCSS();
+    minifyJS();
   } finally {
     cleanupSymlink();
   }

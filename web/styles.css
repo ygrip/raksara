@@ -993,6 +993,7 @@ body {
 .post-card-date {
     font-family: var(--font-mono);
     font-size: 11px;
+    color: var(--text-secondary);
 }
 
 .post-card-category {
@@ -1308,7 +1309,6 @@ body {
     border: 1px solid var(--border-glass);
     transition: all 0.35s var(--bounce);
     background: var(--bg-glass);
-    will-change: transform, box-shadow;
 }
 
 .gallery-item:hover {
@@ -3112,5 +3112,26 @@ body.reading-mode .reading-mode-btn {
     .video-player-play {
         width: 56px;
         height: 40px;
+    }
+}
+
+/* ── Reduced Motion ──────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+    .bg-gradient,
+    .home-hero-aurora,
+    .accent-gradient,
+    .hero-cursor,
+    .hero-wave-back,
+    .hero-wave-front,
+    .profile-avatar-wrap::before,
+    .profile-avatar {
+        animation: none !important;
+    }
+
+    *,
+    *::before,
+    *::after {
+        transition-duration: 0.01ms !important;
     }
 }

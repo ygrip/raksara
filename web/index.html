@@ -28,18 +28,20 @@
         <link rel="canonical" href="" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
         <link
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;700&display=swap"
             rel="stylesheet"
         />
         <link
             rel="stylesheet"
-            href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
+            href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css"
             id="hljs-dark"
         />
         <link
             rel="stylesheet"
-            href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css"
+            href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css"
             id="hljs-light"
             disabled
         />
@@ -64,7 +66,7 @@
         <div class="bg-gradient"></div>
         <div class="bg-noise"></div>
 
-        <div id="search-overlay" class="search-overlay hidden">
+        <div id="search-overlay" class="search-overlay hidden" role="dialog" aria-label="Search" aria-modal="true">
             <div class="search-overlay-backdrop"></div>
             <div class="search-overlay-content glass-heavy">
                 <div class="search-overlay-header">
@@ -87,6 +89,7 @@
                         type="text"
                         id="search-overlay-input"
                         placeholder="Search posts, projects, thoughts..."
+                        aria-label="Search"
                         autocomplete="off"
                     />
                     <kbd class="search-kbd">ESC</kbd>
@@ -408,7 +411,7 @@
             </main>
         </div>
 
-        <div id="lightbox" class="lightbox hidden" role="dialog">
+        <div id="lightbox" class="lightbox hidden" role="dialog" aria-label="Image viewer" aria-modal="true" aria-labelledby="lightbox-caption">
             <div class="lightbox-backdrop"></div>
             <div class="lightbox-content">
                 <img id="lightbox-img" src="" alt="" />
@@ -419,9 +422,9 @@
             </div>
         </div>
 
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/minisearch@7.1.1/dist/umd/index.min.js"></script>
-        <script src="app.js"></script>
+        <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+        <script defer src="https://cdn.jsdelivr.net/npm/marked@17.0.5/marked.min.js"></script>
+        <script defer src="https://cdn.jsdelivr.net/npm/minisearch@7.2.0/dist/umd/index.min.js"></script>
+        <script defer src="app.min.js"></script>
     </body>
 </html>
