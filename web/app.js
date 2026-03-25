@@ -196,12 +196,20 @@
       });
       applyAccentColor((state.config && state.config.color) || "purple");
       if (state.config.logo) applyLogo("content/" + state.config.logo);
+      // Update sidebar title from config
+      if (state.config.hero_title)        applyLogoText(state.config.hero_title || "Raksara");
     } catch (err) {
       console.error("Error loading data:", err);
       showContent(
         '<div class="empty-state"><h3>Failed to load data</h3><p>Run: npm run build</p></div>',
       );
     }
+  }
+
+  async function applyLogoText(text) {
+      document.querySelectorAll(".logo-text").forEach((el) => {
+        el.textContent = text;
+      });
   }
 
   async function loadMarkdown(path) {
