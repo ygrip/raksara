@@ -10,6 +10,12 @@ metadata/
 web/metadata/
 web/content/
 
+# Only keep core frontend sources tracked in /web
+web/*
+!web/app.js
+!web/index.html
+!web/styles.css
+
 # Project plan (internal)
 plan/
 

@@ -67,6 +67,7 @@ See `CONTENT_GUIDE.md` for detailed authoring instructions.
 | Type | Name | Value |
 |------|------|-------|
 | Variable | `CONTENT_REPO` | `you/your-content` (owner/repo) |
+| Variable | `SITE_URL` | `https://you.github.io` or your custom domain |
 | Secret | `CONTENT_PAT` | A GitHub PAT with `repo` scope to read your private content repo |
 
 **On your content repo:**
@@ -111,15 +112,31 @@ Go to Actions > Deploy Site > Run workflow.
 # Install dependencies
 npm install
 
-# Place content in content/ (clone your content repo or symlink)
-git clone git@github.com:you/your-content.git content
+# Prepare sibling content repo
+git clone git@github.com:you/raksara-content.git ../raksara-content
 
-# Build metadata
+# Build metadata (script will create content -> ../raksara-content symlink,
+# then remove it automatically after build)
 npm run build
 
 # Serve locally
 npm run dev
 ```
+
+### Local build behavior
+
+- For local runs, the build script checks for `../raksara-content`.
+- If found, it creates a temporary `content/` symlink before building.
+- After the build finishes (success or failure), the symlink is removed.
+- In CI (`GITHUB_ACTIONS=true`), this symlink behavior is skipped.
+
+### SEO base URL source
+
+- Sitemap and robots use environment variables, not YAML config.
+- Supported variables (priority order):
+  1. `SITE_URL` (recommended)
+  2. `BASE_URL`
+- If none is set, the build falls back to `https://<github-owner>.github.io` when possible.
 
 ## Project Structure
 
@@ -128,7 +145,7 @@ raksara/
 ├── content-template/     # Skeleton content structure for forkers
 ├── web/                  # Frontend (HTML, CSS, JS)
 ├── scripts/
-│   └── build-metadata.js # Scans content/, generates JSON indexes
+│   └── build-metadata.js # Scans content/, generates JSON indexes + SEO artifacts
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml    # CI/CD: checkout content, build, deploy

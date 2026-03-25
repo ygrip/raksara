@@ -16,6 +16,124 @@
     config: {},
     loaded: false,
   };
+  const runtime = {
+    basePath: "",
+  };
+
+  function normalizeRoutePath(route) {
+    if (!route) return "/";
+    const clean = String(route)
+      .replace(/^https?:\/\/[^/]+/i, "")
+      .replace(/^[#]+/, "")
+      .replace(/\/index\.html$/i, "")
+      .replace(/\/+$/, "");
+    if (!clean || clean === "/") return "/";
+    return clean.startsWith("/") ? clean : `/${clean}`;
+  }
+
+  function initBasePath() {
+    try {
+      const p = new URL(document.baseURI).pathname || "/";
+      runtime.basePath = p === "/" ? "" : p.replace(/\/$/, "");
+    } catch {
+      runtime.basePath = "";
+    }
+  }
+
+  function stripBasePath(pathname) {
+    if (!runtime.basePath || runtime.basePath === "/") return pathname;
+    if (pathname.startsWith(runtime.basePath + "/")) {
+      return pathname.slice(runtime.basePath.length);
+    }
+    if (pathname === runtime.basePath) return "/";
+    return pathname;
+  }
+
+  function toRouteHref(route) {
+    const normalized = normalizeRoutePath(route);
+    if (normalized === "/") return runtime.basePath || "/";
+    return `${runtime.basePath}${normalized}` || normalized;
+  }
+
+  function toRoutePathFromHref(href) {
+    if (!href) return "/";
+    if (href.startsWith("#/")) return normalizeRoutePath(href.slice(1));
+    if (href.startsWith("#")) return getCurrentRoutePath();
+    if (href.startsWith("/")) return normalizeRoutePath(stripBasePath(href));
+    if (/^https?:\/\//i.test(href)) {
+      try {
+        const u = new URL(href);
+        if (u.origin !== window.location.origin) return null;
+        return normalizeRoutePath(stripBasePath(u.pathname));
+      } catch {
+        return null;
+      }
+    }
+    return normalizeRoutePath(href);
+  }
+
+  function getCurrentRoutePath() {
+    if (window.location.hash && window.location.hash.startsWith("#/")) {
+      return normalizeRoutePath(window.location.hash.slice(1));
+    }
+    const path = stripBasePath(window.location.pathname || "/");
+    return normalizeRoutePath(path);
+  }
+
+  function getAbsolutePageUrl(routePath) {
+    return window.location.origin + toRouteHref(routePath || getCurrentRoutePath());
+  }
+
+  function navigateTo(href, opts = {}) {
+    const route = toRoutePathFromHref(href);
+    if (!route) {
+      window.location.href = href;
+      return;
+    }
+    const nextHref = toRouteHref(route);
+    const current = window.location.pathname + window.location.search;
+    if (current !== nextHref) {
+      const method = opts.replace ? "replaceState" : "pushState";
+      window.history[method]({}, "", nextHref);
+    }
+    handleRoute();
+  }
+
+  function normalizeLegacyRouteLinks(root = document) {
+    root.querySelectorAll('a[href^="#/"]').forEach((a) => {
+      const href = a.getAttribute("href");
+      const route = toRoutePathFromHref(href);
+      if (route) a.setAttribute("href", toRouteHref(route));
+    });
+  }
+
+  function initClientRouting() {
+    normalizeLegacyRouteLinks(document);
+    document.addEventListener("click", (e) => {
+      const a = e.target.closest("a[href]");
+      if (!a) return;
+      if (a.target === "_blank" || a.hasAttribute("download")) return;
+      const href = a.getAttribute("href") || "";
+      if (!href || href.startsWith("mailto:") || href.startsWith("tel:")) return;
+      if (href.startsWith("#") && !href.startsWith("#/")) return;
+      if (href.startsWith("http://") || href.startsWith("https://")) {
+        try {
+          const u = new URL(href);
+          if (u.origin !== window.location.origin) return;
+        } catch {
+          return;
+        }
+      }
+      const route = toRoutePathFromHref(href);
+      if (!route) return;
+      e.preventDefault();
+      navigateTo(href);
+    });
+    window.addEventListener("popstate", handleRoute);
+    window.addEventListener("hashchange", () => {
+      if (window.location.hash.startsWith("#/")) handleRoute();
+    });
+  }
 
   // ── Data Loading ──────────────────────────────────────
 
@@ -163,17 +281,17 @@
     const m = href.match(/^\/?(content\/)?blog\/(.+?)(?:#(.+))?$/);
     if (m) {
       const slug = m[2].replace(/\.md$/, "");
-      return `#/blog/post/${slug}${m[3] ? "#" + m[3] : ""}`;
+      return `/blog/post/${slug}${m[3] ? "#" + m[3] : ""}`;
     }
     const pm = href.match(/^\/?(content\/)?portfolio\/(.+?)(?:#(.+))?$/);
     if (pm) {
       const slug = pm[2].replace(/\.md$/, "");
-      return `#/portfolio/${slug}${pm[3] ? "#" + pm[3] : ""}`;
+      return `/portfolio/${slug}${pm[3] ? "#" + pm[3] : ""}`;
     }
     const pgm = href.match(/^\/?(content\/)?pages\/(.+?)(?:#(.+))?$/);
     if (pgm) {
       const slug = pgm[2].replace(/\.md$/, "");
-      return `#/${slug}${pgm[3] ? "#" + pgm[3] : ""}`;
+      return `/${slug}${pgm[3] ? "#" + pgm[3] : ""}`;
     }
     return href;
   }
@@ -225,6 +343,7 @@
     el.style.opacity = "0";
     el.style.transform = "translateY(8px)";
     el.innerHTML = html;
+    normalizeLegacyRouteLinks(el);
     requestAnimationFrame(() => {
       el.style.transition = "opacity 0.3s ease, transform 0.3s ease";
       el.style.opacity = "1";
@@ -278,7 +397,18 @@
     el.setAttribute(attr, value || "");
   }
 
-  function updatePageMeta({ title, description, image, type, author, keywords, url } = {}) {
+  function setStructuredData(data) {
+    const existing = document.getElementById("structured-data");
+    if (existing) existing.remove();
+    if (!data) return;
+    const script = document.createElement("script");
+    script.id = "structured-data";
+    script.type = "application/ld+json";
+    script.textContent = JSON.stringify(data);
+    document.head.appendChild(script);
+  }
+
+  function updatePageMeta({ title, description, image, type, author, keywords, url, structuredData } = {}) {
     const siteName = (state.config && state.config.hero_title) || "Raksara";
     const siteDesc =
       (state.config && state.config.hero_subtitle) ||
@@ -294,7 +424,7 @@
     const pageType = type || "website";
     const pageAuthor = author || siteAuthor;
     const pageKeywords = Array.isArray(keywords) ? keywords.join(", ") : (keywords || "");
-    const pageUrl = url || (window.location.origin + window.location.pathname + window.location.hash);
+    const pageUrl = url || getAbsolutePageUrl(getCurrentRoutePath());
 
     document.title = pageTitle;
     setMeta('meta[name="description"]', "content", pageDesc);
@@ -318,6 +448,7 @@
       document.head.appendChild(canonical);
     }
     canonical.href = pageUrl;
+    setStructuredData(structuredData || null);
   }
 
   // ── File Attachments ──────────────────────────────────
@@ -759,10 +890,10 @@
   }
 
   function scrollToAnchor() {
-    const fullHash = window.location.hash;
-    const anchorIdx = fullHash.indexOf("#", 1);
-    if (anchorIdx === -1) return;
-    const anchor = fullHash.slice(anchorIdx + 1);
+    const anchor =
+      window.location.hash && !window.location.hash.startsWith("#/")
+        ? window.location.hash.slice(1)
+        : "";
     if (!anchor) return;
     setTimeout(() => {
       const el = document.getElementById(anchor);
@@ -771,12 +902,7 @@
   }
 
   function initContentLinks() {
-    document.querySelectorAll('.article-body a[href^="#/"]').forEach((a) => {
-      a.addEventListener("click", (e) => {
-        e.preventDefault();
-        window.location.hash = a.getAttribute("href").slice(1);
-      });
-    });
+    normalizeLegacyRouteLinks(document.getElementById("page-content"));
   }
 
   async function renderBlogPost(slug) {
@@ -906,6 +1032,22 @@
         type: "article",
         author: frontmatter.author || "",
         keywords: post.tags || [],
+        structuredData: {
+          "@context": "https://schema.org",
+          "@type": "BlogPosting",
+          headline: post.title,
+          datePublished: post.date,
+          dateModified: post.date,
+          author: {
+            "@type": "Person",
+            name:
+              frontmatter.author ||
+              (state.config && state.config.author) ||
+              "",
+          },
+          mainEntityOfPage: getAbsolutePageUrl(`/blog/post/${post.slug}`),
+          image: coverUrl || undefined,
+        },
       });
       initShareButton(post.title, {
         coverUrl,
@@ -1014,7 +1156,7 @@
     document.querySelectorAll(".portfolio-card[data-href]").forEach((card) => {
       card.addEventListener("click", (e) => {
         if (e.target.closest("a")) return;
-        window.location.hash = card.dataset.href;
+        navigateTo(card.dataset.href);
       });
     });
   }
@@ -1186,8 +1328,7 @@
         e.stopPropagation();
         const idx = btn.dataset.galleryIndex;
         const title = btn.dataset.galleryTitle;
-        const baseUrl = window.location.origin + window.location.pathname;
-        const url = baseUrl + "#/gallery/" + idx;
+        const url = getAbsolutePageUrl(`/gallery/${idx}`);
         navigator.clipboard
           .writeText(title + " : " + url)
           .then(() => {
@@ -1239,11 +1380,11 @@
   // ── Shared filtered item renderer ─────────────────────
 
   function itemHref(item) {
-    if (item.section === "blog") return `#/blog/post/${item.slug}`;
-    if (item.section === "portfolio") return `#/portfolio/${item.slug}`;
-    if (item.section === "gallery") return `#/gallery`;
-    if (item.section === "thoughts") return `#/thoughts`;
-    return `#/${item.slug}`;
+    if (item.section === "blog") return `/blog/post/${item.slug}`;
+    if (item.section === "portfolio") return `/portfolio/${item.slug}`;
+    if (item.section === "gallery") return "/gallery";
+    if (item.section === "thoughts") return "/thoughts";
+    return `/${item.slug}`;
   }
 
   function renderFilteredItem(item) {
@@ -2807,11 +2948,11 @@
     await loadData();
     if (!state.loaded) return;
 
-    const hash = window.location.hash.slice(1) || "/";
-    const parts = hash.split("/").filter(Boolean);
-    updateActiveNav(hash);
+    const route = getCurrentRoutePath();
+    const parts = route.split("/").filter(Boolean);
+    updateActiveNav(route);
 
-    if (hash === "/" || hash === "") renderHome();
+    if (route === "/" || route === "") renderHome();
     else if (parts[0] === "blog" && parts[1] === "post" && parts.length > 2)
       await renderBlogPost(parts.slice(2).join("/"));
     else if (parts[0] === "blog" && parts[1] === "dir" && parts.length > 2)
@@ -2952,12 +3093,12 @@
         }
         results.innerHTML = hits
           .map((h) => {
-            let href = "#/";
-            if (h.section === "blog") href = `#/blog/post/${h.slug}`;
-            else if (h.section === "portfolio") href = `#/portfolio/${h.slug}`;
-            else if (h.section === "gallery") href = `#/gallery`;
-            else if (h.section === "thoughts") href = `#/thoughts`;
-            else if (h.section === "pages") href = `#/${h.slug}`;
+            let href = "/";
+            if (h.section === "blog") href = `/blog/post/${h.slug}`;
+            else if (h.section === "portfolio") href = `/portfolio/${h.slug}`;
+            else if (h.section === "gallery") href = "/gallery";
+            else if (h.section === "thoughts") href = "/thoughts";
+            else if (h.section === "pages") href = `/${h.slug}`;
             return `<div class="search-result-item" data-href="${href}">
             <div class="search-result-title">${escapeHtml(h.title)}</div>
             <div class="search-result-meta">${escapeHtml(h.section)}${h.category ? " \u00B7 " + escapeHtml(h.category) : ""}</div>
@@ -2966,7 +3107,7 @@
           .join("");
         results.querySelectorAll(".search-result-item").forEach((item) => {
           item.addEventListener("click", () => {
-            window.location.hash = item.dataset.href;
+            navigateTo(item.dataset.href);
             closeSearch();
           });
         });
@@ -3170,7 +3311,7 @@
       <button class="mobile-menu-btn" aria-label="Menu">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       </button>
-      <a href="#/" class="logo"><span class="logo-icon">\u25C6</span><span class="logo-text">Raksara</span></a>
+      <a href="./" class="logo"><span class="logo-icon">\u25C6</span><span class="logo-text">Raksara</span></a>
       <button class="icon-btn mobile-theme-toggle" aria-label="Toggle theme">
         <svg class="icon-sun" width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3.5" stroke="currentColor" stroke-width="1.2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
         <svg class="icon-moon" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.5 8.5a5.5 5.5 0 01-6-6 5.5 5.5 0 106 6z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -3205,7 +3346,11 @@
   // ── Init ──────────────────────────────────────────────
 
   function init() {
-    window.addEventListener("hashchange", handleRoute);
+    initBasePath();
+    initClientRouting();
+    if (window.location.hash && window.location.hash.startsWith("#/")) {
+      navigateTo(window.location.hash, { replace: true });
+    }
     initTheme();
     initSearch();
     initLightbox();

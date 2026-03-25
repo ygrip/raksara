@@ -2,13 +2,52 @@ const fg = require("fast-glob");
 const matter = require("gray-matter");
 const fs = require("fs");
 const path = require("path");
+const { execSync } = require("child_process");
+const yaml = require("js-yaml");
 const MiniSearch = require("minisearch");
 
-const CONTENT_DIR = path.join(__dirname, "..", "content");
+const REPO_ROOT = path.join(__dirname, "..");
+const LOCAL_CONTENT_LINK = path.join(REPO_ROOT, "content");
+const LOCAL_CONTENT_SOURCE = path.resolve(REPO_ROOT, "..", "raksara-content");
+let CONTENT_DIR = "";
 const METADATA_DIR = path.join(__dirname, "..", "metadata");
 const WEB_DIR = path.join(__dirname, "..", "web");
 
 fs.mkdirSync(METADATA_DIR, { recursive: true });
+
+function resolveContentDir() {
+  const candidates = [
+    LOCAL_CONTENT_LINK,
+    path.join(__dirname, "..", "web", "content"),
+    path.join(__dirname, "..", "content-template"),
+  ];
+  return candidates.find((p) => fs.existsSync(p)) || candidates[0];
+}
+
+function setupLocalContentSymlink() {
+  const isCi = process.env.GITHUB_ACTIONS === "true";
+  if (isCi) return () => {};
+
+  if (fs.existsSync(LOCAL_CONTENT_LINK)) return () => {};
+  if (!fs.existsSync(LOCAL_CONTENT_SOURCE)) return () => {};
+
+  fs.symlinkSync(LOCAL_CONTENT_SOURCE, LOCAL_CONTENT_LINK, "dir");
+  console.log("  ✓ Linked content/ -> ../raksara-content");
+
+  return function cleanupSymlink() {
+    try {
+      if (fs.existsSync(LOCAL_CONTENT_LINK)) {
+        const stat = fs.lstatSync(LOCAL_CONTENT_LINK);
+        if (stat.isSymbolicLink()) {
+          fs.unlinkSync(LOCAL_CONTENT_LINK);
+          console.log("  ✓ Removed local content/ symlink");
+        }
+      }
+    } catch {
+      // Best effort cleanup for local dev
+    }
+  };
+}
 
 function stripMarkdown(md) {
   return md
@@ -164,14 +203,24 @@ async function buildMetadata() {
   let siteConfig = { color: "purple" };
   if (fs.existsSync(configPath)) {
     const raw = fs.readFileSync(configPath, "utf-8");
-    for (const line of raw.split("\n")) {
-      const m = line.match(/^(\w[\w-]*):\s*(.+)$/);
-      if (m) siteConfig[m[1]] = m[2].trim().replace(/^["']|["']$/g, "");
+    const parsed = yaml.load(raw);
+    if (parsed && typeof parsed === "object") {
+      siteConfig = { ...siteConfig, ...parsed };
     }
   }
   write("config.json", siteConfig);
 
   copyMetadataToWeb();
+  generateSeoArtifacts({
+    posts,
+    portfolioItems,
+    galleryItems,
+    thoughts,
+    pages,
+    tags,
+    categories,
+    blogDirs,
+  });
 
   console.log(`  Posts:      ${posts.length}`);
   console.log(`  Portfolio:  ${portfolioItems.length}`);
@@ -229,8 +278,213 @@ function copyMetadataToWeb() {
   }
 
   const contentWebDir = path.join(WEB_DIR, "content");
-  copyDirRecursive(CONTENT_DIR, contentWebDir);
+  if (path.resolve(CONTENT_DIR) !== path.resolve(contentWebDir)) {
+    copyDirRecursive(CONTENT_DIR, contentWebDir);
+  }
   console.log("  ✓ Copied metadata and content to web/");
+}
+
+function generateSeoArtifacts({
+  posts,
+  portfolioItems,
+  galleryItems,
+  thoughts,
+  pages,
+  tags,
+  categories,
+  blogDirs,
+}) {
+  const siteUrl = getSiteUrl();
+  const routes = collectRoutes({
+    posts,
+    portfolioItems,
+    galleryItems,
+    thoughts,
+    pages,
+    tags,
+    categories,
+    blogDirs,
+  });
+
+  writeWebFile("sitemap.xml", buildSitemapXml(siteUrl, routes));
+  writeWebFile(
+    "robots.txt",
+    ["User-agent: *", "Allow: /", "", `Sitemap: ${siteUrl}/sitemap.xml`, ""].join(
+      "\n",
+    ),
+  );
+  generateStaticRoutePages(routes);
+
+  console.log("  ✓ Generated sitemap.xml");
+  console.log("  ✓ Generated robots.txt");
+  console.log(`  ✓ Generated route pages (${routes.length})`);
+}
+
+function getSiteUrl() {
+  const configured =
+    process.env.SITE_URL ||
+    process.env.BASE_URL;
+  if (configured) return normalizeSiteUrl(configured);
+
+  const repo = process.env.GITHUB_REPOSITORY || "";
+  const owner = repo.split("/")[0] || guessGitHubOwnerFromLocalGit();
+  if (owner) return `https://${owner}.github.io`;
+  return "https://example.github.io";
+}
+
+function guessGitHubOwnerFromLocalGit() {
+  try {
+    try {
+      const remote = execSync("git config --get remote.origin.url", {
+        cwd: path.join(__dirname, ".."),
+        encoding: "utf-8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+      const owner = extractGitHubOwnerFromRemote(remote);
+      if (owner) return owner;
+    } catch {
+      // fall back to parsing .git/config directly
+    }
+
+    const gitConfigPath = path.join(__dirname, "..", ".git", "config");
+    if (!fs.existsSync(gitConfigPath)) return "";
+    const text = fs.readFileSync(gitConfigPath, "utf-8");
+    const remoteMatch = text.match(/url\s*=\s*(.+)/);
+    if (!remoteMatch) return "";
+    return extractGitHubOwnerFromRemote(remoteMatch[1].trim());
+  } catch {
+    return "";
+  }
+}
+
+function extractGitHubOwnerFromRemote(remote) {
+  if (!remote) return "";
+  const ssh = remote.match(/^git@github\.com:([^/]+)\//i);
+  if (ssh) return ssh[1];
+  const https = remote.match(/^https?:\/\/github\.com\/([^/]+)\//i);
+  if (https) return https[1];
+  return "";
+}
+
+function normalizeSiteUrl(url) {
+  const withProtocol = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+  return withProtocol.replace(/\/+$/, "");
+}
+
+function collectRoutes({
+  posts,
+  portfolioItems,
+  galleryItems,
+  thoughts,
+  pages,
+  tags,
+  categories,
+  blogDirs,
+}) {
+  const routes = new Set([
+    "/",
+    "/blog",
+    "/portfolio",
+    "/gallery",
+    "/thoughts",
+    "/tags",
+    "/categories",
+    "/profile",
+    "/about",
+  ]);
+
+  for (const p of posts) routes.add(`/blog/post/${p.slug}`);
+  for (const p of portfolioItems) routes.add(`/portfolio/${p.slug}`);
+  for (const page of pages) routes.add(`/${page.slug}`);
+
+  for (const d of Object.keys(blogDirs || {})) {
+    if (!d) continue;
+    routes.add(`/blog/dir/${d}`);
+  }
+
+  for (const t of Object.keys(tags || {})) {
+    routes.add(`/tag/${encodeURIComponent(t)}`);
+  }
+  for (const c of Object.keys(categories || {})) {
+    routes.add(`/category/${encodeURIComponent(c)}`);
+  }
+
+  if (galleryItems.length > 0) {
+    for (let i = 0; i < galleryItems.length; i += 1) {
+      routes.add(`/gallery/${i}`);
+    }
+  }
+
+  if (thoughts.length === 0) routes.add("/thoughts");
+
+  return Array.from(routes).sort();
+}
+
+function buildSitemapXml(siteUrl, routes) {
+  const now = new Date().toISOString();
+  const urls = routes
+    .map((route) => {
+      const clean = route === "/" ? "" : route;
+      return [
+        "  <url>",
+        `    <loc>${escapeXml(siteUrl + clean)}</loc>`,
+        `    <lastmod>${now}</lastmod>`,
+        "  </url>",
+      ].join("\n");
+    })
+    .join("\n");
+
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    urls,
+    "</urlset>",
+    "",
+  ].join("\n");
+}
+
+function escapeXml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function generateStaticRoutePages(routes) {
+  const srcIndexPath = path.join(WEB_DIR, "index.html");
+  if (!fs.existsSync(srcIndexPath)) return;
+  const srcHtml = fs.readFileSync(srcIndexPath, "utf-8");
+
+  for (const route of routes) {
+    if (route === "/") continue;
+    const routePath = route.replace(/^\/+/, "");
+    const depth = routePath.split("/").filter(Boolean).length;
+    const baseHref = `${"../".repeat(depth)}` || "./";
+    const htmlWithBase = injectOrReplaceBaseHref(srcHtml, baseHref);
+    const outDir = path.join(WEB_DIR, routePath);
+    fs.mkdirSync(outDir, { recursive: true });
+    fs.writeFileSync(path.join(outDir, "index.html"), htmlWithBase);
+  }
+
+  // Keep root index explicitly base-aware for consistent relative loading.
+  fs.writeFileSync(
+    path.join(WEB_DIR, "index.html"),
+    injectOrReplaceBaseHref(srcHtml, "./"),
+  );
+}
+
+function injectOrReplaceBaseHref(html, baseHref) {
+  if (/<base\s+href=/i.test(html)) {
+    return html.replace(/<base\s+href=["'][^"']*["']\s*\/?\s*>/i, `<base href="${baseHref}">`);
+  }
+  return html.replace("<head>", `<head>\n        <base href="${baseHref}">`);
+}
+
+function writeWebFile(filename, content) {
+  const filepath = path.join(WEB_DIR, filename);
+  fs.writeFileSync(filepath, content);
 }
 
 const SKIP_DIRS = new Set([".git", "node_modules", ".github"]);
@@ -250,7 +504,17 @@ function copyDirRecursive(src, dest) {
   }
 }
 
-buildMetadata().catch((err) => {
+async function runBuild() {
+  const cleanupSymlink = setupLocalContentSymlink();
+  CONTENT_DIR = resolveContentDir();
+  try {
+    await buildMetadata();
+  } finally {
+    cleanupSymlink();
+  }
+}
+
+runBuild().catch((err) => {
   console.error("Build failed:", err);
   process.exit(1);
 });
