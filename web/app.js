@@ -20,6 +20,128 @@
   const runtime = {
     basePath: "",
   };
+  const highlightState = {
+    corePromise: null,
+    instance: null,
+    loadedLangs: new Set(),
+  };
+  const vendorState = {
+    markdownPromise: null,
+    searchPromise: null,
+  };
+  const HIGHLIGHT_LANG_ALIASES = {
+    js: "javascript",
+    jsx: "javascript",
+    mjs: "javascript",
+    cjs: "javascript",
+    ts: "typescript",
+    tsx: "typescript",
+    yml: "yaml",
+    sh: "bash",
+    shell: "bash",
+    zsh: "bash",
+    md: "markdown",
+    html: "xml",
+    xhtml: "xml",
+    plist: "xml",
+    text: "plaintext",
+    txt: "plaintext",
+    plain: "plaintext",
+    log: "plaintext",
+  };
+
+  function toAssetHref(pathname) {
+    const normalized = String(pathname || "").replace(/^\/+/, "");
+    return toRouteHref(`/${normalized}`);
+  }
+
+  function normalizeHighlightLanguage(lang) {
+    if (!lang) return "plaintext";
+    const normalized = String(lang).trim().toLowerCase();
+    return HIGHLIGHT_LANG_ALIASES[normalized] || normalized;
+  }
+
+  function loadScriptOnce(src, key) {
+    if (vendorState[key]) return vendorState[key];
+    vendorState[key] = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = src;
+      script.defer = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+      document.head.appendChild(script);
+    });
+    return vendorState[key];
+  }
+
+  async function ensureMarkdownVendorLoaded() {
+    if (typeof marked !== "undefined") return;
+    await loadScriptOnce(toAssetHref("vendor-markdown.min.js"), "markdownPromise");
+  }
+
+  async function ensureSearchVendorLoaded() {
+    if (typeof MiniSearch !== "undefined") return;
+    await loadScriptOnce(toAssetHref("vendor-search.min.js"), "searchPromise");
+  }
+
+  async function ensureMiniSearchReady() {
+    if (state.miniSearch) return;
+    if (!state.searchIndex) return;
+    await ensureSearchVendorLoaded();
+    state.miniSearch = MiniSearch.loadJS(state.searchIndex, {
+      fields: ["title", "tags", "category", "body"],
+      storeFields: ["title", "section", "slug", "category"],
+    });
+  }
+
+  async function ensureHighlightCoreLoaded() {
+    if (highlightState.instance) return highlightState.instance;
+    if (!highlightState.corePromise) {
+      const coreUrl = toAssetHref("vendor/hljs/es/core.js");
+      highlightState.corePromise = import(coreUrl).then((mod) => {
+        const instance = mod.default || mod.HighlightJS;
+        if (!instance) throw new Error("Highlight core failed to initialize");
+        highlightState.instance = instance;
+        return instance;
+      });
+    }
+    return highlightState.corePromise;
+  }
+
+  async function ensureHighlightLanguageLoaded(rawLang) {
+    const language = normalizeHighlightLanguage(rawLang);
+    if (!language || highlightState.loadedLangs.has(language)) return;
+
+    const hljs = await ensureHighlightCoreLoaded();
+    if (hljs.getLanguage(language)) {
+      highlightState.loadedLangs.add(language);
+      return;
+    }
+
+    try {
+      const langUrl = toAssetHref(`vendor/hljs/es/languages/${language}.js`);
+      const mod = await import(langUrl);
+      const def = mod.default || mod;
+      if (typeof def === "function") {
+        hljs.registerLanguage(language, def);
+        highlightState.loadedLangs.add(language);
+      }
+    } catch {
+      if (!highlightState.loadedLangs.has("plaintext")) {
+        try {
+          const plainUrl = toAssetHref("vendor/hljs/es/languages/plaintext.js");
+          const plainMod = await import(plainUrl);
+          const plainDef = plainMod.default || plainMod;
+          if (typeof plainDef === "function") {
+            hljs.registerLanguage("plaintext", plainDef);
+            highlightState.loadedLangs.add("plaintext");
+          }
+        } catch {
+          // keep unhighlighted fallback
+        }
+      }
+    }
+  }
 
   function normalizeRoutePath(route) {
     if (!route) return "/";
@@ -190,10 +312,6 @@
         loaded: true,
       });
 
-      state.miniSearch = MiniSearch.loadJS(searchIndex, {
-        fields: ["title", "tags", "category", "body"],
-        storeFields: ["title", "section", "slug", "category"],
-      });
       applyAccentColor((state.config && state.config.color) || "purple");
       if (state.config.logo) applyLogo("content/" + state.config.logo);
       // Update sidebar title from config
@@ -343,9 +461,9 @@
     marked.setOptions({
       renderer,
       highlight: function (code, lang) {
-        if (lang && hljs.getLanguage(lang))
-          return hljs.highlight(code, { language: lang }).value;
-        return hljs.highlightAuto(code).value;
+        // Highlighting is applied asynchronously in initArticleImages to keep
+        // route-level loading and per-language lazy loading lightweight.
+        return escapeHtml(code);
       },
       breaks: opts.breaks || false,
       gfm: true,
@@ -1794,17 +1912,29 @@
     let heroTop = 0;
     let heroHeight = 0;
     let ticking = false;
+    let measureTicking = false;
+    let lastDelta = Number.NaN;
 
     const measureHero = () => {
-      heroTop = hero.offsetTop;
-      heroHeight = hero.offsetHeight;
+      // Measure on the next frame to avoid forcing sync layout right after DOM writes.
+      if (measureTicking) return;
+      measureTicking = true;
+      requestAnimationFrame(() => {
+        const rect = hero.getBoundingClientRect();
+        heroTop = window.scrollY + rect.top;
+        heroHeight = rect.height;
+        measureTicking = false;
+      });
     };
 
     const updateParallax = () => {
+      if (!heroHeight) return;
       const scrollTop = window.scrollY;
       const viewportBottom = scrollTop + window.innerHeight;
       if (viewportBottom >= heroTop && scrollTop <= heroTop + heroHeight) {
         const delta = scrollTop - heroTop;
+        if (Math.abs(delta - lastDelta) < 0.5) return;
+        lastDelta = delta;
         heroBg.style.transform = `translate3d(0, ${-delta * 0.35}px, 0) scale(1.1)`;
       }
     };
@@ -1838,7 +1968,7 @@
         window.removeEventListener("resize", onResize);
       };
     }
-    onScroll();
+    requestAnimationFrame(onScroll);
   }
 
   // ── Generic Page ──────────────────────────────────────
@@ -2062,7 +2192,7 @@
     }
     loads.push(
       Promise.race([
-        document.fonts.load('700 52px "Playfair Display"'),
+        document.fonts.load('700 52px "Inter"'),
         new Promise((r) => setTimeout(r, 500)),
       ]),
     );
@@ -2292,7 +2422,7 @@
 
       const nameY = aCy + aSize / 2 + 48;
       ctx.textAlign = "center";
-      ctx.font = '700 42px "Playfair Display", Georgia, serif';
+      ctx.font = '700 42px "Inter", system-ui, sans-serif';
       const nameM = ctx.measureText(title || "");
       const nhPad = 18,
         nvPad = 10;
@@ -2447,7 +2577,7 @@
       let curY = contentTop;
 
       ctx.fillStyle = "#111";
-      ctx.font = '700 54px "Playfair Display", Georgia, serif';
+      ctx.font = '700 54px "Inter", system-ui, sans-serif';
       const rawTitleLines = [];
       {
         const words = (title || "").split(" ");
@@ -2487,7 +2617,7 @@
         }
       }
       ctx.fillStyle = "#111";
-      ctx.font = '700 54px "Playfair Display", Georgia, serif';
+      ctx.font = '700 54px "Inter", system-ui, sans-serif';
       for (let i = 0; i < rawTitleLines.length; i++)
         ctx.fillText(rawTitleLines[i], cx, curY + 48 + i * tLh);
       curY += rawTitleLines.length * tLh + 12;
@@ -3009,10 +3139,27 @@
     });
   }
 
-  function initArticleImages() {
-    document
-      .querySelectorAll(".article-body pre code")
-      .forEach((el) => hljs.highlightElement(el));
+  async function initArticleImages() {
+    const codeNodes = Array.from(document.querySelectorAll(".article-body pre code"));
+    if (codeNodes.length) {
+      const langs = new Set();
+      for (const el of codeNodes) {
+        const cls = Array.from(el.classList).find((c) => c.startsWith("language-"));
+        const lang = cls ? cls.slice("language-".length) : "plaintext";
+        langs.add(normalizeHighlightLanguage(lang));
+      }
+
+      try {
+        await ensureHighlightCoreLoaded();
+        await Promise.all(Array.from(langs).map((l) => ensureHighlightLanguageLoaded(l)));
+        if (highlightState.instance) {
+          codeNodes.forEach((el) => highlightState.instance.highlightElement(el));
+        }
+      } catch {
+        // Keep plain code rendering if dynamic highlighting fails.
+      }
+    }
+
     initCodeBlocks();
     loadMermaidIfNeeded();
     initVideoPlayers();
@@ -3157,6 +3304,29 @@
     const parts = route.split("/").filter(Boolean);
     updateActiveNav(route);
 
+    const needsMarkdown =
+      (parts[0] === "blog" && parts[1] === "post" && parts.length > 2) ||
+      (parts[0] === "portfolio" && !!parts[1]) ||
+      parts[0] === "profile" ||
+      parts[0] === "about" ||
+      (parts.length === 1 &&
+        parts[0] &&
+        ![
+          "blog",
+          "portfolio",
+          "gallery",
+          "thoughts",
+          "tags",
+          "tag",
+          "categories",
+          "category",
+          "profile",
+          "about",
+        ].includes(parts[0]));
+    if (needsMarkdown) {
+      await ensureMarkdownVendorLoaded();
+    }
+
     if (route === "/" || route === "") renderHome();
     else if (parts[0] === "blog" && parts[1] === "post" && parts.length > 2)
       await renderBlogPost(parts.slice(2).join("/"));
@@ -3239,9 +3409,17 @@
       phraseTimer = setTimeout(animatePlaceholder, phraseDir === 1 ? 80 : 40);
     }
 
-    function openSearch() {
+    async function openSearch() {
       overlay.classList.remove("hidden");
       document.body.style.overflow = "hidden";
+      if (!state.miniSearch) {
+        input.setAttribute("placeholder", "Loading search index...");
+        try {
+          await ensureMiniSearchReady();
+        } finally {
+          input.setAttribute("placeholder", "Search posts, projects, thoughts...");
+        }
+      }
       setTimeout(() => input.focus(), 50);
       phraseIdx = 0;
       phraseCharIdx = 0;

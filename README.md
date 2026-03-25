@@ -12,6 +12,7 @@ A GitHub-native static content platform that transforms a repository into a blog
 - **Shower Thoughts** — Short-form content section
 - **Profile** — Parallax hero with avatar, cover, and social links
 - **Search** — Client-side full-text search powered by MiniSearch
+- **Optimized Build Output** — Rollup vendor bundle + Terser JS minification + cssnano CSS minification + HTML/JSON minification
 - **Navigation Tree** — Auto-generated content tree sidebar
 - **Light/Dark Theme** — Glassmorphism UI with animated gradients
 - **Configurable Accent Color** — Choose from 6 color presets (purple, blue, red, yellow, green, orange) via `raksara.yml`
@@ -123,6 +124,19 @@ npm run build
 npm run dev
 ```
 
+### Build output optimization
+
+`npm run build` now performs additional optimization steps:
+
+- Bundles route-scoped vendors using Rollup:
+  - `web/vendor-markdown.min.js` for Markdown rendering (`marked`), loaded only on markdown-heavy routes
+  - `web/vendor-search.min.js` for search (`minisearch`), loaded only when opening search overlay
+- Loads Highlight.js core and language modules on demand from `web/vendor/hljs/` per code block language
+- Minifies `web/app.js` into `web/app.min.js` using Terser
+- Minifies `web/styles.css` into `web/styles.min.css` using cssnano
+- Minifies generated static HTML route files (including `web/index.html`) with `html-minifier-next`
+- Writes compact JSON metadata (no pretty-print whitespace) for smaller payloads
+
 ### Local build behavior
 
 - For local runs, the build script checks for `../raksara-content`.
@@ -156,6 +170,10 @@ raksara/
 ## Tech Stack
 
 - Vanilla JavaScript (no framework)
+- [Rollup](https://rollupjs.org/) — Bundles browser vendor dependencies
+- [Terser](https://github.com/terser/terser) — JavaScript minification
+- [cssnano](https://cssnano.github.io/cssnano/) — CSS minification
+- [html-minifier-next](https://github.com/j9t/html-minifier-next) — HTML minification
 - [Marked](https://marked.js.org/) — Markdown rendering
 - [Highlight.js](https://highlightjs.org/) — Code syntax highlighting
 - [MiniSearch](https://lucaong.github.io/minisearch/) — Client-side search

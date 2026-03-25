@@ -6,6 +6,13 @@ const { execSync } = require("child_process");
 const yaml = require("js-yaml");
 const MiniSearch = require("minisearch");
 const sharp = require("sharp");
+const terser = require("terser");
+const { rollup } = require("rollup");
+const { nodeResolve } = require("@rollup/plugin-node-resolve");
+const commonjs = require("@rollup/plugin-commonjs");
+const postcss = require("postcss");
+const cssnano = require("cssnano");
+const { minify: minifyHtml } = require("html-minifier-next");
 
 const REPO_ROOT = path.join(__dirname, "..");
 const LOCAL_CONTENT_LINK = path.join(REPO_ROOT, "content");
@@ -221,7 +228,7 @@ async function buildMetadata() {
     path.join(WEB_DIR, "metadata", "image-manifest.json"),
   );
   prerender(posts, thoughts, portfolioItems, galleryItems, siteConfig, imageManifest);
-  generateSeoArtifacts({
+  await generateSeoArtifacts({
     posts,
     portfolioItems,
     galleryItems,
@@ -275,7 +282,7 @@ function buildBlogDirs(posts) {
 
 function write(filename, data) {
   const filepath = path.join(METADATA_DIR, filename);
-  fs.writeFileSync(filepath, JSON.stringify(data, null, 2));
+  fs.writeFileSync(filepath, JSON.stringify(data));
   console.log(`  ✓ ${filename}`);
 }
 
@@ -294,7 +301,7 @@ function copyMetadataToWeb() {
   console.log("  ✓ Copied metadata and content to web/");
 }
 
-function generateSeoArtifacts({
+async function generateSeoArtifacts({
   posts,
   portfolioItems,
   galleryItems,
@@ -323,7 +330,7 @@ function generateSeoArtifacts({
       "\n",
     ),
   );
-  generateStaticRoutePages(routes);
+  await generateStaticRoutePages(routes);
 
   console.log("  ✓ Generated sitemap.xml");
   console.log("  ✓ Generated robots.txt");
@@ -462,7 +469,7 @@ function escapeXml(value) {
     .replace(/'/g, "&apos;");
 }
 
-function generateStaticRoutePages(routes) {
+async function generateStaticRoutePages(routes) {
   const srcIndexPath = path.join(WEB_DIR, "index.html");
   if (!fs.existsSync(srcIndexPath)) return;
   const srcHtml = fs.readFileSync(srcIndexPath, "utf-8");
@@ -472,7 +479,9 @@ function generateStaticRoutePages(routes) {
     const routePath = route.replace(/^\/+/, "");
     const depth = routePath.split("/").filter(Boolean).length;
     const baseHref = `${"../".repeat(depth)}` || "./";
-    const htmlWithBase = injectOrReplaceBaseHref(srcHtml, baseHref);
+    const htmlWithBase = await minifyHtmlDocument(
+      injectOrReplaceBaseHref(srcHtml, baseHref),
+    );
     const outDir = path.join(WEB_DIR, routePath);
     fs.mkdirSync(outDir, { recursive: true });
     fs.writeFileSync(path.join(outDir, "index.html"), htmlWithBase);
@@ -481,7 +490,7 @@ function generateStaticRoutePages(routes) {
   // Keep root index explicitly base-aware for consistent relative loading.
   fs.writeFileSync(
     path.join(WEB_DIR, "index.html"),
-    injectOrReplaceBaseHref(srcHtml, "./"),
+    await minifyHtmlDocument(injectOrReplaceBaseHref(srcHtml, "./")),
   );
 }
 
@@ -495,6 +504,45 @@ function injectOrReplaceBaseHref(html, baseHref) {
 function writeWebFile(filename, content) {
   const filepath = path.join(WEB_DIR, filename);
   fs.writeFileSync(filepath, content);
+}
+
+function copyHighlightRuntime() {
+  try {
+    const packageRoot = path.join(REPO_ROOT, "node_modules", "highlight.js");
+    const srcEsDir = path.join(packageRoot, "es");
+    const srcLibDir = path.join(packageRoot, "lib");
+    const destRoot = path.join(WEB_DIR, "vendor", "hljs");
+
+    if (!fs.existsSync(srcEsDir) || !fs.existsSync(srcLibDir)) {
+      console.log("  ⚠ highlight.js runtime not found, skipping language module copy");
+      return;
+    }
+
+    fs.rmSync(destRoot, { recursive: true, force: true });
+    copyDirRecursive(srcEsDir, path.join(destRoot, "es"));
+    copyDirRecursive(srcLibDir, path.join(destRoot, "lib"));
+    console.log("  ✓ Highlight.js runtime copied for on-demand language loading");
+  } catch (err) {
+    console.error("  ✗ Highlight runtime copy failed:", err.message);
+  }
+}
+
+async function minifyHtmlDocument(html) {
+  try {
+    return await minifyHtml(html, {
+      collapseWhitespace: true,
+      removeComments: true,
+      removeRedundantAttributes: true,
+      removeScriptTypeAttributes: true,
+      removeStyleLinkTypeAttributes: true,
+      keepClosingSlash: true,
+      minifyCSS: true,
+      minifyJS: true,
+    });
+  } catch (err) {
+    console.error("  ⚠ HTML minification skipped:", err.message);
+    return html;
+  }
 }
 
 const SKIP_DIRS = new Set([".git", "node_modules", ".github"]);
@@ -839,7 +887,7 @@ function renderHomePagePrerender(posts, thoughts, portfolio, gallery, config, im
 function prerender(posts, thoughts, portfolio, gallery, config, imageManifest) {
   const homeMarkup = renderHomePagePrerender(posts, thoughts, portfolio, gallery, config, imageManifest);
   const cacheFile = path.join(METADATA_DIR, "home-prerender.json");
-  fs.writeFileSync(cacheFile, JSON.stringify({ html: homeMarkup }, null, 2), "utf-8");
+  fs.writeFileSync(cacheFile, JSON.stringify({ html: homeMarkup }), "utf-8");
   fs.copyFileSync(
     cacheFile,
     path.join(WEB_DIR, "metadata", "home-prerender.json"),
@@ -847,7 +895,7 @@ function prerender(posts, thoughts, portfolio, gallery, config, imageManifest) {
   console.log("  ✓ Prerendered homepage markup");
 }
 
-function minifyCSS() {
+async function minifyCSS() {
   try {
     const cssPath = path.join(WEB_DIR, "styles.css");
     const minCssPath = path.join(WEB_DIR, "styles.min.css");
@@ -859,19 +907,11 @@ function minifyCSS() {
 
     const css = fs.readFileSync(cssPath, "utf-8");
 
-    let minified = css
-      .replace(/\/\*[\s\S]*?\*\//g, "")
-      .replace(/\n/g, " ")
-      .replace(/\s+/g, " ")
-      .replace(/\s+{/g, "{")
-      .replace(/{\s+/g, "{")
-      .replace(/\s+}/g, "}")
-      .replace(/,\s+/g, ",")
-      .replace(/\s+:/g, ":")
-      .replace(/:\s+/g, ":")
-      .replace(/\s+;/g, ";")
-      .replace(/;\s+/g, ";")
-      .trim();
+    const result = await postcss([cssnano({ preset: "default" })]).process(css, {
+      from: cssPath,
+      to: minCssPath,
+    });
+    const minified = result.css;
 
     fs.writeFileSync(minCssPath, minified, "utf-8");
 
@@ -885,7 +925,67 @@ function minifyCSS() {
   }
 }
 
-function minifyJS() {
+async function bundleBrowserVendor({ inputPath, outputPath, name }) {
+  const bundle = await rollup({
+    input: inputPath,
+    treeshake: true,
+    plugins: [
+      nodeResolve({ browser: true, preferBuiltins: false }),
+      commonjs(),
+    ],
+  });
+
+  const generated = await bundle.generate({
+    format: "iife",
+    name,
+  });
+  await bundle.close();
+
+  const code = generated.output[0] && generated.output[0].code;
+  if (!code) throw new Error(`Rollup produced empty output for ${path.basename(inputPath)}`);
+
+  const minified = await terser.minify(code, {
+    compress: { passes: 2 },
+    mangle: true,
+    format: { comments: false },
+  });
+  if (!minified.code) throw new Error(`Terser produced empty output for ${path.basename(inputPath)}`);
+
+  fs.writeFileSync(outputPath, minified.code, "utf-8");
+  return minified.code.length;
+}
+
+async function bundleVendorJS() {
+  try {
+    const markdownInput = path.join(REPO_ROOT, "scripts", "vendor-markdown-entry.js");
+    const searchInput = path.join(REPO_ROOT, "scripts", "vendor-search-entry.js");
+    const markdownOutput = path.join(WEB_DIR, "vendor-markdown.min.js");
+    const searchOutput = path.join(WEB_DIR, "vendor-search.min.js");
+
+    if (!fs.existsSync(markdownInput) || !fs.existsSync(searchInput)) {
+      console.log("  ⚠ vendor entry files not found, skipping Rollup vendor bundles");
+      return;
+    }
+
+    const markdownSize = await bundleBrowserVendor({
+      inputPath: markdownInput,
+      outputPath: markdownOutput,
+      name: "RaksaraMarkdownVendor",
+    });
+    const searchSize = await bundleBrowserVendor({
+      inputPath: searchInput,
+      outputPath: searchOutput,
+      name: "RaksaraSearchVendor",
+    });
+
+    console.log(`  ✓ Markdown vendor bundle: ${(markdownSize/1024).toFixed(1)} KB`);
+    console.log(`  ✓ Search vendor bundle: ${(searchSize/1024).toFixed(1)} KB`);
+  } catch (err) {
+    console.error("  ✗ Vendor bundle failed:", err.message);
+  }
+}
+
+async function minifyJS() {
   try {
     const jsPath = path.join(WEB_DIR, "app.js");
     const minJsPath = path.join(WEB_DIR, "app.min.js");
@@ -896,16 +996,21 @@ function minifyJS() {
     }
 
     const js = fs.readFileSync(jsPath, "utf-8");
+    const result = await terser.minify(js, {
+      compress: {
+        passes: 2,
+      },
+      mangle: true,
+      format: {
+        comments: false,
+      },
+    });
 
-    // Conservative minification: strip block comments and collapse whitespace.
-    // Deliberately does NOT strip single-line comments or operator whitespace to
-    // avoid corrupting string/regex literals (e.g. "http://...").
-    let minified = js
-      .replace(/\/\*[\s\S]*?\*\//g, "")   // Remove block comments
-      .replace(/\n\s*\n/g, "\n")           // Collapse blank lines
-      .replace(/[ \t]+/g, " ")             // Collapse horizontal whitespace
-      .replace(/^ /gm, "")                 // Strip single leading space per line
-      .trim();
+    if (!result.code) {
+      throw new Error("Terser produced empty output");
+    }
+
+    const minified = result.code;
 
     fs.writeFileSync(minJsPath, minified, "utf-8");
 
@@ -924,8 +1029,10 @@ async function runBuild() {
   CONTENT_DIR = resolveContentDir();
   try {
     await buildMetadata();
-    minifyCSS();
-    minifyJS();
+    copyHighlightRuntime();
+    await minifyCSS();
+    await bundleVendorJS();
+    await minifyJS();
   } finally {
     cleanupSymlink();
   }
