@@ -26,9 +26,12 @@ const RESPONSIVE_WIDTHS = [320, 480, 640, 960, 1280, 1600];
 fs.mkdirSync(METADATA_DIR, { recursive: true });
 
 function resolveContentDir() {
+  const explicit = process.env.CONTENT_DIR && path.resolve(REPO_ROOT, process.env.CONTENT_DIR);
+  if (explicit && fs.existsSync(explicit)) return explicit;
+
   const candidates = [
-    LOCAL_CONTENT_LINK,
     path.join(__dirname, "..", "web", "content"),
+    LOCAL_CONTENT_LINK,
     path.join(__dirname, "..", "content-template"),
   ];
   return candidates.find((p) => fs.existsSync(p)) || candidates[0];
@@ -1027,6 +1030,7 @@ async function minifyJS() {
 async function runBuild() {
   const cleanupSymlink = setupLocalContentSymlink();
   CONTENT_DIR = resolveContentDir();
+  console.log(`Using content dir: ${CONTENT_DIR}`);
   try {
     await buildMetadata();
     copyHighlightRuntime();

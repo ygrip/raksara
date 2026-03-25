@@ -80,18 +80,35 @@
   }
 
   async function ensureSearchVendorLoaded() {
-    if (typeof MiniSearch !== "undefined") return;
+    if (typeof window.MiniSearch !== "undefined") return;
     await loadScriptOnce(toAssetHref("vendor-search.min.js"), "searchPromise");
+    if (typeof window.MiniSearch === "undefined") {
+      throw new Error("MiniSearch vendor loaded but MiniSearch is unavailable");
+    }
   }
 
   async function ensureMiniSearchReady() {
     if (state.miniSearch) return;
     if (!state.searchIndex) return;
     await ensureSearchVendorLoaded();
-    state.miniSearch = MiniSearch.loadJS(state.searchIndex, {
+    if (typeof window.MiniSearch === "undefined") return;
+    state.miniSearch = window.MiniSearch.loadJS(state.searchIndex, {
       fields: ["title", "tags", "category", "body"],
       storeFields: ["title", "section", "slug", "category"],
     });
+  }
+
+  function getConfiguredAccentColor(config) {
+    if (!config || typeof config !== "object") return "purple";
+    return (
+      config.color ||
+      config.color_tone ||
+      config.colorTone ||
+      config.accent ||
+      config.accent_color ||
+      config.accentColor ||
+      "purple"
+    );
   }
 
   async function ensureHighlightCoreLoaded() {
@@ -312,7 +329,7 @@
         loaded: true,
       });
 
-      applyAccentColor((state.config && state.config.color) || "purple");
+      applyAccentColor(getConfiguredAccentColor(state.config));
       if (state.config.logo) applyLogo("content/" + state.config.logo);
       // Update sidebar title from config
       if (state.config.hero_title)        applyLogoText(state.config.hero_title || "Raksara");
@@ -3156,7 +3173,18 @@
           codeNodes.forEach((el) => highlightState.instance.highlightElement(el));
         }
       } catch {
-        // Keep plain code rendering if dynamic highlighting fails.
+        // Fallback to classic CDN bundle if ESM language imports fail in this environment.
+        try {
+          await loadScriptOnce(
+            "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js",
+            "highlightLegacyPromise",
+          );
+          if (window.hljs && typeof window.hljs.highlightElement === "function") {
+            codeNodes.forEach((el) => window.hljs.highlightElement(el));
+          }
+        } catch {
+          // Keep plain code rendering if fallback highlighting also fails.
+        }
       }
     }
 
@@ -3416,8 +3444,16 @@
         input.setAttribute("placeholder", "Loading search index...");
         try {
           await ensureMiniSearchReady();
+          if (!state.miniSearch) {
+            input.setAttribute("placeholder", "Search unavailable right now");
+          }
+        } catch (err) {
+          console.warn("Search initialization failed:", err);
+          input.setAttribute("placeholder", "Search unavailable right now");
         } finally {
-          input.setAttribute("placeholder", "Search posts, projects, thoughts...");
+          if (state.miniSearch) {
+            input.setAttribute("placeholder", "Search posts, projects, thoughts...");
+          }
         }
       }
       setTimeout(() => input.focus(), 50);
@@ -3641,7 +3677,7 @@
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("raksara-theme", theme);
     syncThemeIcons(theme);
-    applyAccentColor((state.config && state.config.color) || "purple");
+    applyAccentColor(getConfiguredAccentColor(state.config));
     const hljsDark = document.getElementById("hljs-dark");
     const hljsLight = document.getElementById("hljs-light");
     if (hljsDark) hljsDark.disabled = theme === "light";
