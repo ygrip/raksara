@@ -820,10 +820,10 @@ body {
 @keyframes textGradient {
     0%,
     100% {
-        background-position: 0% 50%;
+        opacity: 0.9;
     }
     50% {
-        background-position: 100% 50%;
+        opacity: 1;
     }
 }
 
@@ -884,19 +884,19 @@ body {
 
 @keyframes waveBack {
     0% {
-        transform: translateX(-5%) scaleY(0.85);
+        transform: translateX(-5%);
     }
     100% {
-        transform: translateX(5%) scaleY(1.15);
+        transform: translateX(5%);
     }
 }
 
 @keyframes waveFront {
     0% {
-        transform: translateX(3%) scaleY(1.1);
+        transform: translateX(3%);
     }
     100% {
-        transform: translateX(-3%) scaleY(0.9);
+        transform: translateX(-3%);
     }
 }
 
@@ -1278,14 +1278,13 @@ body {
     aspect-ratio: 4/3;
     border: 1px solid var(--border-glass);
     transition: all 0.35s var(--bounce);
-    background: linear-gradient(
-        90deg,
-        var(--bg-glass) 25%,
-        var(--bg-hover) 50%,
-        var(--bg-glass) 75%
-    );
-    background-size: 200% 100%;
-    animation: shimmer 1.5s ease-in-out infinite;
+    background: var(--bg-glass);
+    animation: shimmerOpacity 1.5s ease-in-out infinite;
+    will-change: transform, box-shadow;
+}
+
+.gallery-item img.loaded {
+    animation: none;
 }
 
 .gallery-item:hover {
@@ -1368,14 +1367,12 @@ body {
     overflow: hidden;
     max-height: 480px;
     min-height: 200px;
-    background: linear-gradient(
-        90deg,
-        var(--bg-glass) 25%,
-        var(--bg-hover) 50%,
-        var(--bg-glass) 75%
-    );
-    background-size: 200% 100%;
-    animation: shimmer 1.5s ease-in-out infinite;
+    background: var(--bg-glass);
+    animation: shimmerOpacity 1.5s ease-in-out infinite;
+}
+
+.gallery-card-img img.loaded {
+    animation: none !important;
 }
 
 .gallery-card-img img {
@@ -1647,21 +1644,16 @@ body {
 .profile-hero-skeleton {
     position: absolute;
     inset: 0;
-    background: linear-gradient(
-        90deg,
-        var(--bg-glass) 25%,
-        var(--bg-hover) 50%,
-        var(--bg-glass) 75%
-    );
-    background-size: 200% 100%;
-    animation: shimmer 1.5s ease-in-out infinite;
+    background: var(--bg-glass);
     z-index: 0;
     transition: opacity 0.5s ease;
+    animation: shimmerOpacity 1.5s ease-in-out infinite;
 }
 
 .profile-hero-skeleton.hidden {
     opacity: 0;
     pointer-events: none;
+    animation: none;
 }
 
 .profile-hero-overlay {
@@ -1714,14 +1706,13 @@ body {
     width: 110px;
     height: 110px;
     border-radius: 50%;
-    background: linear-gradient(
-        90deg,
-        var(--bg-glass) 25%,
-        var(--bg-hover) 50%,
-        var(--bg-glass) 75%
-    );
-    background-size: 200% 100%;
-    animation: shimmer 1.5s ease-in-out infinite;
+    background: var(--bg-glass);
+    animation: shimmerOpacity 1.5s ease-in-out infinite;
+    will-change: transform;
+}
+
+.profile-avatar-wrap.loaded {
+    animation: none;
 }
 
 .profile-avatar-wrap.loaded {
@@ -2187,15 +2178,14 @@ body {
     transition:
         transform 0.3s var(--bounce),
         opacity 0.35s ease;
-    background: linear-gradient(
-        90deg,
-        var(--bg-glass) 25%,
-        var(--bg-hover) 50%,
-        var(--bg-glass) 75%
-    );
-    background-size: 200% 100%;
-    animation: shimmer 1.5s ease-in-out infinite;
+    background: var(--bg-glass);
+    animation: shimmerOpacity 1.5s ease-in-out infinite;
     min-height: 100px;
+    will-change: transform;
+}
+
+.article-body img.loaded {
+    animation: none;
 }
 
 .article-body img.loaded {
@@ -2673,6 +2663,16 @@ body.reading-mode .reading-mode-btn {
     }
     100% {
         background-position: 200% 0;
+    }
+}
+
+@keyframes shimmerOpacity {
+    0%,
+    100% {
+        opacity: 0.5;
+    }
+    50% {
+        opacity: 0.8;
     }
 }
 

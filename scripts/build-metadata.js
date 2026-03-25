@@ -504,11 +504,50 @@ function copyDirRecursive(src, dest) {
   }
 }
 
+function minifyCSS() {
+  try {
+    const cssPath = path.join(WEB_DIR, "styles.css");
+    const minCssPath = path.join(WEB_DIR, "styles.min.css");
+    
+    if (!fs.existsSync(cssPath)) {
+      console.log("  ⚠ styles.css not found, skipping CSS minification");
+      return;
+    }
+
+    const css = fs.readFileSync(cssPath, "utf-8");
+
+    let minified = css
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\n/g, " ")
+      .replace(/\s+/g, " ")
+      .replace(/\s+{/g, "{")
+      .replace(/{\s+/g, "{")
+      .replace(/\s+}/g, "}")
+      .replace(/,\s+/g, ",")
+      .replace(/\s+:/g, ":")
+      .replace(/:\s+/g, ":")
+      .replace(/\s+;/g, ";")
+      .replace(/;\s+/g, ";")
+      .trim();
+
+    fs.writeFileSync(minCssPath, minified, "utf-8");
+
+    const originalSize = css.length;
+    const minifiedSize = minified.length;
+    const savings = ((1 - minifiedSize / originalSize) * 100).toFixed(1);
+
+    console.log(`  ✓ CSS minified: ${(originalSize/1024).toFixed(1)} KB → ${(minifiedSize/1024).toFixed(1)} KB (${savings}% savings)`);
+  } catch (err) {
+    console.error("  ✗ CSS minification failed:", err.message);
+  }
+}
+
 async function runBuild() {
   const cleanupSymlink = setupLocalContentSymlink();
   CONTENT_DIR = resolveContentDir();
   try {
     await buildMetadata();
+    minifyCSS();
   } finally {
     cleanupSymlink();
   }

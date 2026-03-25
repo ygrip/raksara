@@ -2730,25 +2730,33 @@
       return;
     }
 
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: "neutral",
-    });
+    // Dynamically load mermaid only when needed
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+    
+    script.onload = () => {
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: "neutral",
+      });
 
-    mermaidBlocks.forEach((block) => {
-      let container;
+      mermaidBlocks.forEach((block) => {
+        let container;
 
-      if (block.classList.contains("language-mermaid")) {
-        // markdown code block
-        container = document.createElement("div");
-        container.className = "mermaid";
-        container.textContent = block.textContent;
+        if (block.classList.contains("language-mermaid")) {
+          // markdown code block
+          container = document.createElement("div");
+          container.className = "mermaid";
+          container.textContent = block.textContent;
 
-        block.parentElement.replaceWith(container);
-      }
-    });
+          block.parentElement.replaceWith(container);
+        }
+      });
 
-    mermaid.run();
+      mermaid.run();
+    };
+
+    document.head.appendChild(script);
   }
 
   function initCodeBlocks() {
