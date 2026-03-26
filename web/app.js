@@ -813,7 +813,7 @@
         </tr>`,
         )
         .join("");
-      return `<div class="chapters-block"><table class="chapters-table" role="table" aria-label="Chapter list for ${escapeHtml(dirPath)}"><thead><tr><th scope="col">#</th><th scope="col">Title</th><th scope="col">Date</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      return `<div class="chapters-block"><div class="chapters-scroll"><table class="chapters-table" role="table" aria-label="Chapter list for ${escapeHtml(dirPath)}"><thead><tr><th scope="col">#</th><th scope="col">Title</th><th scope="col">Date</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
     });
   }
 

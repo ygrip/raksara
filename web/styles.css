@@ -1944,22 +1944,21 @@ body {
     align-items: center;
     gap: 6px;
     padding: 5px 14px;
-    background: rgba(255, 255, 255, 0.18);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.32);
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-glass);
     border-radius: 999px;
-    color: rgba(255, 255, 255, 0.95);
+    color: var(--text-primary);
     font-size: 12px;
     font-weight: 500;
     text-decoration: none;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 1px 4px var(--shadow-color);
     transition: all 0.25s var(--bounce);
 }
 
 .profile-meta-chip .meta-label {
-    color: rgba(255, 255, 255, 0.65);
+    color: var(--text-secondary);
     font-weight: 400;
 }
 
@@ -1968,6 +1967,7 @@ body {
     border-color: var(--accent-border);
     background: var(--accent-subtle);
     transform: translateY(-1px);
+    box-shadow: 0 2px 10px var(--shadow-color);
 }
 
 /* ── Tags & Categories ───────────────────────────────────── */
@@ -3460,11 +3460,22 @@ body.reading-mode .reading-mode-btn {
 /* ── Chapters Table ──────────────────────────────────────── */
 
 .chapters-block {
+    overflow: hidden;
+    margin: 24px 0;
+    background: var(--bg-card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border-glass);
+    border-top: 3px solid var(--accent);
+    border-radius: var(--radius-md);
+    box-shadow:
+        0 4px 24px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.chapters-scroll {
     overflow: auto;
     max-height: 360px;
-    margin: 24px 0;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
 }
 
 .chapters-table {
@@ -3474,24 +3485,27 @@ body.reading-mode .reading-mode-btn {
 }
 
 .chapters-table th {
-    background: var(--glass-bg);
+    background: color-mix(in srgb, var(--accent) 8%, var(--bg-card));
     padding: 10px 14px;
     text-align: left;
     font-weight: 600;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--text-secondary);
+    color: var(--accent);
     position: sticky;
     top: 0;
     z-index: 1;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border-glass));
 }
 
 .chapters-num {
     width: 40px;
     color: var(--text-secondary);
     padding: 10px 14px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    font-size: 12px;
 }
 
 .chapters-title {
@@ -3503,6 +3517,7 @@ body.reading-mode .reading-mode-btn {
 .chapters-title a {
     color: var(--text-primary);
     text-decoration: none;
+    font-weight: 500;
 }
 
 .chapters-title a:hover {
@@ -3517,11 +3532,11 @@ body.reading-mode .reading-mode-btn {
 }
 
 .chapters-table tbody tr + tr {
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--border-subtle);
 }
 
 .chapters-table tbody tr:hover {
-    background: var(--accent-subtle);
+    background: color-mix(in srgb, var(--accent) 5%, transparent);
 }
 
 /* ── Comic Viewer ────────────────────────────────────────── */
