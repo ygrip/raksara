@@ -1245,6 +1245,12 @@
           <div class="gallery-stack-card layer-3 is-loading"><img ${buildResponsiveImageAttrs(stackSources[2], { alt: "Gallery preview 3", loading: "lazy", sizes: "(max-width: 768px) calc(100vw - 48px), 520px" })}></div>
         </div>
       </div>
+      <div class="gallery-window-footer">
+        <a class="gallery-view-all-btn" href="#/gallery" onclick="event.stopPropagation();window.location.hash='/gallery'">
+          View All Gallery
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+      </div>
     </div>`;
   }
 

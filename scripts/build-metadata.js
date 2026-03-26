@@ -23,6 +23,7 @@ const METADATA_DIR = path.join(__dirname, "..", "metadata");
 const WEB_DIR = path.join(__dirname, "..", "web");
 const RESPONSIVE_DIR_NAME = ".raksara-responsive";
 const RESPONSIVE_WIDTHS = [320, 480, 640, 960, 1280, 1600];
+const BUILD_CACHE_BUST = String(Date.now());
 const COLOR_TONES = {
   purple: { accent: "#6366f1", hoverDark: "#818cf8", hoverLight: "#4f46e5", g1: "#6366f1", g2: "#8b5cf6", g3: "#a855f7", rgb: "99,102,241" },
   blue: { accent: "#3b82f6", hoverDark: "#60a5fa", hoverLight: "#2563eb", g1: "#3b82f6", g2: "#06b6d4", g3: "#0ea5e9", rgb: "59,130,246" },
@@ -984,6 +985,9 @@ function buildShellHtml(srcHtml, { baseHref, route, context }) {
   const logoMarkup = buildLogoIconMarkup(siteConfig, siteName);
 
   let html = injectOrReplaceBaseHref(srcHtml, baseHref);
+  html = html
+    .replace(/href=["']styles\.min\.css(?:\?[^"']*)?["']/g, `href="styles.min.css?v=${BUILD_CACHE_BUST}"`)
+    .replace(/src=["']app\.min\.js(?:\?[^"']*)?["']/g, `src="app.min.js?v=${BUILD_CACHE_BUST}"`);
   html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(routeMeta.title)}</title>`);
   html = upsertMetaTag(html, "name", "description", routeMeta.description);
   html = upsertMetaTag(html, "name", "author", routeMeta.author || "");
@@ -1582,7 +1586,7 @@ async function generateGalleryCover(galleryItems) {
   }
   if (!candidates.length) return;
   try {
-    const size = 400;
+    const size = 280;
     const cells = await Promise.all(
       candidates.map((p) => sharp(p).resize(size, size, { fit: "cover", position: "centre" }).toBuffer()),
     );
@@ -1595,7 +1599,7 @@ async function generateGalleryCover(galleryItems) {
         { input: cells[2], top: size, left: 0 },
         { input: cells[3], top: size, left: size },
       ])
-      .webp({ quality: 80 })
+      .webp({ quality: 62, effort: 6 })
       .toFile(outputPath);
     console.log("  ✓ Generated gallery-cover.webp");
   } catch (err) {

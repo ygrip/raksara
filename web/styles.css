@@ -3541,19 +3541,27 @@ body.reading-mode .reading-mode-btn {
     width: min(640px, 100%);
     margin: 0 auto;
     background: color-mix(in srgb, var(--bg-card) 86%, transparent);
-    border: 1px solid color-mix(in srgb, var(--accent) 14%, var(--border));
+    border: 1.5px solid color-mix(in srgb, var(--accent) 40%, var(--border));
     border-radius: 16px;
     overflow: hidden;
     cursor: pointer;
-    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow:
+        0 14px 32px rgba(0, 0, 0, 0.28),
+        0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.07);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.28s ease, border-color 0.28s ease;
 }
 
 .gallery-window:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 18px 36px rgba(0, 0, 0, 0.25);
+    transform: translateY(-6px) scale(1.012);
+    border-color: color-mix(in srgb, var(--accent) 70%, var(--border));
+    box-shadow:
+        0 24px 48px rgba(0, 0, 0, 0.32),
+        0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
+        0 0 28px color-mix(in srgb, var(--accent) 16%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .gallery-window-chrome {
@@ -3618,6 +3626,7 @@ body.reading-mode .reading-mode-btn {
     box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
     background: var(--bg-card);
     transform-origin: center center;
+    transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease, box-shadow 0.3s ease;
 }
 
 .gallery-stack-card img {
@@ -3646,11 +3655,50 @@ body.reading-mode .reading-mode-btn {
 }
 
 .gallery-window:hover .gallery-stack-card.layer-1 {
-    transform: translate(-24px, 12px) rotate(-4deg) scale(0.94);
+    transform: translate(-28px, 16px) rotate(-6deg) scale(0.93);
+    opacity: 0.65;
 }
 
 .gallery-window:hover .gallery-stack-card.layer-2 {
-    transform: translate(20px, 10px) rotate(4deg) scale(0.96);
+    transform: translate(24px, 12px) rotate(5deg) scale(0.95);
+    opacity: 0.82;
+}
+
+.gallery-window:hover .gallery-stack-card.layer-3 {
+    transform: translate(0, -4px) rotate(-1deg) scale(1.02);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+.gallery-window-footer {
+    padding: 11px 18px 14px;
+    display: flex;
+    justify-content: center;
+    background: color-mix(in srgb, var(--bg-card) 55%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--accent) 14%, var(--border));
+}
+
+.gallery-view-all-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    border: 1.5px solid color-mix(in srgb, var(--accent) 32%, transparent);
+    text-decoration: none;
+    letter-spacing: 0.02em;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, gap 0.2s ease;
+    user-select: none;
+}
+
+.gallery-view-all-btn:hover {
+    background: color-mix(in srgb, var(--accent) 20%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 58%, transparent);
+    gap: 10px;
+    color: var(--accent);
 }
 
 @media (max-width: 768px) {
