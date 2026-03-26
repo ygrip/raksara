@@ -13,6 +13,7 @@ const commonjs = require("@rollup/plugin-commonjs");
 const postcss = require("postcss");
 const cssnano = require("cssnano");
 const { minify: minifyHtml } = require("html-minifier-next");
+const { imagesToIco } = require("png-to-ico");
 
 const REPO_ROOT = path.join(__dirname, "..");
 const LOCAL_CONTENT_LINK = path.join(REPO_ROOT, "content");
@@ -669,6 +670,38 @@ async function generateFaviconAssets(siteConfig) {
   );
 
   console.log("  ✓ Generated favicon assets");
+  await generateFaviconIco();
+}
+
+async function generateFaviconIco() {
+  const faviconPngPath = path.join(WEB_DIR, "favicon.png");
+  const faviconIcoPath = path.join(WEB_DIR, "favicon.ico");
+
+  if (!fs.existsSync(faviconPngPath)) {
+    return;
+  }
+
+  try {
+    // Read PNG and convert to ICO with multiple sizes
+    const pngBuffer = fs.readFileSync(faviconPngPath);
+    
+    // Create images array with different sizes for ICO file
+    const img16 = await sharp(pngBuffer).resize(16, 16).raw().toBuffer();
+    const img32 = await sharp(pngBuffer).resize(32, 32).raw().toBuffer();
+    const img48 = await sharp(pngBuffer).resize(48, 48).raw().toBuffer();
+    
+    const images = [
+      { width: 16, height: 16, data: img16 },
+      { width: 32, height: 32, data: img32 },
+      { width: 48, height: 48, data: img48 },
+    ];
+    
+    const icoBuffer = imagesToIco(images);
+    fs.writeFileSync(faviconIcoPath, icoBuffer);
+    console.log("  ✓ Generated favicon.ico");
+  } catch (error) {
+    console.log("  ⚠ Failed to generate favicon.ico: ", error.message);
+  }
 }
 
 function buildAccentCssVariables(palette) {
