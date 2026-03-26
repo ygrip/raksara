@@ -13,7 +13,7 @@
     blogDirs: {},
     searchIndex: null,
     miniSearch: null,
-    config: {},
+    config: window.__RAKSARA_SITE_CONFIG__ || {},
     imageManifest: {},
     loaded: false,
   };
@@ -309,7 +309,7 @@
         loadJSON("metadata/categories.json"),
         loadJSON("metadata/blog-dirs.json"),
         loadJSON("metadata/search-index.json"),
-        loadJSON("metadata/config.json").catch(() => ({})),
+        loadJSON("metadata/config.json").catch(() => (state.config || {})),
         loadJSON("metadata/image-manifest.json").catch(() => ({})),
         loadJSON("metadata/home-prerender.json").catch(() => ({})),
       ]);
@@ -332,7 +332,9 @@
       applyAccentColor(getConfiguredAccentColor(state.config));
       if (state.config.logo) applyLogo("content/" + state.config.logo);
       // Update sidebar title from config
-      if (state.config.hero_title)        applyLogoText(state.config.hero_title || "Raksara");
+      if (state.config.hero_title) {
+        applyLogoText(state.config.hero_title || "Raksara");
+      }
     } catch (err) {
       console.error("Error loading data:", err);
       showContent(
@@ -617,7 +619,7 @@
     document.head.appendChild(script);
   }
 
-  function updatePageMeta({ title, description, image, type, author, keywords, url, structuredData } = {}) {
+  function updatePageMeta({ title, description, image, type, author, keywords, url, structuredData, robots } = {}) {
     const siteName = (state.config && state.config.hero_title) || "Raksara";
     const siteDesc =
       (state.config && state.config.hero_subtitle) ||
@@ -638,6 +640,7 @@
     document.title = pageTitle;
     setMeta('meta[name="description"]', "content", pageDesc);
     setMeta('meta[name="author"]', "content", pageAuthor);
+    setMeta('meta[name="robots"]', "content", robots || "index, follow");
     if (pageKeywords) setMeta('meta[name="keywords"]', "content", pageKeywords);
     setMeta('meta[property="og:site_name"]', "content", siteName);
     setMeta('meta[property="og:title"]', "content", pageTitle);
@@ -1078,6 +1081,7 @@
     updatePageMeta({
       title: isRoot ? "Blog" : title,
       description: subtitle,
+      robots: isRoot ? "index, follow" : "noindex, nofollow",
     });
     initShareButton(title, {
       isDirectory: true,
@@ -1577,6 +1581,7 @@
     updatePageMeta({
       title: "Gallery",
       image: galleryImageUrls[0] || "",
+      robots: "noindex, nofollow",
     });
     initShareButton("Gallery", {
       isGallery: true,
@@ -1652,7 +1657,11 @@
       </div>
       <div class="thoughts-list">${html || '<div class="empty-state"><p>No thoughts yet. Brain empty.</p></div>'}</div>
     `);
-    updatePageMeta({ title: "Shower Thoughts", description: "Random ideas that pop in my mind" });
+    updatePageMeta({
+      title: "Shower Thoughts",
+      description: "Random ideas that pop in my mind",
+      robots: "noindex, nofollow",
+    });
     initShareButton("Shower Thoughts", { isThoughts: true });
   }
 
@@ -1695,7 +1704,7 @@
   // ── Tags & Categories ─────────────────────────────────
 
   function renderTags() {
-    updatePageMeta({ title: "Tags" });
+    updatePageMeta({ title: "Tags", robots: "noindex, nofollow" });
     const sorted = Object.entries(state.tags).sort((a, b) => b[1] - a[1]);
     const tagsHtml = sorted
       .map(
@@ -1709,7 +1718,11 @@
   }
 
   function renderTagPosts(tag) {
-    updatePageMeta({ title: `Tag: ${tag}`, keywords: [tag] });
+    updatePageMeta({
+      title: `Tag: ${tag}`,
+      keywords: [tag],
+      robots: "noindex, nofollow",
+    });
     const allItems = [
       ...state.posts,
       ...state.portfolio,
@@ -1728,7 +1741,7 @@
   }
 
   function renderCategories() {
-    updatePageMeta({ title: "Categories" });
+    updatePageMeta({ title: "Categories", robots: "noindex, nofollow" });
     const sorted = Object.entries(state.categories).sort((a, b) => b[1] - a[1]);
     const html = sorted
       .map(
@@ -1742,7 +1755,11 @@
   }
 
   function renderCategoryPosts(category) {
-    updatePageMeta({ title: `Category: ${category}`, keywords: [category] });
+    updatePageMeta({
+      title: `Category: ${category}`,
+      keywords: [category],
+      robots: "noindex, nofollow",
+    });
     const allItems = [
       ...state.posts,
       ...state.portfolio,
@@ -3452,7 +3469,7 @@
           input.setAttribute("placeholder", "Search unavailable right now");
         } finally {
           if (state.miniSearch) {
-            input.setAttribute("placeholder", "Search posts, projects, thoughts...");
+            input.setAttribute("placeholder", "Search posts, projects, pages...");
           }
         }
       }
@@ -3468,7 +3485,7 @@
       overlay.classList.add("hidden");
       document.body.style.overflow = "";
       input.value = "";
-      input.setAttribute("placeholder", "Search posts, projects, thoughts...");
+      input.setAttribute("placeholder", "Search posts, projects, pages...");
       results.innerHTML = "";
       if (phraseTimer) {
         clearTimeout(phraseTimer);
@@ -3690,6 +3707,8 @@
   }
 
   function initTheme() {
+    if (state.config && state.config.logo) applyLogo("content/" + state.config.logo);
+    if (state.config && state.config.hero_title) applyLogoText(state.config.hero_title);
     const saved = localStorage.getItem("raksara-theme");
     const theme =
       saved || document.documentElement.getAttribute("data-theme") || "dark";
@@ -3724,13 +3743,17 @@
   // ── Mobile Sidebar ────────────────────────────────────
 
   function initMobileSidebar() {
+    const siteName = (state.config && state.config.hero_title) || "Raksara";
+    const logoIcon = state.config && state.config.logo
+      ? `<img src="${escapeHtml(resolvePath("content/" + state.config.logo))}" alt="${escapeHtml(siteName)}" width="18" height="18">`
+      : "\u25C6";
     const header = document.createElement("div");
     header.className = "mobile-header";
     header.innerHTML = `
       <button class="mobile-menu-btn" aria-label="Menu">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       </button>
-      <a href="./" class="logo"><span class="logo-icon">\u25C6</span><span class="logo-text">Raksara</span></a>
+      <a href="./" class="logo"><span class="logo-icon">${logoIcon}</span><span class="logo-text">${escapeHtml(siteName)}</span></a>
       <button class="icon-btn mobile-theme-toggle" aria-label="Toggle theme">
         <svg class="icon-sun" width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3.5" stroke="currentColor" stroke-width="1.2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
         <svg class="icon-moon" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.5 8.5a5.5 5.5 0 01-6-6 5.5 5.5 0 106 6z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>

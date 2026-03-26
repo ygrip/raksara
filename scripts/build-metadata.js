@@ -22,6 +22,14 @@ const METADATA_DIR = path.join(__dirname, "..", "metadata");
 const WEB_DIR = path.join(__dirname, "..", "web");
 const RESPONSIVE_DIR_NAME = ".raksara-responsive";
 const RESPONSIVE_WIDTHS = [320, 480, 640, 960, 1280, 1600];
+const COLOR_TONES = {
+  purple: { accent: "#6366f1", hoverDark: "#818cf8", hoverLight: "#4f46e5", g1: "#6366f1", g2: "#8b5cf6", g3: "#a855f7", rgb: "99,102,241" },
+  blue: { accent: "#3b82f6", hoverDark: "#60a5fa", hoverLight: "#2563eb", g1: "#3b82f6", g2: "#06b6d4", g3: "#0ea5e9", rgb: "59,130,246" },
+  red: { accent: "#ef4444", hoverDark: "#f87171", hoverLight: "#dc2626", g1: "#ef4444", g2: "#f43f5e", g3: "#ec4899", rgb: "239,68,68" },
+  yellow: { accent: "#eab308", hoverDark: "#facc15", hoverLight: "#ca8a04", g1: "#eab308", g2: "#f59e0b", g3: "#f97316", rgb: "234,179,8" },
+  green: { accent: "#22c55e", hoverDark: "#4ade80", hoverLight: "#16a34a", g1: "#22c55e", g2: "#10b981", g3: "#14b8a6", rgb: "34,197,94" },
+  orange: { accent: "#f97316", hoverDark: "#fb923c", hoverLight: "#ea580c", g1: "#f97316", g2: "#fb923c", g3: "#fbbf24", rgb: "249,115,22" },
+};
 
 fs.mkdirSync(METADATA_DIR, { recursive: true });
 
@@ -78,6 +86,28 @@ function stripMarkdown(md) {
     .replace(/\s{2,}/g, " ")
     .replace(/\n{2,}/g, "\n")
     .trim();
+}
+
+function getConfiguredAccentColorName(config) {
+  if (!config || typeof config !== "object") return "purple";
+  return (
+    config.color ||
+    config.color_tone ||
+    config.colorTone ||
+    config.accent ||
+    config.accent_color ||
+    config.accentColor ||
+    "purple"
+  );
+}
+
+function getAccentPalette(config) {
+  const colorName = String(getConfiguredAccentColorName(config) || "purple").toLowerCase();
+  return COLOR_TONES[colorName] || COLOR_TONES.purple;
+}
+
+function shouldIncludeInSearch(section) {
+  return ["blog", "portfolio", "pages"].includes(section);
 }
 
 async function buildMetadata() {
@@ -175,6 +205,7 @@ async function buildMetadata() {
     const raw = fs.readFileSync(fullPath, "utf-8");
     const { data, content } = matter(raw);
     const section = file.split(path.sep)[0];
+    if (!shouldIncludeInSearch(section)) continue;
     const searchSlug =
       section === "blog"
         ? file.replace(/^blog\//, "").replace(/\.md$/, "")
@@ -240,6 +271,7 @@ async function buildMetadata() {
     tags,
     categories,
     blogDirs,
+    siteConfig,
   });
 
   console.log(`  Posts:      ${posts.length}`);
@@ -313,6 +345,7 @@ async function generateSeoArtifacts({
   tags,
   categories,
   blogDirs,
+  siteConfig,
 }) {
   const siteUrl = getSiteUrl();
   const routes = collectRoutes({
@@ -325,18 +358,28 @@ async function generateSeoArtifacts({
     categories,
     blogDirs,
   });
+  const indexableRoutes = routes.filter((route) => isIndexableRoute(route));
 
-  writeWebFile("sitemap.xml", buildSitemapXml(siteUrl, routes));
-  writeWebFile(
-    "robots.txt",
-    ["User-agent: *", "Allow: /", "", `Sitemap: ${siteUrl}/sitemap.xml`, ""].join(
-      "\n",
-    ),
-  );
-  await generateStaticRoutePages(routes);
+  writeWebFile("sitemap.xml", buildSitemapXml(siteUrl, indexableRoutes));
+  writeWebFile("robots.txt", buildRobotsTxt(siteUrl));
+  await generateStaticRoutePages(routes, {
+    siteUrl,
+    siteConfig,
+    posts,
+    portfolioItems,
+    galleryItems,
+    thoughts,
+    pages,
+    tags,
+    categories,
+    blogDirs,
+  });
+  await generate404Page({ siteUrl, siteConfig });
+  writeWebFile(".nojekyll", "");
 
   console.log("  ✓ Generated sitemap.xml");
   console.log("  ✓ Generated robots.txt");
+  console.log("  ✓ Generated 404.html");
   console.log(`  ✓ Generated route pages (${routes.length})`);
 }
 
@@ -445,10 +488,12 @@ function buildSitemapXml(siteUrl, routes) {
   const urls = routes
     .map((route) => {
       const clean = route === "/" ? "" : route;
+      const priority = getSitemapPriority(route);
       return [
         "  <url>",
         `    <loc>${escapeXml(siteUrl + clean)}</loc>`,
         `    <lastmod>${now}</lastmod>`,
+        `    <priority>${priority.toFixed(1)}</priority>`,
         "  </url>",
       ].join("\n");
     })
@@ -463,6 +508,385 @@ function buildSitemapXml(siteUrl, routes) {
   ].join("\n");
 }
 
+function buildRobotsTxt(siteUrl) {
+  return [
+    "User-agent: *",
+    "Allow: /",
+    "Disallow: /content/",
+    "Disallow: /metadata/",
+    "Disallow: /vendor/",
+    "Disallow: /thoughts",
+    "Disallow: /gallery",
+    "Disallow: /tags",
+    "Disallow: /tag/",
+    "Disallow: /categories",
+    "Disallow: /category/",
+    "Disallow: /blog/dir/",
+    "Disallow: /404.html",
+    "",
+    `Sitemap: ${siteUrl}/sitemap.xml`,
+    "",
+  ].join("\n");
+}
+
+function isIndexableRoute(route) {
+  if (!route) return false;
+  if (["/", "/blog", "/portfolio", "/profile", "/about"].includes(route)) {
+    return true;
+  }
+  if (route.startsWith("/blog/post/")) return true;
+  if (route.startsWith("/portfolio/")) return true;
+  if (/^\/[^/]+$/.test(route) && !["/gallery", "/thoughts", "/tags", "/categories"].includes(route)) {
+    return true;
+  }
+  return false;
+}
+
+function getSitemapPriority(route) {
+  if (route === "/profile") return 1;
+  if (route === "/") return 0.9;
+  if (route.startsWith("/blog/post/") || route.startsWith("/portfolio/")) return 0.8;
+  if (["/blog", "/portfolio", "/about"].includes(route)) return 0.7;
+  if (/^\/[^/]+$/.test(route)) return 0.6;
+  return 0.3;
+}
+
+function getAbsoluteRouteUrl(siteUrl, route) {
+  return route === "/" ? `${siteUrl}/` : `${siteUrl}${route}`;
+}
+
+function normalizeConfigAssetPath(assetPath) {
+  if (!assetPath) return "";
+  if (/^https?:\/\//i.test(assetPath) || assetPath.startsWith("data:")) {
+    return assetPath;
+  }
+
+  const normalized = String(assetPath).replace(/^\/+/, "");
+  if (normalized.startsWith("content/")) return normalized;
+  return `content/${normalized}`;
+}
+
+function resolveSiteAssetUrl(siteUrl, assetPath) {
+  const normalized = normalizeConfigAssetPath(assetPath);
+  if (!normalized) return "";
+  if (/^https?:\/\//i.test(normalized) || normalized.startsWith("data:")) {
+    return normalized;
+  }
+  return getAbsoluteRouteUrl(siteUrl, `/${normalized}`);
+}
+
+function buildFallbackFaviconDataUri(palette) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${palette.g1}"/><stop offset="100%" stop-color="${palette.g3}"/></linearGradient></defs><path d="M16 2L30 16L16 30L2 16Z" fill="url(#g)"/></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+function buildFallbackFaviconSvg(palette) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${palette.g1}"/><stop offset="100%" stop-color="${palette.g3}"/></linearGradient></defs><path d="M32 4L60 32L32 60L4 32Z" fill="url(#g)"/></svg>`;
+}
+
+function getLocalAssetAbsolutePath(assetPath) {
+  const normalized = normalizeConfigAssetPath(assetPath);
+  if (!normalized || /^https?:\/\//i.test(normalized) || normalized.startsWith("data:")) {
+    return "";
+  }
+  return path.join(WEB_DIR, normalized);
+}
+
+function buildRootFaviconRefs() {
+  return {
+    svg: "favicon.svg",
+    png: "favicon.png",
+    apple: "apple-touch-icon.png",
+    manifest: "site.webmanifest",
+  };
+}
+
+async function generateFaviconAssets(siteConfig) {
+  const palette = getAccentPalette(siteConfig || {});
+  const refs = buildRootFaviconRefs();
+  const logoAbsolutePath = getLocalAssetAbsolutePath(siteConfig && siteConfig.logo);
+  let faviconSvg = buildFallbackFaviconSvg(palette);
+
+  if (logoAbsolutePath && fs.existsSync(logoAbsolutePath)) {
+    const ext = path.extname(logoAbsolutePath).toLowerCase();
+    if (ext === ".svg") {
+      faviconSvg = fs
+        .readFileSync(logoAbsolutePath, "utf-8")
+        .replace(/currentColor/g, palette.accent);
+    }
+  }
+
+  writeWebFile(refs.svg, faviconSvg);
+
+  const pngSource = Buffer.from(faviconSvg);
+  try {
+    await sharp(pngSource).resize(48, 48).png().toFile(path.join(WEB_DIR, refs.png));
+    await sharp(pngSource).resize(180, 180).png().toFile(path.join(WEB_DIR, refs.apple));
+  } catch {
+    if (logoAbsolutePath && fs.existsSync(logoAbsolutePath)) {
+      await sharp(logoAbsolutePath).resize(48, 48, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toFile(path.join(WEB_DIR, refs.png));
+      await sharp(logoAbsolutePath).resize(180, 180, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toFile(path.join(WEB_DIR, refs.apple));
+    }
+  }
+
+  writeWebFile(
+    refs.manifest,
+    JSON.stringify(
+      {
+        name: (siteConfig && siteConfig.hero_title) || "Raksara",
+        short_name: (siteConfig && siteConfig.hero_title) || "Raksara",
+        icons: [
+          { src: `/${refs.png}`, sizes: "48x48", type: "image/png" },
+          { src: `/${refs.apple}`, sizes: "180x180", type: "image/png" },
+          { src: `/${refs.svg}`, sizes: "any", type: "image/svg+xml", purpose: "any" },
+        ],
+        theme_color: palette.accent,
+        background_color: "#0b0d12",
+        display: "standalone",
+      },
+      null,
+      2,
+    ),
+  );
+
+  console.log("  ✓ Generated favicon assets");
+}
+
+function buildAccentCssVariables(palette) {
+  return [
+    `--accent:${palette.accent}`,
+    `--accent-hover-dark:${palette.hoverDark}`,
+    `--accent-hover-light:${palette.hoverLight}`,
+    `--gradient-1:${palette.g1}`,
+    `--gradient-2:${palette.g2}`,
+    `--gradient-3:${palette.g3}`,
+    `--accent-rgb:${palette.rgb}`,
+  ].join(";");
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function replaceOrInsertHeadTag(html, regex, replacement) {
+  if (regex.test(html)) return html.replace(regex, replacement);
+  return html.replace("</head>", `${replacement}</head>`);
+}
+
+function upsertMetaTag(html, attrName, attrValue, content) {
+  const regex = new RegExp(`<meta[^>]+${attrName}=["']${escapeRegExp(attrValue)}["'][^>]*>`, "i");
+  return replaceOrInsertHeadTag(
+    html,
+    regex,
+    `<meta ${attrName}="${attrValue}" content="${escapeHtml(content || "")}"/>`,
+  );
+}
+
+function upsertLinkTag(html, relValue, attrs) {
+  const regex = new RegExp(`<link[^>]+rel=["']${escapeRegExp(relValue)}["'][^>]*>`, "i");
+  const attrString = Object.entries({ rel: relValue, ...attrs })
+    .filter(([, value]) => value !== undefined && value !== null && value !== "")
+    .map(([key, value]) => `${key}="${escapeHtml(String(value))}"`)
+    .join(" ");
+  return replaceOrInsertHeadTag(html, regex, `<link ${attrString}/>`);
+}
+
+function upsertScriptById(html, id, scriptBody) {
+  const regex = new RegExp(`<script[^>]+id=["']${escapeRegExp(id)}["'][^>]*>[\\s\\S]*?<\\/script>`, "i");
+  return replaceOrInsertHeadTag(
+    html,
+    regex,
+    `<script id="${escapeHtml(id)}">${scriptBody}</script>`,
+  );
+}
+
+function setHtmlInlineStyle(html, styleValue) {
+  if (/<html[^>]*style="[^"]*"/i.test(html)) {
+    return html.replace(/<html([^>]*)style="[^"]*"([^>]*)>/i, `<html$1style="${escapeHtml(styleValue)}"$2>`);
+  }
+  return html.replace(/<html([^>]*)>/i, `<html$1 style="${escapeHtml(styleValue)}">`);
+}
+
+function buildLogoIconMarkup(siteConfig, siteName) {
+  const logoPath = normalizeConfigAssetPath(siteConfig && siteConfig.logo);
+  if (!logoPath || /^https?:\/\//i.test(logoPath) || logoPath.startsWith("data:")) {
+    if (logoPath) {
+      return `<img src="${escapeHtml(logoPath)}" alt="${escapeHtml(siteName)}" width="18" height="18" loading="eager" decoding="async">`;
+    }
+    return "&#9670;";
+  }
+  return `<img src="${escapeHtml(logoPath)}" alt="${escapeHtml(siteName)}" width="18" height="18" loading="eager" decoding="async">`;
+}
+
+function humanizeSlug(slug) {
+  return String(slug || "")
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function getPageEntry(pages, slug) {
+  return (pages || []).find((page) => page.slug === slug) || null;
+}
+
+function getRouteMeta(route, context) {
+  const { siteUrl, siteConfig, posts, portfolioItems, galleryItems, thoughts, pages, tags, categories, blogDirs } = context;
+  const siteName = (siteConfig && siteConfig.hero_title) || "Raksara";
+  const siteDescription =
+    (siteConfig && siteConfig.hero_subtitle) ||
+    "A place where ideas, knowledge, and engineering thoughts are recorded.";
+  const routeUrl = getAbsoluteRouteUrl(siteUrl, route);
+  const defaultImage = resolveSiteAssetUrl(siteUrl, (siteConfig && (siteConfig.og_image || siteConfig.logo)) || "");
+  const parts = route.split("/").filter(Boolean);
+  const page = parts.length === 1 ? getPageEntry(pages, parts[0]) : null;
+
+  const meta = {
+    title: siteName,
+    description: siteDescription,
+    image: defaultImage,
+    type: "website",
+    author: (siteConfig && siteConfig.author) || "",
+    keywords: [],
+    robots: isIndexableRoute(route) ? "index, follow" : "noindex, nofollow",
+    url: routeUrl,
+  };
+
+  if (route === "/") return meta;
+  if (route === "/blog") {
+    return { ...meta, title: `Blog — ${siteName}`, description: `${posts.length} post${posts.length === 1 ? "" : "s"} and writing archives.` };
+  }
+  if (route.startsWith("/blog/post/")) {
+    const slug = decodeURIComponent(route.replace("/blog/post/", ""));
+    const post = (posts || []).find((entry) => entry.slug === slug);
+    if (post) {
+      return {
+        ...meta,
+        title: `${post.title} — ${siteName}`,
+        description: post.summary || siteDescription,
+        image: resolveSiteAssetUrl(siteUrl, post.cover || defaultImage),
+        type: "article",
+        keywords: post.tags || [],
+      };
+    }
+  }
+  if (route.startsWith("/blog/dir/")) {
+    const dirPath = decodeURIComponent(route.replace("/blog/dir/", ""));
+    const dir = blogDirs[dirPath] || { posts: [], subdirs: [] };
+    const label = humanizeSlug(dirPath.split("/").pop() || "blog");
+    return {
+      ...meta,
+      title: `${label} — ${siteName}`,
+      description: `${dir.posts.length} post${dir.posts.length === 1 ? "" : "s"} in this directory.`,
+      robots: "noindex, nofollow",
+    };
+  }
+  if (route === "/portfolio") {
+    return { ...meta, title: `Portfolio — ${siteName}`, description: `${portfolioItems.length} project${portfolioItems.length === 1 ? "" : "s"} and case studies.` };
+  }
+  if (route.startsWith("/portfolio/")) {
+    const slug = decodeURIComponent(route.replace("/portfolio/", ""));
+    const item = (portfolioItems || []).find((entry) => entry.slug === slug);
+    if (item) {
+      return {
+        ...meta,
+        title: `${item.title} — ${siteName}`,
+        description: item.summary || siteDescription,
+        image: resolveSiteAssetUrl(siteUrl, item.cover || defaultImage),
+        type: "article",
+        keywords: item.tags || [],
+      };
+    }
+  }
+  if (route === "/gallery") {
+    return {
+      ...meta,
+      title: `Gallery — ${siteName}`,
+      description: `${galleryItems.length} visual entries and sketches.`,
+      image: resolveSiteAssetUrl(siteUrl, galleryItems[0] && galleryItems[0].image ? galleryItems[0].image : defaultImage),
+      robots: "noindex, nofollow",
+    };
+  }
+  if (route.startsWith("/gallery/")) {
+    const index = Number.parseInt(route.replace("/gallery/", ""), 10);
+    const item = Number.isNaN(index) ? null : galleryItems[index];
+    return {
+      ...meta,
+      title: `${(item && item.title) || "Gallery"} — ${siteName}`,
+      description: (item && (item.caption || item.description)) || siteDescription,
+      image: resolveSiteAssetUrl(siteUrl, item && item.image ? item.image : defaultImage),
+      robots: "noindex, nofollow",
+    };
+  }
+  if (route === "/thoughts") {
+    return { ...meta, title: `Shower Thoughts — ${siteName}`, description: `${thoughts.length} short-form notes and fragments.`, robots: "noindex, nofollow" };
+  }
+  if (route === "/tags") {
+    return { ...meta, title: `Tags — ${siteName}`, description: `${Object.keys(tags || {}).length} tags.`, robots: "noindex, nofollow" };
+  }
+  if (route.startsWith("/tag/")) {
+    const tag = decodeURIComponent(route.replace("/tag/", ""));
+    return { ...meta, title: `Tag: ${tag} — ${siteName}`, description: `Tagged archive for ${tag}.`, robots: "noindex, nofollow", keywords: [tag] };
+  }
+  if (route === "/categories") {
+    return { ...meta, title: `Categories — ${siteName}`, description: `${Object.keys(categories || {}).length} categories.`, robots: "noindex, nofollow" };
+  }
+  if (route.startsWith("/category/")) {
+    const category = decodeURIComponent(route.replace("/category/", ""));
+    return { ...meta, title: `Category: ${category} — ${siteName}`, description: `Category archive for ${category}.`, robots: "noindex, nofollow", keywords: [category] };
+  }
+  if (page) {
+    const description = page.summary || page.description || siteDescription;
+    return {
+      ...meta,
+      title: page.title ? `${page.title} — ${siteName}` : siteName,
+      description,
+    };
+  }
+
+  return { ...meta, title: `${humanizeSlug(parts[0] || siteName)} — ${siteName}`, robots: "noindex, nofollow" };
+}
+
+function buildShellHtml(srcHtml, { baseHref, route, context }) {
+  const siteConfig = context.siteConfig || {};
+  const routeMeta = getRouteMeta(route, context);
+  const palette = getAccentPalette(siteConfig);
+  const siteName = (siteConfig && siteConfig.hero_title) || "Raksara";
+  const configScript = `window.__RAKSARA_SITE_CONFIG__ = ${JSON.stringify(siteConfig).replace(/</g, "\\u003c")};`;
+  const keywords = Array.isArray(routeMeta.keywords)
+    ? routeMeta.keywords.join(", ")
+    : (routeMeta.keywords || "");
+  const faviconRefs = buildRootFaviconRefs();
+  const twitterCard = routeMeta.image ? "summary_large_image" : "summary";
+  const logoMarkup = buildLogoIconMarkup(siteConfig, siteName);
+
+  let html = injectOrReplaceBaseHref(srcHtml, baseHref);
+  html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(routeMeta.title)}</title>`);
+  html = upsertMetaTag(html, "name", "description", routeMeta.description);
+  html = upsertMetaTag(html, "name", "author", routeMeta.author || "");
+  html = upsertMetaTag(html, "name", "keywords", keywords);
+  html = upsertMetaTag(html, "name", "robots", routeMeta.robots);
+  html = upsertMetaTag(html, "name", "theme-color", palette.accent);
+  html = upsertMetaTag(html, "property", "og:site_name", siteName);
+  html = upsertMetaTag(html, "property", "og:title", routeMeta.title);
+  html = upsertMetaTag(html, "property", "og:description", routeMeta.description);
+  html = upsertMetaTag(html, "property", "og:type", routeMeta.type || "website");
+  html = upsertMetaTag(html, "property", "og:url", routeMeta.url);
+  html = upsertMetaTag(html, "property", "og:image", routeMeta.image || "");
+  html = upsertMetaTag(html, "name", "twitter:card", twitterCard);
+  html = upsertMetaTag(html, "name", "twitter:title", routeMeta.title);
+  html = upsertMetaTag(html, "name", "twitter:description", routeMeta.description);
+  html = upsertMetaTag(html, "name", "twitter:image", routeMeta.image || "");
+  html = upsertLinkTag(html, "canonical", { href: routeMeta.url });
+  html = upsertLinkTag(html, "icon", { type: "image/svg+xml", href: faviconRefs.svg });
+  html = replaceOrInsertHeadTag(html, /<link[^>]+rel=["']apple-touch-icon["'][^>]*>/i, `<link rel="apple-touch-icon" sizes="180x180" href="${faviconRefs.apple}"/>`);
+  html = replaceOrInsertHeadTag(html, /<link[^>]+rel=["']manifest["'][^>]*>/i, `<link rel="manifest" href="${faviconRefs.manifest}"/>`);
+  html = replaceOrInsertHeadTag(html, /<link[^>]+rel=["']icon["'][^>]+sizes=["']48x48["'][^>]*>/i, `<link rel="icon" type="image/png" sizes="48x48" href="${faviconRefs.png}"/>`);
+  html = upsertScriptById(html, "raksara-site-config", configScript);
+  html = setHtmlInlineStyle(html, buildAccentCssVariables(palette));
+  html = html.replace(/<span class="logo-text">[\s\S]*?<\/span>/g, `<span class="logo-text">${escapeHtml(siteName)}</span>`);
+  html = html.replace(/<span class="logo-icon">[\s\S]*?<\/span>/g, `<span class="logo-icon">${logoMarkup}</span>`);
+  return html;
+}
+
 function escapeXml(value) {
   return String(value)
     .replace(/&/g, "&amp;")
@@ -472,7 +896,7 @@ function escapeXml(value) {
     .replace(/'/g, "&apos;");
 }
 
-async function generateStaticRoutePages(routes) {
+async function generateStaticRoutePages(routes, context) {
   const srcIndexPath = path.join(WEB_DIR, "index.html");
   if (!fs.existsSync(srcIndexPath)) return;
   const srcHtml = fs.readFileSync(srcIndexPath, "utf-8");
@@ -483,7 +907,7 @@ async function generateStaticRoutePages(routes) {
     const depth = routePath.split("/").filter(Boolean).length;
     const baseHref = `${"../".repeat(depth)}` || "./";
     const htmlWithBase = await minifyHtmlDocument(
-      injectOrReplaceBaseHref(srcHtml, baseHref),
+      buildShellHtml(srcHtml, { baseHref, route, context }),
     );
     const outDir = path.join(WEB_DIR, routePath);
     fs.mkdirSync(outDir, { recursive: true });
@@ -493,8 +917,61 @@ async function generateStaticRoutePages(routes) {
   // Keep root index explicitly base-aware for consistent relative loading.
   fs.writeFileSync(
     path.join(WEB_DIR, "index.html"),
-    await minifyHtmlDocument(injectOrReplaceBaseHref(srcHtml, "./")),
+    await minifyHtmlDocument(buildShellHtml(srcHtml, { baseHref: "./", route: "/", context })),
   );
+}
+
+async function generate404Page({ siteUrl, siteConfig }) {
+  const siteName = (siteConfig && siteConfig.hero_title) || "Raksara";
+  const palette = getAccentPalette(siteConfig);
+  const homeUrl = `${siteUrl}/`;
+  const faviconRefs = buildRootFaviconRefs();
+  const logoMarkup = buildLogoIconMarkup(siteConfig || {}, siteName);
+  const html = `<!doctype html>
+<html lang="en" data-theme="dark" style="${escapeHtml(buildAccentCssVariables(palette))}">
+<head>
+  <base href="./">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Page Not Found — ${escapeHtml(siteName)}</title>
+  <meta name="description" content="The page you requested could not be found."/>
+  <meta name="robots" content="noindex, nofollow"/>
+  <meta name="theme-color" content="${escapeHtml(palette.accent)}"/>
+  <link rel="icon" type="image/svg+xml" href="${faviconRefs.svg}"/>
+  <link rel="icon" type="image/png" sizes="48x48" href="${faviconRefs.png}"/>
+  <link rel="apple-touch-icon" sizes="180x180" href="${faviconRefs.apple}"/>
+  <link rel="manifest" href="${faviconRefs.manifest}"/>
+  <link rel="stylesheet" href="styles.min.css"/>
+  <style>
+    body{min-height:100vh;display:grid;place-items:center;padding:32px}
+    .not-found-shell{width:min(680px,100%);padding:40px;border:1px solid var(--border-color);border-radius:28px;background:var(--bg-card);box-shadow:0 24px 80px rgba(0,0,0,.18)}
+    .not-found-brand{display:flex;align-items:center;gap:12px;margin-bottom:24px;font-weight:700}
+    .not-found-brand .logo-icon img{display:block}
+    .not-found-code{display:inline-block;padding:6px 12px;border-radius:999px;background:rgba(${escapeHtml(palette.rgb)},.12);color:var(--accent);font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+    .not-found-shell h1{margin:18px 0 12px;font-size:clamp(2rem,5vw,3.2rem);line-height:1.05}
+    .not-found-shell p{margin:0 0 24px;color:var(--text-muted);font-size:1.05rem}
+    .not-found-actions{display:flex;gap:12px;flex-wrap:wrap}
+    .not-found-actions a{display:inline-flex;align-items:center;justify-content:center;padding:12px 18px;border-radius:999px;text-decoration:none;font-weight:600}
+    .not-found-home{background:var(--accent);color:#fff}
+    .not-found-back{border:1px solid var(--border-color);color:var(--text-primary);background:transparent}
+  </style>
+</head>
+<body>
+  <div class="bg-gradient"></div>
+  <div class="bg-noise"></div>
+  <main class="not-found-shell">
+    <div class="not-found-brand"><span class="logo-icon">${logoMarkup}</span><span>${escapeHtml(siteName)}</span></div>
+    <span class="not-found-code">404</span>
+    <h1>That page does not exist.</h1>
+    <p>The requested URL could not be resolved. Return to the main site or go back to the previous page.</p>
+    <div class="not-found-actions">
+      <a class="not-found-home" href="${escapeHtml(homeUrl)}">Go home</a>
+      <a class="not-found-back" href="javascript:history.back()">Go back</a>
+    </div>
+  </main>
+</body>
+</html>`;
+  writeWebFile("404.html", await minifyHtmlDocument(html));
 }
 
 function injectOrReplaceBaseHref(html, baseHref) {
@@ -1033,6 +1510,11 @@ async function runBuild() {
   console.log(`Using content dir: ${CONTENT_DIR}`);
   try {
     await buildMetadata();
+    const configPath = path.join(METADATA_DIR, "config.json");
+    const siteConfig = fs.existsSync(configPath)
+      ? JSON.parse(fs.readFileSync(configPath, "utf-8"))
+      : { color: "purple" };
+    await generateFaviconAssets(siteConfig);
     copyHighlightRuntime();
     await minifyCSS();
     await bundleVendorJS();
