@@ -574,7 +574,23 @@ hero_title: Yunaz Gilang
 hero_subtitle: Engineering thoughts, creative work, and random ideas.
 author: Yunaz Gilang
 og_image: assets/images/og-card.png
+adsense: google.com, pub-5501931731194817, DIRECT, f08c47fec0942fa0
 ```
+
+### Google AdSense (`ads.txt` + meta tag)
+
+You can configure AdSense directly in `raksara.yml`:
+
+```yaml
+adsense: google.com, pub-5501931731194817, DIRECT, f08c47fec0942fa0
+```
+
+When this field is set, build output will include:
+
+- `ads.txt` at the site root (with that exact line)
+- `<meta name="google-adsense-account" content="pub-5501931731194817"/>` in generated page heads
+
+If `adsense` is missing, `ads.txt` is not generated.
 
 ---
 

@@ -348,6 +348,7 @@ async function generateSeoArtifacts({
   siteConfig,
 }) {
   const siteUrl = getSiteUrl(siteConfig);
+  const adsenseConfig = parseAdsenseConfig(siteConfig);
   const routes = collectRoutes({
     posts,
     portfolioItems,
@@ -362,6 +363,12 @@ async function generateSeoArtifacts({
 
   writeWebFile("sitemap.xml", buildSitemapXml(siteUrl, indexableRoutes));
   writeWebFile("robots.txt", buildRobotsTxt(siteUrl));
+  if (adsenseConfig && adsenseConfig.adsTxtLine) {
+    writeWebFile("ads.txt", `${adsenseConfig.adsTxtLine}\n`);
+  } else {
+    const adsTxtPath = path.join(WEB_DIR, "ads.txt");
+    if (fs.existsSync(adsTxtPath)) fs.unlinkSync(adsTxtPath);
+  }
   await generateStaticRoutePages(routes, {
     siteUrl,
     siteConfig,
@@ -386,6 +393,9 @@ async function generateSeoArtifacts({
 
   console.log("  ✓ Generated sitemap.xml");
   console.log("  ✓ Generated robots.txt");
+  if (adsenseConfig && adsenseConfig.adsTxtLine) {
+    console.log("  ✓ Generated ads.txt");
+  }
   console.log("  ✓ Generated 404.html");
   console.log(`  ✓ Generated route pages (${routes.length})`);
 }
@@ -911,6 +921,7 @@ function getRouteMeta(route, context) {
 
 function buildShellHtml(srcHtml, { baseHref, route, context }) {
   const siteConfig = context.siteConfig || {};
+  const adsenseConfig = parseAdsenseConfig(siteConfig);
   const routeMeta = getRouteMeta(route, context);
   const palette = getAccentPalette(siteConfig);
   const siteName = (siteConfig && siteConfig.hero_title) || "Raksara";
@@ -939,6 +950,9 @@ function buildShellHtml(srcHtml, { baseHref, route, context }) {
   html = upsertMetaTag(html, "name", "twitter:title", routeMeta.title);
   html = upsertMetaTag(html, "name", "twitter:description", routeMeta.description);
   html = upsertMetaTag(html, "name", "twitter:image", routeMeta.image || "");
+  if (adsenseConfig && adsenseConfig.accountId) {
+    html = upsertMetaTag(html, "name", "google-adsense-account", adsenseConfig.accountId);
+  }
   html = upsertLinkTag(html, "canonical", { href: routeMeta.url });
   html = upsertLinkTag(html, "icon", { type: "image/svg+xml", href: faviconRefs.svg });
   html = replaceOrInsertHeadTag(html, /<link[^>]+rel=["']apple-touch-icon["'][^>]*>/i, `<link rel="apple-touch-icon" sizes="180x180" href="${faviconRefs.apple}"/>`);
@@ -958,6 +972,40 @@ function escapeXml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
+}
+
+function parseAdsenseConfig(siteConfig) {
+  if (!siteConfig || typeof siteConfig !== "object") return null;
+
+  const raw = siteConfig.adsense;
+  if (!raw) return null;
+
+  let parts = [];
+  if (typeof raw === "string") {
+    parts = raw.split(",").map((entry) => entry.trim()).filter(Boolean);
+  } else if (Array.isArray(raw)) {
+    parts = raw.map((entry) => String(entry).trim()).filter(Boolean);
+  } else if (typeof raw === "object") {
+    const domain = raw.domain || raw.network || raw.host || "";
+    const publisher = raw.publisher || raw.pub || raw.account || raw.publisher_id || raw.publisherId || "";
+    const relationship = raw.relationship || raw.type || raw.account_type || "";
+    const cert = raw.cert || raw.cert_id || raw.certification || raw.caid || "";
+    parts = [domain, publisher, relationship, cert].map((entry) => String(entry).trim()).filter(Boolean);
+  }
+
+  if (parts.length < 2) return null;
+
+  const domain = parts[0];
+  const publisher = parts[1];
+  const relationship = (parts[2] || "DIRECT").toUpperCase();
+  const cert = parts[3] || "";
+  const accountMatch = publisher.match(/pub-\d+/i);
+  const accountId = accountMatch ? accountMatch[0] : "";
+
+  return {
+    accountId,
+    adsTxtLine: [domain, publisher, relationship, cert].filter(Boolean).join(", "),
+  };
 }
 
 async function generateStaticRoutePages(routes, context) {
@@ -988,6 +1036,7 @@ async function generateStaticRoutePages(routes, context) {
 async function generate404Page({ siteUrl, siteConfig }) {
   const siteName = (siteConfig && siteConfig.hero_title) || "Raksara";
   const palette = getAccentPalette(siteConfig);
+  const adsenseConfig = parseAdsenseConfig(siteConfig);
   const homeUrl = "/";
   const themeBootstrapScript = `(()=>{try{const saved=localStorage.getItem("raksara-theme");const system=window.matchMedia&&window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";document.documentElement.setAttribute("data-theme",saved||system);}catch{document.documentElement.setAttribute("data-theme","dark");}})();`;
   const faviconRefs = {
@@ -1008,6 +1057,7 @@ async function generate404Page({ siteUrl, siteConfig }) {
   <meta name="description" content="The page you requested could not be found."/>
   <meta name="robots" content="noindex, nofollow"/>
   <meta name="theme-color" content="${escapeHtml(palette.accent)}"/>
+  ${adsenseConfig && adsenseConfig.accountId ? `<meta name="google-adsense-account" content="${escapeHtml(adsenseConfig.accountId)}"/>` : ""}
   <link rel="icon" type="image/svg+xml" href="${faviconRefs.svg}"/>
   <link rel="icon" type="image/png" sizes="48x48" href="${faviconRefs.png}"/>
   <link rel="apple-touch-icon" sizes="180x180" href="${faviconRefs.apple}"/>
