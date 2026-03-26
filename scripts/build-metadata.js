@@ -495,7 +495,8 @@ function buildSitemapXml(siteUrl, routes) {
   const now = new Date().toISOString();
   const urls = routes
     .map((route) => {
-      const clean = route === "/" ? "" : route;
+      // Add trailing slash to all non-root URLs to match the live site's redirect behavior
+      const clean = route === "/" ? "" : (route.endsWith("/") ? route : route + "/");
       const priority = getSitemapPriority(route);
       return [
         "  <url>",
