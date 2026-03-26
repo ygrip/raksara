@@ -671,10 +671,26 @@
 
   function preprocessToc(md) {
     return md.replace(/::toc\s*\(\s*([^)]*)\s*\)/g, (_m, params) => {
-      const typeMatch = params.match(/type\s*=\s*(\w+)/i);
-      const levelMatch = params.match(/level\s*=\s*(\d+)/i);
-      const type = typeMatch ? typeMatch[1].toLowerCase() : "bullet";
-      const maxLevel = levelMatch ? Math.min(6, Math.max(1, parseInt(levelMatch[1]))) : 3;
+      const raw = String(params || "").trim();
+      let type = "bullet";
+      let maxLevel = 3;
+
+      const typeMatch = raw.match(/(?:^|,)\s*type\s*=\s*(\w+)/i);
+      const levelMatch = raw.match(/(?:^|,)\s*level\s*=\s*(\d+)/i);
+
+      if (typeMatch || levelMatch) {
+        if (typeMatch) type = typeMatch[1].toLowerCase();
+        if (levelMatch) maxLevel = parseInt(levelMatch[1], 10);
+      } else if (raw) {
+        const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
+        if (parts[0]) type = parts[0].toLowerCase();
+        if (parts[1]) maxLevel = parseInt(parts[1], 10);
+      }
+
+      if (type !== "bullet" && type !== "number") type = "bullet";
+      if (!Number.isFinite(maxLevel)) maxLevel = 3;
+      maxLevel = Math.min(6, Math.max(1, maxLevel));
+
       return `<div class="toc-placeholder" data-toc-type="${type}" data-toc-level="${maxLevel}"></div>`;
     });
   }
@@ -688,7 +704,9 @@
       headings.push({ level: parseInt(m[1]), id: m[2], text: m[3].replace(/<[^>]+>/g, "").trim() });
     }
     return html.replace(/<div class="toc-placeholder" data-toc-type="(\w+)" data-toc-level="(\d+)"><\/div>/g, (_match, type, levelStr) => {
-      const maxLevel = parseInt(levelStr);
+      const maxLevel = Number.isFinite(parseInt(levelStr, 10))
+        ? Math.min(6, Math.max(1, parseInt(levelStr, 10)))
+        : 3;
       const filtered = headings.filter((h) => h.level <= maxLevel);
       if (!filtered.length) return "";
       const tag = type === "number" ? "ol" : "ul";
@@ -2473,6 +2491,7 @@
       const img = new Image();
       img.onload = () => {
         bg.style.backgroundImage = `url('${coverUrl}')`;
+        bg.style.setProperty("--profile-hero-image", `url('${coverUrl}')`);
         bg.classList.add("loaded");
         if (skeleton) skeleton.classList.add("hidden");
       };
