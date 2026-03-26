@@ -2,6 +2,163 @@
   "use strict";
 
   const POSTS_PER_PAGE = 10;
+  const SEO_INITIAL_COUNT = 12;
+
+  // ── Pagination state ──────────────────────────────────
+  let _paginationState = null;
+
+  function initPagination(section, allItems, renderFn) {
+    teardownPagination();
+    _paginationState = {
+      section,
+      sort: "latest",
+      allItems,
+      filteredItems: [...allItems],
+      renderFn,
+      currentIndex: 0,
+      itemsPerPage: SEO_INITIAL_COUNT,
+      searchQuery: "",
+      observer: null,
+    };
+  }
+
+  function teardownPagination() {
+    if (_paginationState && _paginationState.observer) {
+      _paginationState.observer.disconnect();
+      _paginationState.observer = null;
+    }
+    _paginationState = null;
+  }
+
+  function getSortedItems(items, sort) {
+    const arr = [...items];
+    switch (sort) {
+      case "oldest": return arr.sort((a, b) => new Date(a.date) - new Date(b.date));
+      case "az":     return arr.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+      case "za":     return arr.sort((a, b) => (b.title || "").localeCompare(a.title || ""));
+      default:       return arr.sort((a, b) => new Date(b.date) - new Date(a.date));
+    }
+  }
+
+  function computeItemsPerPage() {
+    const card = document.querySelector("#paginated-list > *");
+    if (!card) return SEO_INITIAL_COUNT;
+    const h = card.getBoundingClientRect().height;
+    return h > 0 ? Math.max(6, Math.min(24, Math.floor(window.innerHeight / h))) : SEO_INITIAL_COUNT;
+  }
+
+  function setupPaginationSentinel() {
+    const pageContent = document.getElementById("page-content");
+    if (!pageContent || !_paginationState) return;
+    const sentinel = document.createElement("div");
+    sentinel.id = "pagination-sentinel";
+    pageContent.appendChild(sentinel);
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) appendPaginatedItems(); },
+      { rootMargin: "400px" },
+    );
+    observer.observe(sentinel);
+    _paginationState.observer = observer;
+  }
+
+  function appendPaginatedItems() {
+    if (!_paginationState) return;
+    const { filteredItems, currentIndex, itemsPerPage, renderFn } = _paginationState;
+    const chunk = filteredItems.slice(currentIndex, currentIndex + itemsPerPage);
+    if (!chunk.length) { detachPaginationObserver(); return; }
+    const list = document.getElementById("paginated-list");
+    if (list) {
+      list.insertAdjacentHTML("beforeend", chunk.map(renderFn).join(""));
+      initLazyImages();
+    }
+    _paginationState.currentIndex += chunk.length;
+    if (_paginationState.currentIndex >= filteredItems.length) detachPaginationObserver();
+  }
+
+  function detachPaginationObserver() {
+    if (!_paginationState) return;
+    if (_paginationState.observer) {
+      _paginationState.observer.disconnect();
+      _paginationState.observer = null;
+    }
+    const s = document.getElementById("pagination-sentinel");
+    if (s) s.remove();
+  }
+
+  function refreshPaginatedList() {
+    if (!_paginationState) return;
+    detachPaginationObserver();
+    const list = document.getElementById("paginated-list");
+    if (!list) return;
+    _paginationState.currentIndex = 0;
+    const initial = _paginationState.filteredItems.slice(0, _paginationState.itemsPerPage);
+    _paginationState.currentIndex = initial.length;
+    list.innerHTML =
+      initial.map(_paginationState.renderFn).join("") ||
+      '<div class="empty-state"><p>No results.</p></div>';
+    initLazyImages();
+    if (_paginationState.currentIndex < _paginationState.filteredItems.length) {
+      setupPaginationSentinel();
+    }
+  }
+
+  function initDirControls(allItems) {
+    const searchInput = document.getElementById("dir-search");
+    const sortSelect = document.getElementById("dir-sort");
+    if (!searchInput || !sortSelect || !_paginationState) return;
+    let debounce;
+    searchInput.addEventListener("input", (e) => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        const q = e.target.value.trim().toLowerCase();
+        _paginationState.searchQuery = q;
+        if (q) {
+          sortSelect.style.display = "none";
+          _paginationState.filteredItems = allItems.filter(
+            (item) =>
+              (item.title || "").toLowerCase().includes(q) ||
+              (item.dir || "").toLowerCase().includes(q) ||
+              (item.summary || "").toLowerCase().includes(q),
+          );
+        } else {
+          sortSelect.style.display = "";
+          _paginationState.filteredItems = getSortedItems(allItems, _paginationState.sort);
+        }
+        refreshPaginatedList();
+      }, 200);
+    });
+    sortSelect.addEventListener("change", (e) => {
+      _paginationState.sort = e.target.value;
+      _paginationState.filteredItems = getSortedItems(allItems, e.target.value);
+      refreshPaginatedList();
+    });
+  }
+
+  function initMoreDirsButton() {
+    const btn = document.getElementById("more-dirs-btn");
+    const hidden = document.getElementById("blog-dir-hidden");
+    if (!btn || !hidden) return;
+    btn.addEventListener("click", () => {
+      hidden.hidden = false;
+      btn.remove();
+    });
+  }
+
+  function dirControlsHtml() {
+    return `<div class="dir-controls">
+      <div class="dir-search-wrap">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.3"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        <input id="dir-search" class="dir-search-input" type="search" placeholder="Search\u2026" aria-label="Search">
+      </div>
+      <select id="dir-sort" class="dir-sort-select" aria-label="Sort by">
+        <option value="latest">Latest</option>
+        <option value="oldest">Oldest</option>
+        <option value="az">A \u2192 Z</option>
+        <option value="za">Z \u2192 A</option>
+      </select>
+    </div>`;
+  }
+
   const state = {
     posts: [],
     portfolio: [],
@@ -480,14 +637,77 @@
     marked.setOptions({
       renderer,
       highlight: function (code, lang) {
-        // Highlighting is applied asynchronously in initArticleImages to keep
-        // route-level loading and per-language lazy loading lightweight.
         return escapeHtml(code);
       },
       breaks: opts.breaks || false,
       gfm: true,
     });
-    return marked.parse(preprocessFileAttachments(md));
+    const preprocessed = preprocessChapters(preprocessToc(preprocessFileAttachments(md)));
+    const rawHtml = marked.parse(preprocessed);
+    return injectToc(rawHtml);
+  }
+
+  // ── TOC Custom Component ──────────────────────────────
+
+  function preprocessToc(md) {
+    return md.replace(/::toc\s*\(\s*([^)]*)\s*\)/g, (_m, params) => {
+      const typeMatch = params.match(/type\s*=\s*(\w+)/i);
+      const levelMatch = params.match(/level\s*=\s*(\d+)/i);
+      const type = typeMatch ? typeMatch[1].toLowerCase() : "bullet";
+      const maxLevel = levelMatch ? Math.min(6, Math.max(1, parseInt(levelMatch[1]))) : 3;
+      return `<div class="toc-placeholder" data-toc-type="${type}" data-toc-level="${maxLevel}"></div>`;
+    });
+  }
+
+  function injectToc(html) {
+    if (!html.includes("toc-placeholder")) return html;
+    const headings = [];
+    const headingRe = /<h([1-6])[^>]*\sid="([^"]*)"[^>]*>([\s\S]*?)<\/h[1-6]>/gi;
+    let m;
+    while ((m = headingRe.exec(html)) !== null) {
+      headings.push({ level: parseInt(m[1]), id: m[2], text: m[3].replace(/<[^>]+>/g, "").trim() });
+    }
+    return html.replace(/<div class="toc-placeholder" data-toc-type="(\w+)" data-toc-level="(\d+)"><\/div>/g, (_match, type, levelStr) => {
+      const maxLevel = parseInt(levelStr);
+      const filtered = headings.filter((h) => h.level <= maxLevel);
+      if (!filtered.length) return "";
+      const tag = type === "number" ? "ol" : "ul";
+      const items = filtered
+        .map((h) => `<li style="padding-left:${(h.level - 1) * 16}px"><a href="#${escapeHtml(h.id)}">${escapeHtml(h.text)}</a></li>`)
+        .join("");
+      return `<nav class="toc-block" aria-label="Table of contents"><div class="toc-title">Table of Contents</div><${tag} class="toc-list">${items}</${tag}></nav>`;
+    });
+  }
+
+  // ── Chapters Custom Component ─────────────────────────
+
+  function preprocessChapters(md) {
+    return md.replace(/::chapters\s*\(([^)]+)\)/g, (_m, pathArg) => {
+      const clean = pathArg.trim().replace(/^\//, "");
+      const parts = clean.split("/");
+      const dirPath = parts[0] === "blog" ? parts.slice(1).join("/") : clean;
+      const matched = state.posts.filter(
+        (p) => p.dir === dirPath || p.slug.startsWith(dirPath + "/") || (p.dir || "").startsWith(dirPath),
+      );
+      if (!matched.length) {
+        return `<div class="chapters-empty">No chapters found for <code>${escapeHtml(dirPath)}</code></div>`;
+      }
+      const sorted = [...matched].sort((a, b) => {
+        const ca = parseInt(a.chapter) || 0;
+        const cb = parseInt(b.chapter) || 0;
+        return ca !== cb ? ca - cb : new Date(a.date) - new Date(b.date);
+      });
+      const rows = sorted
+        .map(
+          (p, i) => `<tr>
+          <td class="chapters-num">${i + 1}</td>
+          <td class="chapters-title"><a href="#/blog/post/${escapeHtml(p.slug)}" title="${escapeHtml(p.title)}">${escapeHtml(p.title)}</a></td>
+          <td class="chapters-date">${formatDate(p.date)}</td>
+        </tr>`,
+        )
+        .join("");
+      return `<div class="chapters-block"><table class="chapters-table" role="table" aria-label="Chapter list for ${escapeHtml(dirPath)}"><thead><tr><th scope="col">#</th><th scope="col">Title</th><th scope="col">Date</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    });
   }
 
   // ── Rendering Helpers ─────────────────────────────────
@@ -1023,9 +1243,7 @@
   function renderBlogDir(dirPath) {
     const dir = state.blogDirs[dirPath];
     if (!dir) {
-      showContent(
-        '<div class="empty-state"><h3>Directory not found</h3></div>',
-      );
+      showContent('<div class="empty-state"><h3>Directory not found</h3></div>');
       return;
     }
 
@@ -1034,34 +1252,39 @@
     const breadcrumbsHtml = isRoot ? "" : blogBreadcrumbs(segments);
     const title = isRoot ? "Blog" : humanize(segments[segments.length - 1]);
 
+    // Subdirectory chips (max 6 visible, collapsible rest)
     let foldersHtml = "";
     if (dir.subdirs.length) {
-      foldersHtml =
-        '<div class="blog-dir-folders">' +
-        dir.subdirs
-          .map((d) => {
-            const fullDir = dirPath ? dirPath + "/" + d : d;
-            const childDir = state.blogDirs[fullDir];
-            const count = childDir
-              ? childDir.posts.length + childDir.subdirs.length
-              : 0;
-            return `<a href="#/blog/dir/${fullDir}" class="blog-dir-chip">
+      const makeChip = (d) => {
+        const fullDir = dirPath ? dirPath + "/" + d : d;
+        const childDir = state.blogDirs[fullDir];
+        const count = childDir ? childDir.posts.length + childDir.subdirs.length : 0;
+        return `<a href="#/blog/dir/${fullDir}" class="blog-dir-chip">
           <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M2 4.5A1.5 1.5 0 013.5 3h3.586a1.5 1.5 0 011.06.44L8.854 4.145A.5.5 0 009.207 4.3H12.5A1.5 1.5 0 0114 5.8V12a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 12V4.5z" stroke="currentColor" stroke-width="1.2"/></svg>
           <span>${escapeHtml(humanize(d))}</span>
           ${count ? `<span class="blog-dir-count">${count}</span>` : ""}
         </a>`;
-          })
-          .join("") +
-        "</div>";
+      };
+      const visible = dir.subdirs.slice(0, 6);
+      const hidden = dir.subdirs.slice(6);
+      foldersHtml = `<div class="blog-dir-folders">
+        ${visible.map(makeChip).join("")}
+        ${hidden.length ? `<div class="blog-dir-hidden" id="blog-dir-hidden" hidden>${hidden.map(makeChip).join("")}</div>
+        <button class="blog-dir-chip more-dirs-btn" id="more-dirs-btn">+${hidden.length} more</button>` : ""}
+      </div>`;
     }
 
+    // Collect & sort posts
     const dirPosts = dir.posts
       .map((slug) => state.posts.find((p) => p.slug === slug))
       .filter(Boolean);
-    dirPosts.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const sortedPosts = getSortedItems(dirPosts, "latest");
+
+    initPagination("blog", sortedPosts, renderPostCard);
+    const initial = sortedPosts.slice(0, SEO_INITIAL_COUNT);
+    _paginationState.currentIndex = initial.length;
 
     const total = dirPosts.length;
-    const postsHtml = dirPosts.map(renderPostCard).join("");
     const subtitle = isRoot
       ? `${state.posts.length} post${state.posts.length !== 1 ? "s" : ""}`
       : `${total} post${total !== 1 ? "s" : ""} in this directory`;
@@ -1075,9 +1298,14 @@
         </div>
         ${shareButton(title)}
       </div>
+      ${total > 0 ? dirControlsHtml() : ""}
       ${foldersHtml}
-      <div class="post-list">${postsHtml || '<div class="empty-state"><p>No posts in this directory.</p></div>'}</div>
+      <div class="post-list" id="paginated-list">${
+        initial.map(renderPostCard).join("") ||
+        '<div class="empty-state"><p>No posts in this directory.</p></div>'
+      }</div>
     `);
+
     updatePageMeta({
       title: isRoot ? "Blog" : title,
       description: subtitle,
@@ -1089,6 +1317,13 @@
       dirPostTitles: dirPosts.slice(0, 4).map((p) => p.title),
     });
     initLazyImages();
+
+    requestAnimationFrame(() => {
+      _paginationState.itemsPerPage = computeItemsPerPage();
+      if (_paginationState.currentIndex < sortedPosts.length) setupPaginationSentinel();
+      initDirControls(dirPosts);
+      initMoreDirsButton();
+    });
   }
 
   // ── Content Type System ───────────────────────────────
@@ -1134,10 +1369,165 @@
       },
       headerLayout: "novel",
     },
+    comic: {
+      bodyClass: "comic-layout",
+      handlesCover: true,
+      isComic: true,
+      renderBody() { return ""; },
+      headerLayout: "standard",
+    },
   };
 
   function getContentLayout(type) {
     return contentLayouts[type] || contentLayouts.default;
+  }
+
+  // ── Comic Page Renderer ───────────────────────────────
+
+  async function renderComicPost(post, frontmatter) {
+    const rawImages = frontmatter.images || post.images || [];
+    const images = rawImages.map((img) => {
+      const src = typeof img === "string" ? img : img.src || "";
+      return { src: resolvePath(src), caption: (typeof img === "object" && img.caption) || "" };
+    }).filter((img) => img.src);
+
+    const modeKey = `comic-mode-${post.slug}`;
+    const mode = sessionStorage.getItem(modeKey) || "scroll";
+
+    const tagsHtml = (post.tags || [])
+      .map((t) => `<a href="#/tag/${encodeURIComponent(t)}" class="tag">${escapeHtml(t)}</a>`)
+      .join("");
+    const slugParts = post.slug.split("/");
+    const parentDir = slugParts.length > 1 ? slugParts.slice(0, -1).join("/") : "";
+    const backHref = parentDir ? `#/blog/dir/${parentDir}` : "#/blog";
+    const backLabel = parentDir ? humanize(slugParts[slugParts.length - 2]) : "blog";
+
+    showContent(`
+      <div class="article-top-bar">
+        <a href="${backHref}" class="back-link">\u2190 Back to ${escapeHtml(backLabel)}</a>
+        ${shareButton(post.title)}
+      </div>
+      <div class="article-header">
+        <h1>${escapeHtml(post.title)}</h1>
+        <div class="article-meta">
+          <span class="post-card-date">${formatDate(post.date)}</span>
+          ${tagsHtml}
+        </div>
+      </div>
+      <div class="comic-controls">
+        <label class="comic-mode-label" for="comic-mode-select">Mode</label>
+        <select id="comic-mode-select" class="comic-mode-select" aria-label="Display mode">
+          <option value="scroll"${mode === "scroll" ? " selected" : ""}>Scroll</option>
+          <option value="swipe"${mode === "swipe" ? " selected" : ""}>Swipe</option>
+        </select>
+      </div>
+      <div id="comic-viewer" class="comic-viewer" data-mode="${mode}">
+        ${mode === "scroll" ? buildComicScrollHtml(images) : buildComicSwipeHtml(images, 0)}
+      </div>
+      <button class="scroll-to-top-btn" id="scroll-to-top" aria-label="Scroll to top">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 12V4M4 8l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    `);
+
+    updatePageMeta({ title: post.title, description: post.summary || "" });
+    initShareButton(post.title, { author: frontmatter.author });
+    initComicPage(modeKey, images);
+  }
+
+  function buildComicScrollHtml(images) {
+    if (!images.length) return '<div class="empty-state"><p>No images found.</p></div>';
+    return images
+      .map(
+        (img) => `<div class="comic-image-wrap is-loading">
+          <img src="${escapeHtml(img.src)}" alt="${escapeHtml(img.caption)}" loading="lazy" decoding="async">
+        </div>`,
+      )
+      .join("");
+  }
+
+  function buildComicSwipeHtml(images, idx) {
+    if (!images.length) return '<div class="empty-state"><p>No images found.</p></div>';
+    const img = images[idx];
+    const total = images.length;
+    return `<div class="comic-swipe-container">
+      <div class="comic-image-wrap is-loading">
+        <img id="comic-swipe-img" src="${escapeHtml(img.src)}" alt="${escapeHtml(img.caption)}" loading="eager" decoding="async">
+      </div>
+      <button class="comic-swipe-btn prev" aria-label="Previous image">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="comic-swipe-btn next" aria-label="Next image">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <div class="comic-swipe-counter" id="comic-swipe-counter">${idx + 1} / ${total}</div>`;
+  }
+
+  function initComicPage(modeKey, images) {
+    let swipeIndex = 0;
+
+    // Mode switcher
+    const modeSelect = document.getElementById("comic-mode-select");
+    const viewer = document.getElementById("comic-viewer");
+    if (modeSelect && viewer) {
+      modeSelect.addEventListener("change", () => {
+        const newMode = modeSelect.value;
+        sessionStorage.setItem(modeKey, newMode);
+        viewer.dataset.mode = newMode;
+        swipeIndex = 0;
+        viewer.innerHTML = newMode === "scroll"
+          ? buildComicScrollHtml(images)
+          : buildComicSwipeHtml(images, 0);
+        initComicSwipeButtons(images, swipeIndex, (i) => { swipeIndex = i; });
+        initLazyImages();
+      });
+    }
+
+    initComicSwipeButtons(images, swipeIndex, (i) => { swipeIndex = i; });
+
+    // Scroll-to-top
+    const topBtn = document.getElementById("scroll-to-top");
+    if (topBtn) {
+      const onScroll = () => {
+        topBtn.style.display = window.scrollY > 300 ? "flex" : "none";
+      };
+      window.addEventListener("scroll", onScroll, { passive: true });
+      topBtn.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+      onScroll();
+    }
+
+    // Hide images that fail to load
+    document.querySelectorAll(".comic-image-wrap img").forEach((img) => {
+      img.addEventListener("error", () => {
+        const wrap = img.closest(".comic-image-wrap");
+        if (wrap) wrap.style.display = "none";
+      });
+    });
+
+    initLazyImages();
+  }
+
+  function initComicSwipeButtons(images, startIndex, onIndexChange) {
+    const viewer = document.getElementById("comic-viewer");
+    if (!viewer || viewer.dataset.mode !== "swipe") return;
+
+    let idx = startIndex;
+
+    function navigate(delta) {
+      idx = (idx + delta + images.length) % images.length;
+      onIndexChange(idx);
+      const imgEl = document.getElementById("comic-swipe-img");
+      const counter = document.getElementById("comic-swipe-counter");
+      const img = images[idx];
+      if (imgEl) {
+        imgEl.src = escapeHtml(img.src);
+        imgEl.alt = escapeHtml(img.caption);
+      }
+      if (counter) counter.textContent = `${idx + 1} / ${images.length}`;
+    }
+
+    viewer.querySelector(".comic-swipe-btn.prev")?.addEventListener("click", () => navigate(-1));
+    viewer.querySelector(".comic-swipe-btn.next")?.addEventListener("click", () => navigate(1));
   }
 
   function readingModeButton() {
@@ -1196,6 +1586,12 @@
       );
       const type = frontmatter.type || post.type || "default";
       const layout = getContentLayout(type);
+
+      if (layout.isComic) {
+        await renderComicPost(post, frontmatter);
+        return;
+      }
+
       const bodyHtml = layout.renderBody(body, frontmatter);
       const tagsHtml = (post.tags || [])
         .map(
@@ -1375,60 +1771,43 @@
   }
 
   function renderPortfolioList() {
-    const sorted = [...state.portfolio].sort((a, b) => {
-      const da = a.date ? new Date(a.date) : new Date(0);
-      const db = b.date ? new Date(b.date) : new Date(0);
-      return db - da;
-    });
+    const allItems = getSortedItems(state.portfolio, "latest");
 
-    const groups = {};
-    for (const p of sorted) {
-      const year =
-        p.date && p.date !== "1970-01-01"
-          ? new Date(p.date + "T00:00:00").getFullYear().toString()
-          : "Other";
-      if (!groups[year]) groups[year] = [];
-      groups[year].push(p);
-    }
+    initPagination("portfolio", allItems, renderPortfolioCard);
+    const initial = allItems.slice(0, SEO_INITIAL_COUNT);
+    _paginationState.currentIndex = initial.length;
 
-    const years = Object.keys(groups).sort((a, b) => {
-      if (a === "Other") return 1;
-      if (b === "Other") return -1;
-      return parseInt(b) - parseInt(a);
-    });
-
-    const timelineHtml = years
-      .map((year) => {
-        const items = groups[year]
-          .map(
-            (p) => `<div class="timeline-item">${renderPortfolioCard(p)}</div>`,
-          )
-          .join("");
-        return `<div class="timeline-year">
-        <div class="timeline-year-label">${escapeHtml(year)}</div>
-        ${items}
-      </div>`;
-      })
-      .join("");
+    const subtitle = `${state.portfolio.length} project${state.portfolio.length !== 1 ? "s" : ""}`;
 
     showContent(`
       <div class="page-header">
         <div>
           <h1 class="page-title">Portfolio</h1>
-          <p class="page-subtitle">${state.portfolio.length} project${state.portfolio.length !== 1 ? "s" : ""}</p>
+          <p class="page-subtitle">${subtitle}</p>
         </div>
         ${shareButton("Portfolio")}
       </div>
-      <div class="timeline">${timelineHtml}</div>
+      ${allItems.length > 0 ? dirControlsHtml() : ""}
+      <div class="portfolio-grid" id="paginated-list">${
+        initial.map(renderPortfolioCard).join("") ||
+        '<div class="empty-state"><p>No projects yet.</p></div>'
+      }</div>
     `);
     updatePageMeta({ title: "Portfolio" });
     initShareButton("Portfolio", {
       isDirectory: true,
       pageCount: state.portfolio.length,
-      dirPostTitles: sorted.slice(0, 4).map((p) => p.title),
+      dirPostTitles: allItems.slice(0, 4).map((p) => p.title),
       pageLabel: "project",
     });
     initPortfolioCards();
+    initLazyImages();
+
+    requestAnimationFrame(() => {
+      _paginationState.itemsPerPage = computeItemsPerPage();
+      if (_paginationState.currentIndex < allItems.length) setupPaginationSentinel();
+      initDirControls(allItems);
+    });
   }
 
   function initPortfolioCards() {
@@ -1646,7 +2025,12 @@
   }
 
   function renderThoughts() {
-    const html = state.thoughts.map(renderThoughtCard).join("");
+    const allItems = getSortedItems(state.thoughts, "latest");
+
+    initPagination("thoughts", allItems, renderThoughtCard);
+    const initial = allItems.slice(0, SEO_INITIAL_COUNT);
+    _paginationState.currentIndex = initial.length;
+
     showContent(`
       <div class="page-header">
         <div>
@@ -1655,7 +2039,11 @@
         </div>
         ${shareButton("Shower Thoughts")}
       </div>
-      <div class="thoughts-list">${html || '<div class="empty-state"><p>No thoughts yet. Brain empty.</p></div>'}</div>
+      ${allItems.length > 0 ? dirControlsHtml() : ""}
+      <div class="thoughts-list" id="paginated-list">${
+        initial.map(renderThoughtCard).join("") ||
+        '<div class="empty-state"><p>No thoughts yet. Brain empty.</p></div>'
+      }</div>
     `);
     updatePageMeta({
       title: "Shower Thoughts",
@@ -1663,6 +2051,13 @@
       robots: "noindex, nofollow",
     });
     initShareButton("Shower Thoughts", { isThoughts: true });
+    initLazyImages();
+
+    requestAnimationFrame(() => {
+      _paginationState.itemsPerPage = computeItemsPerPage();
+      if (_paginationState.currentIndex < allItems.length) setupPaginationSentinel();
+      initDirControls(allItems);
+    });
   }
 
   // ── Shared filtered item renderer ─────────────────────
@@ -3335,6 +3730,7 @@
   // ── Router ────────────────────────────────────────────
 
   async function handleRoute() {
+    teardownPagination();
     if (_typingTimer) {
       clearTimeout(_typingTimer);
       _typingTimer = null;

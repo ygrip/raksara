@@ -3114,6 +3114,352 @@ body.reading-mode .reading-mode-btn {
     }
 }
 
+/* ── Dir Controls (search + sort) ───────────────────────── */
+
+.dir-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+    align-items: center;
+}
+
+.dir-search-wrap {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.dir-search-wrap svg {
+    position: absolute;
+    left: 12px;
+    color: var(--text-secondary);
+    pointer-events: none;
+    flex-shrink: 0;
+}
+
+.dir-search-input {
+    width: 100%;
+    padding: 10px 12px 10px 36px;
+    background: var(--glass-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+}
+
+.dir-search-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+
+.dir-sort-select {
+    padding: 10px 12px;
+    background: var(--glass-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 14px;
+    cursor: pointer;
+    min-width: 110px;
+    outline: none;
+}
+
+.dir-sort-select:focus {
+    border-color: var(--accent);
+}
+
+.more-dirs-btn {
+    border-style: dashed !important;
+    color: var(--text-secondary) !important;
+    font-size: 13px;
+    font-weight: 500;
+    background: transparent !important;
+}
+
+.blog-dir-hidden {
+    display: contents;
+}
+
+/* ── TOC ─────────────────────────────────────────────────── */
+
+.toc-block {
+    background: var(--glass-bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-md);
+    padding: 16px 20px;
+    margin: 24px 0;
+}
+
+.toc-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+}
+
+.toc-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.toc-list li {
+    margin: 5px 0;
+}
+
+.toc-list li a {
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.toc-list li a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
+/* ── Chapters Table ──────────────────────────────────────── */
+
+.chapters-block {
+    overflow: auto;
+    max-height: 360px;
+    margin: 24px 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.chapters-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.chapters-table th {
+    background: var(--glass-bg);
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    border-bottom: 1px solid var(--border);
+}
+
+.chapters-num {
+    width: 40px;
+    color: var(--text-secondary);
+    padding: 10px 14px;
+}
+
+.chapters-title {
+    padding: 10px 14px;
+    max-width: 0;
+    width: 100%;
+}
+
+.chapters-title a {
+    color: var(--text-primary);
+    text-decoration: none;
+}
+
+.chapters-title a:hover {
+    color: var(--accent);
+}
+
+.chapters-date {
+    padding: 10px 14px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    font-size: 12px;
+}
+
+.chapters-table tbody tr + tr {
+    border-top: 1px solid var(--border);
+}
+
+.chapters-table tbody tr:hover {
+    background: var(--accent-subtle);
+}
+
+/* ── Comic Viewer ────────────────────────────────────────── */
+
+.comic-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.comic-mode-label {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.comic-mode-select {
+    padding: 6px 10px;
+    background: var(--glass-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 14px;
+    cursor: pointer;
+    outline: none;
+}
+
+.comic-viewer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.comic-viewer[data-mode="scroll"] {
+    gap: 6px;
+}
+
+.comic-image-wrap {
+    width: 100%;
+    max-width: 720px;
+    line-height: 0;
+}
+
+.comic-image-wrap img {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    display: block;
+}
+
+.comic-swipe-container {
+    width: 100%;
+    max-width: 720px;
+    position: relative;
+}
+
+.comic-swipe-img {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    display: block;
+}
+
+.comic-swipe-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    z-index: 10;
+}
+
+.comic-swipe-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.comic-swipe-btn:not(:disabled):hover {
+    background: rgba(0, 0, 0, 0.65);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.comic-swipe-btn.prev { left: 12px; }
+.comic-swipe-btn.next { right: 12px; }
+
+.comic-swipe-counter {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 12px;
+}
+
+.scroll-to-top-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s, box-shadow 0.2s;
+    z-index: 100;
+}
+
+.scroll-to-top-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Gallery Album Cover ─────────────────────────────────── */
+
+.gallery-album-cover {
+    cursor: pointer;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    position: relative;
+    aspect-ratio: 1;
+    width: 100%;
+}
+
+.gallery-album-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.gallery-album-cover:hover img {
+    transform: scale(1.03);
+}
+
+.gallery-album-cover .gallery-item-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, transparent 50%);
+    display: flex;
+    align-items: flex-end;
+    padding: 16px;
+    opacity: 0;
+    transition: opacity 0.25s;
+}
+
+.gallery-album-cover:hover .gallery-item-overlay {
+    opacity: 1;
+}
+
+.gallery-album-cover .gallery-item-title {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+}
+
 /* ── Reduced Motion ──────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {

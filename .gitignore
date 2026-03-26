@@ -37,3 +37,6 @@ npm-debug.log*
 # Environment
 .env
 .env.*
+
+# Test content (pagination stress test)
+web/content/blog/test-pagination/

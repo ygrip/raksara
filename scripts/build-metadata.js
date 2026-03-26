@@ -244,6 +244,22 @@ async function buildMetadata() {
   write("categories.json", categories);
   write("search-index.json", searchIndex);
 
+  // Sorted metadata arrays for pagination
+  const sortFns = {
+    latest: (a, b) => new Date(b.date) - new Date(a.date),
+    oldest: (a, b) => new Date(a.date) - new Date(b.date),
+    az: (a, b) => (a.title || "").localeCompare(b.title || ""),
+    za: (a, b) => (b.title || "").localeCompare(a.title || ""),
+  };
+  for (const [variant, fn] of Object.entries(sortFns)) {
+    write(`blog-sorted-${variant}.json`, [...posts].sort(fn));
+    write(`portfolio-sorted-${variant}.json`, [...portfolioItems].sort(fn));
+    write(`thoughts-sorted-${variant}.json`, [...thoughts].sort(fn));
+  }
+  write("blog-index.json", { totalItems: posts.length, defaultSort: "latest" });
+  write("portfolio-index.json", { totalItems: portfolioItems.length, defaultSort: "latest" });
+  write("thoughts-index.json", { totalItems: thoughts.length, defaultSort: "latest" });
+
   const configPath = path.join(CONTENT_DIR, "raksara.yml");
   let siteConfig = { color: "purple" };
   if (fs.existsSync(configPath)) {
@@ -262,6 +278,7 @@ async function buildMetadata() {
     path.join(METADATA_DIR, "image-manifest.json"),
     path.join(WEB_DIR, "metadata", "image-manifest.json"),
   );
+  await generateGalleryCover(galleryItems);
   prerender(posts, thoughts, portfolioItems, galleryItems, siteConfig, imageManifest);
   await generateSeoArtifacts({
     posts,
@@ -1450,32 +1467,42 @@ function renderHomePagePrerender(posts, thoughts, portfolio, gallery, config, im
 
   let thoughtsHtml = recentThoughts.map((t) => renderThoughtCardPrerender(t)).join("");
 
-  let galleryHtml = gallery
-    .slice(0, 4)
-    .map((g) => {
-      const images = g.images && g.images.length > 0 ? g.images : 
-                    g.image ? [{ src: g.image }] : [];
-      if (!images.length) return "";
-      const imgSrc = resolvePath(images[0].src);
-      const isMulti = images.length > 1;
-      const countBadge = isMulti
-        ? `<div class="gallery-image-count"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="1" width="9" height="9" rx="1.5"/><rect x="5" y="5" width="9" height="9" rx="1.5"/></svg>${images.length}</div>`
-        : "";
-      const galleryIndex = gallery.indexOf(g);
-      return `
-      <div class="gallery-item is-loading${isMulti ? " multi-image" : ""}" onclick="window.__openGallery(${galleryIndex})">
-        <img ${buildResponsiveImageAttrsPrerender(imgSrc, {
-          alt: g.title || "",
-          loading: "lazy",
-          sizes: "(max-width: 768px) calc(50vw - 24px), 240px",
-        }, imageManifest)}>
-        <div class="gallery-item-overlay">
-          <div class="gallery-item-title">${escapeHtml(g.title)}</div>
-        </div>
-        ${countBadge}
+  let galleryHtml;
+  const galleryCoverPath = path.join(WEB_DIR, "content", "assets", "images", "gallery-cover.webp");
+  if (fs.existsSync(galleryCoverPath)) {
+    galleryHtml = `
+      <div class="gallery-album-cover is-loading" role="button" tabindex="0" onclick="window.location.hash='/gallery'" onkeydown="if(event.key==='Enter')window.location.hash='/gallery'">
+        <img src="content/assets/images/gallery-cover.webp" alt="Gallery" loading="lazy" decoding="async">
+        <div class="gallery-item-overlay"><div class="gallery-item-title">View Gallery →</div></div>
       </div>`;
-    })
-    .join("");
+  } else {
+    galleryHtml = gallery
+      .slice(0, 4)
+      .map((g) => {
+        const images = g.images && g.images.length > 0 ? g.images :
+                      g.image ? [{ src: g.image }] : [];
+        if (!images.length) return "";
+        const imgSrc = resolvePath(images[0].src);
+        const isMulti = images.length > 1;
+        const countBadge = isMulti
+          ? `<div class="gallery-image-count"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="1" width="9" height="9" rx="1.5"/><rect x="5" y="5" width="9" height="9" rx="1.5"/></svg>${images.length}</div>`
+          : "";
+        const galleryIndex = gallery.indexOf(g);
+        return `
+        <div class="gallery-item is-loading${isMulti ? " multi-image" : ""}" onclick="window.__openGallery(${galleryIndex})">
+          <img ${buildResponsiveImageAttrsPrerender(imgSrc, {
+            alt: g.title || "",
+            loading: "lazy",
+            sizes: "(max-width: 768px) calc(50vw - 24px), 240px",
+          }, imageManifest)}>
+          <div class="gallery-item-overlay">
+            <div class="gallery-item-title">${escapeHtml(g.title)}</div>
+          </div>
+          ${countBadge}
+        </div>`;
+      })
+      .join("");
+  }
 
   const heroTitle = (config && config.hero_title) || "Raksara";
   const heroSubtitle =
@@ -1522,6 +1549,41 @@ function renderHomePagePrerender(posts, thoughts, portfolio, gallery, config, im
       </div>`
           : ""
       }`;
+}
+
+async function generateGalleryCover(galleryItems) {
+  const outputPath = path.join(WEB_DIR, "content", "assets", "images", "gallery-cover.webp");
+  const candidates = [];
+  for (const g of galleryItems) {
+    if (candidates.length >= 4) break;
+    const imgs = g.images && g.images.length > 0 ? g.images : g.image ? [{ src: g.image }] : [];
+    if (!imgs.length) continue;
+    const src = imgs[0].src || imgs[0];
+    if (!src || src.startsWith("http://") || src.startsWith("https://")) continue;
+    const absPath = path.join(WEB_DIR, resolvePath(src));
+    if (fs.existsSync(absPath)) candidates.push(absPath);
+  }
+  if (!candidates.length) return;
+  try {
+    const size = 400;
+    const cells = await Promise.all(
+      candidates.map((p) => sharp(p).resize(size, size, { fit: "cover", position: "centre" }).toBuffer()),
+    );
+    while (cells.length < 4) cells.push(cells[cells.length - 1]);
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+    await sharp({ create: { width: size * 2, height: size * 2, channels: 3, background: { r: 18, g: 21, b: 26 } } })
+      .composite([
+        { input: cells[0], top: 0,    left: 0 },
+        { input: cells[1], top: 0,    left: size },
+        { input: cells[2], top: size, left: 0 },
+        { input: cells[3], top: size, left: size },
+      ])
+      .webp({ quality: 80 })
+      .toFile(outputPath);
+    console.log("  ✓ Generated gallery-cover.webp");
+  } catch (err) {
+    console.log("  ⚠ Failed to generate gallery cover:", err.message);
+  }
 }
 
 function prerender(posts, thoughts, portfolio, gallery, config, imageManifest) {
