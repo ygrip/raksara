@@ -347,7 +347,7 @@ async function generateSeoArtifacts({
   blogDirs,
   siteConfig,
 }) {
-  const siteUrl = getSiteUrl();
+  const siteUrl = getSiteUrl(siteConfig);
   const routes = collectRoutes({
     posts,
     portfolioItems,
@@ -377,16 +377,24 @@ async function generateSeoArtifacts({
   await generate404Page({ siteUrl, siteConfig });
   writeWebFile(".nojekyll", "");
 
+  // Write CNAME if the site uses a custom domain (not *.github.io)
+  const siteHost = new URL(siteUrl).hostname;
+  if (!siteHost.endsWith(".github.io")) {
+    writeWebFile("CNAME", siteHost);
+    console.log(`  ✓ Generated CNAME (${siteHost})`);
+  }
+
   console.log("  ✓ Generated sitemap.xml");
   console.log("  ✓ Generated robots.txt");
   console.log("  ✓ Generated 404.html");
   console.log(`  ✓ Generated route pages (${routes.length})`);
 }
 
-function getSiteUrl() {
+function getSiteUrl(siteConfig) {
   const configured =
     process.env.SITE_URL ||
-    process.env.BASE_URL;
+    process.env.BASE_URL ||
+    (siteConfig && siteConfig.site_url);
   if (configured) return normalizeSiteUrl(configured);
 
   const repo = process.env.GITHUB_REPOSITORY || "";
@@ -422,7 +430,7 @@ function guessGitHubOwnerFromLocalGit() {
 
 function extractGitHubOwnerFromRemote(remote) {
   if (!remote) return "";
-  const ssh = remote.match(/^git@github\.com:([^/]+)\//i);
+  const ssh = remote.match(/^git@github\.com[^:]*:([^/]+)\//i);
   if (ssh) return ssh[1];
   const https = remote.match(/^https?:\/\/github\.com\/([^/]+)\//i);
   if (https) return https[1];
