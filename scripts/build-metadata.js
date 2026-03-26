@@ -707,15 +707,19 @@ function setHtmlInlineStyle(html, styleValue) {
   return html.replace(/<html([^>]*)>/i, `<html$1 style="${escapeHtml(styleValue)}">`);
 }
 
-function buildLogoIconMarkup(siteConfig, siteName) {
+function buildLogoIconMarkup(siteConfig, siteName, options = {}) {
+  const rootAbsolute = Boolean(options.rootAbsolute);
   const logoPath = normalizeConfigAssetPath(siteConfig && siteConfig.logo);
+  const resolvedLogoPath = (logoPath && rootAbsolute && !/^https?:\/\//i.test(logoPath) && !logoPath.startsWith("data:"))
+    ? `/${logoPath.replace(/^\/+/, "")}`
+    : logoPath;
   if (!logoPath || /^https?:\/\//i.test(logoPath) || logoPath.startsWith("data:")) {
-    if (logoPath) {
-      return `<img src="${escapeHtml(logoPath)}" alt="${escapeHtml(siteName)}" width="18" height="18" loading="eager" decoding="async">`;
+    if (resolvedLogoPath) {
+      return `<img src="${escapeHtml(resolvedLogoPath)}" alt="${escapeHtml(siteName)}" width="18" height="18" loading="eager" decoding="async">`;
     }
     return "&#9670;";
   }
-  return `<img src="${escapeHtml(logoPath)}" alt="${escapeHtml(siteName)}" width="18" height="18" loading="eager" decoding="async">`;
+  return `<img src="${escapeHtml(resolvedLogoPath)}" alt="${escapeHtml(siteName)}" width="18" height="18" loading="eager" decoding="async">`;
 }
 
 function humanizeSlug(slug) {
@@ -924,13 +928,18 @@ async function generateStaticRoutePages(routes, context) {
 async function generate404Page({ siteUrl, siteConfig }) {
   const siteName = (siteConfig && siteConfig.hero_title) || "Raksara";
   const palette = getAccentPalette(siteConfig);
-  const homeUrl = `${siteUrl}/`;
-  const faviconRefs = buildRootFaviconRefs();
-  const logoMarkup = buildLogoIconMarkup(siteConfig || {}, siteName);
+  const homeUrl = "/";
+  const faviconRefs = {
+    svg: "/favicon.svg",
+    png: "/favicon.png",
+    apple: "/apple-touch-icon.png",
+    manifest: "/site.webmanifest",
+    css: "/styles.min.css",
+  };
+  const logoMarkup = buildLogoIconMarkup(siteConfig || {}, siteName, { rootAbsolute: true });
   const html = `<!doctype html>
 <html lang="en" data-theme="dark" style="${escapeHtml(buildAccentCssVariables(palette))}">
 <head>
-  <base href="./">
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Page Not Found — ${escapeHtml(siteName)}</title>
@@ -941,9 +950,10 @@ async function generate404Page({ siteUrl, siteConfig }) {
   <link rel="icon" type="image/png" sizes="48x48" href="${faviconRefs.png}"/>
   <link rel="apple-touch-icon" sizes="180x180" href="${faviconRefs.apple}"/>
   <link rel="manifest" href="${faviconRefs.manifest}"/>
-  <link rel="stylesheet" href="styles.min.css"/>
+  <link rel="stylesheet" href="${faviconRefs.css}"/>
   <style>
-    body{min-height:100vh;display:grid;place-items:center;padding:32px}
+    html,body{height:100%;overflow:hidden}
+    body{margin:0;min-height:100svh;display:grid;place-items:center;padding:32px;box-sizing:border-box}
     .not-found-shell{width:min(680px,100%);padding:40px;border:1px solid var(--border-color);border-radius:28px;background:var(--bg-card);box-shadow:0 24px 80px rgba(0,0,0,.18)}
     .not-found-brand{display:flex;align-items:center;gap:12px;margin-bottom:24px;font-weight:700}
     .not-found-brand .logo-icon img{display:block}
