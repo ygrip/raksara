@@ -421,7 +421,28 @@
       if (a.target === "_blank" || a.hasAttribute("download")) return;
       const href = a.getAttribute("href") || "";
       if (!href || href.startsWith("mailto:") || href.startsWith("tel:")) return;
-      if (href.startsWith("#") && !href.startsWith("#/")) return;
+      if (href.startsWith("#") && !href.startsWith("#/")) {
+        // Always intercept bare #anchor links. The page has <base href="./"> fixed at
+        // the origin root — so after a pushState navigation, href="#heading" resolves
+        // to `origin/#heading` (a different path), causing a full page reload and
+        // wiping the route. We must always prevent default and scroll programmatically.
+        const id = decodeURIComponent(href.slice(1));
+        if (!id) return;
+        e.preventDefault();
+        // In pathname-routing mode, update the URL fragment so the anchor is
+        // shareable and back-navigable. Use replaceState so repeated TOC clicks
+        // replace the fragment instead of building up a history stack.
+        // Explicitly include pathname+search to avoid resolving relative to <base>.
+        if (!window.location.hash.startsWith("#/")) {
+          history.replaceState(
+            null,
+            "",
+            window.location.pathname + window.location.search + "#" + id
+          );
+        }
+        scrollToId(id);
+        return;
+      }
       if (href.startsWith("http://") || href.startsWith("https://")) {
         try {
           const u = new URL(href);
@@ -444,7 +465,7 @@
   // ── Data Loading ──────────────────────────────────────
 
   async function loadJSON(url) {
-    const res = await fetch(url);
+    const res = await fetch(toPublicAssetHref(url));
     if (!res.ok) throw new Error(`Failed to load ${url}`);
     return res.json();
   }
@@ -516,7 +537,7 @@
   }
 
   async function loadMarkdown(path) {
-    const res = await fetch(path);
+    const res = await fetch(toPublicAssetHref(path));
     if (!res.ok) throw new Error(`Failed to load ${path}`);
     return res.text();
   }
@@ -547,9 +568,9 @@
             frontmatter[currentKey] = val;
             arrayMode = false;
           }
-        } else if (arrayMode && currentKey && line.match(/^\s+-\s+\w[\w-]*:/)) {
+        } else if (arrayMode && currentKey && line.match(/^\s*-\s+\w[\w-]*:/)) {
           if (objBuffer) frontmatter[currentKey].push(objBuffer);
-          const objKv = line.match(/^\s+-\s+(\w[\w-]*):\s*(.*)$/);
+          const objKv = line.match(/^\s*-\s+(\w[\w-]*):\s*(.*)$/);
           objBuffer = {};
           if (objKv)
             objBuffer[objKv[1]] = objKv[2].trim().replace(/^["']|["']$/g, "");
@@ -559,12 +580,12 @@
             objBuffer[nestedKv[1]] = nestedKv[2]
               .trim()
               .replace(/^["']|["']$/g, "");
-        } else if (arrayMode && currentKey && line.match(/^\s+-\s+/)) {
+        } else if (arrayMode && currentKey && line.match(/^\s*-\s+/)) {
           if (objBuffer) {
             frontmatter[currentKey].push(objBuffer);
             objBuffer = null;
           }
-          const item = line.replace(/^\s+-\s+/, "").trim();
+          const item = line.replace(/^\s*-\s+/, "").trim();
           if (!Array.isArray(frontmatter[currentKey]))
             frontmatter[currentKey] = [];
           frontmatter[currentKey].push(item);
@@ -612,7 +633,6 @@
   }
 
   function renderMd(md, opts = {}) {
-    let tocCounter = 0;
     const renderer = new marked.Renderer();
     renderer.image = function (href, title, text) {
       const resolved = resolvePath(typeof href === "object" ? href.href : href);
@@ -691,27 +711,44 @@
       if (!Number.isFinite(maxLevel)) maxLevel = 3;
       maxLevel = Math.min(6, Math.max(1, maxLevel));
 
-      return `<div class="toc-placeholder" data-toc-type="${type}" data-toc-level="${maxLevel}"></div>`;
+      return `[[RAKSARA_TOC:${type}:${maxLevel}]]`;
     });
   }
 
   function injectToc(html) {
-    if (!html.includes("toc-placeholder")) return html;
+    if (!html.includes("[[RAKSARA_TOC:")) return html;
     const headings = [];
     const headingRe = /<h([1-6])[^>]*\sid="([^"]*)"[^>]*>([\s\S]*?)<\/h[1-6]>/gi;
     let m;
     while ((m = headingRe.exec(html)) !== null) {
       headings.push({ level: parseInt(m[1]), id: m[2], text: m[3].replace(/<[^>]+>/g, "").trim() });
     }
-    return html.replace(/<div class="toc-placeholder" data-toc-type="(\w+)" data-toc-level="(\d+)"><\/div>/g, (_match, type, levelStr) => {
+    let tocCounter = 0;
+    return html.replace(/(?:<p>)?\[\[RAKSARA_TOC:(\w+):(\d+)\]\](?:<\/p>)?/g, (_match, type, levelStr) => {
       const maxLevel = Number.isFinite(parseInt(levelStr, 10))
         ? Math.min(6, Math.max(1, parseInt(levelStr, 10)))
         : 3;
       const filtered = headings.filter((h) => h.level <= maxLevel);
       if (!filtered.length) return "";
       const tag = type === "number" ? "ol" : "ul";
+      const minLevel = Math.min(...filtered.map((h) => h.level));
+      const bullets = ["•", "◦", "▪", "▸", "–", "·"];
+      const counters = {};
       const items = filtered
-        .map((h) => `<li style="padding-left:${(h.level - 1) * 16}px"><a href="#${escapeHtml(h.id)}">${escapeHtml(h.text)}</a></li>`)
+        .map((h) => {
+          const indent = (h.level - minLevel) * 16;
+          let marker;
+          if (type === "number") {
+            counters[h.level] = (counters[h.level] || 0) + 1;
+            for (let l = h.level + 1; l <= 6; l++) counters[l] = 0;
+            let label = "";
+            for (let l = minLevel; l <= h.level; l++) label += (counters[l] || 0) + ".";
+            marker = label;
+          } else {
+            marker = bullets[(h.level - minLevel) % bullets.length];
+          }
+          return `<li style="padding-left:${indent}px"><span class="toc-marker">${marker}</span><a href="#${escapeHtml(h.id)}">${escapeHtml(h.text)}</a></li>`;
+        })
         .join("");
       tocCounter += 1;
       const contentId = `toc-content-${tocCounter}`;
@@ -829,6 +866,19 @@
     return p.replace(/^\/+/, "");
   }
 
+  function toPublicAssetHref(pathname) {
+    const resolved = resolvePath(pathname);
+    if (!resolved) return resolved;
+    if (
+      resolved.startsWith("http://") ||
+      resolved.startsWith("https://") ||
+      resolved.startsWith("data:")
+    ) {
+      return resolved;
+    }
+    return toAssetHref(resolved);
+  }
+
   function getImageManifestEntry(src) {
     const resolved = resolvePath(src);
     if (!resolved) return null;
@@ -849,7 +899,7 @@
       decoding = "async",
     } = options;
 
-    const attrs = [`src="${escapeHtml(resolved)}"`, `alt="${escapeHtml(alt)}"`];
+    const attrs = [`src="${escapeHtml(toPublicAssetHref(resolved))}"`, `alt="${escapeHtml(alt)}"`];
     const manifestEntry = getImageManifestEntry(resolved);
 
     if (className) attrs.push(`class="${escapeHtml(className)}"`);
@@ -867,11 +917,11 @@
             .sort((left, right) => left.width - right.width)
         : [];
       const srcset = variants.map(
-        (variant) => `${escapeHtml(resolvePath(variant.path))} ${variant.width}w`,
+        (variant) => `${escapeHtml(toPublicAssetHref(variant.path))} ${variant.width}w`,
       );
 
       if (manifestEntry.width) {
-        srcset.push(`${escapeHtml(resolved)} ${manifestEntry.width}w`);
+        srcset.push(`${escapeHtml(toPublicAssetHref(resolved))} ${manifestEntry.width}w`);
         attrs.push(`width="${manifestEntry.width}"`);
       }
       if (manifestEntry.height) {
@@ -899,7 +949,7 @@
       decoding = "async",
     } = options;
 
-    const attrs = [`src="${escapeHtml(resolved)}"`, `alt="${escapeHtml(alt)}"`];
+    const attrs = [`src="${escapeHtml(toPublicAssetHref(resolved))}"`, `alt="${escapeHtml(alt)}"`];
     const manifestEntry = getImageManifestEntry(resolved);
 
     if (className) attrs.push(`class="${escapeHtml(className)}"`);
@@ -1044,7 +1094,7 @@
   }
 
   function renderFileAttachmentHtml(filePath, displayName) {
-    const resolved = resolvePath(filePath);
+    const resolved = toPublicAssetHref(filePath);
     const filename = displayName || filePath.split("/").pop();
     const dotIdx = filename.lastIndexOf(".");
     const ext = dotIdx >= 0 ? filename.slice(dotIdx + 1).toLowerCase() : "";
@@ -1695,16 +1745,26 @@
     });
   }
 
+  function scrollToId(id, smooth = true) {
+    const delays = [80, 250, 600];
+    function attempt(i) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+        return;
+      }
+      if (i < delays.length) setTimeout(() => attempt(i + 1), delays[i]);
+    }
+    attempt(0);
+  }
+
   function scrollToAnchor() {
     const anchor =
       window.location.hash && !window.location.hash.startsWith("#/")
-        ? window.location.hash.slice(1)
+        ? decodeURIComponent(window.location.hash.slice(1))
         : "";
     if (!anchor) return;
-    setTimeout(() => {
-      const el = document.getElementById(anchor);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
+    scrollToId(anchor);
   }
 
   function initContentLinks() {

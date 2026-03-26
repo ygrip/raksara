@@ -40,9 +40,9 @@ function resolveContentDir() {
   if (explicit && fs.existsSync(explicit)) return explicit;
 
   const candidates = [
-    path.join(__dirname, "..", "web", "content"),
     LOCAL_CONTENT_LINK,
     path.join(__dirname, "..", "content-template"),
+    path.join(__dirname, "..", "web", "content"),
   ];
   return candidates.find((p) => fs.existsSync(p)) || candidates[0];
 }
@@ -75,6 +75,7 @@ function setupLocalContentSymlink() {
 function stripMarkdown(md) {
   return md
     .replace(/^---[\s\S]*?---/m, "")
+    .replace(/::[\w-]+\s*\([^)]*\)/g, "")
     .replace(/```[\s\S]*?```/g, "")
     .replace(/`[^`]+`/g, "")
     .replace(/!\[.*?\]\(.*?\)/g, "")

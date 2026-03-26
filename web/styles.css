@@ -1649,9 +1649,10 @@ body {
 
 .profile-hero {
     position: relative;
-    width: 100vw;
-    margin-left: calc(-50vw + 50%);
-    margin-right: calc(-50vw + 50%);
+    --profile-hero-focus-width: min(720px, calc(100vw - var(--sidebar-width) - 100px));
+    width: calc(100vw - var(--sidebar-width));
+    margin-left: calc(-50vw + 50% + var(--sidebar-width) / 2);
+    margin-right: calc(-50vw + 50% - var(--sidebar-width) / 2);
     margin-top: -52px;
     margin-bottom: 0;
     height: 420px;
@@ -1683,10 +1684,28 @@ body {
     filter: blur(22px) saturate(1.05);
     transform: scale(1.12);
     opacity: 0.9;
+    -webkit-mask-image: linear-gradient(
+        to right,
+        rgba(0, 0, 0, 1) 0,
+        rgba(0, 0, 0, 1) calc(50% - (var(--profile-hero-focus-width) / 2) - 18px),
+        rgba(0, 0, 0, 0) calc(50% - (var(--profile-hero-focus-width) / 2) + 28px),
+        rgba(0, 0, 0, 0) calc(50% + (var(--profile-hero-focus-width) / 2) - 28px),
+        rgba(0, 0, 0, 1) calc(50% + (var(--profile-hero-focus-width) / 2) + 18px),
+        rgba(0, 0, 0, 1) 100%
+    );
+    mask-image: linear-gradient(
+        to right,
+        rgba(0, 0, 0, 1) 0,
+        rgba(0, 0, 0, 1) calc(50% - (var(--profile-hero-focus-width) / 2) - 18px),
+        rgba(0, 0, 0, 0) calc(50% - (var(--profile-hero-focus-width) / 2) + 28px),
+        rgba(0, 0, 0, 0) calc(50% + (var(--profile-hero-focus-width) / 2) - 28px),
+        rgba(0, 0, 0, 1) calc(50% + (var(--profile-hero-focus-width) / 2) + 18px),
+        rgba(0, 0, 0, 1) 100%
+    );
 }
 
 .profile-hero-bg::after {
-    background-size: contain;
+    background-size: var(--profile-hero-focus-width) auto;
 }
 
 .profile-hero-bg:not(.loaded) {
@@ -1722,9 +1741,14 @@ body {
 
 .profile-hero-share {
     position: absolute;
-    top: 60px;
-    right: 20px;
+    top: 28px;
+    left: 50%;
+    width: var(--profile-hero-focus-width);
+    transform: translateX(-50%);
+    display: flex;
+    justify-content: flex-end;
     z-index: 5;
+    pointer-events: none;
 }
 
 .profile-hero-share .share-btn {
@@ -1732,6 +1756,7 @@ body {
     backdrop-filter: blur(8px);
     border: 1px solid rgba(255, 255, 255, 0.25);
     color: white;
+    pointer-events: auto;
 }
 
 .profile-hero-share .share-btn:hover {
@@ -1743,9 +1768,10 @@ body {
 .profile-hero-content {
     position: absolute;
     bottom: 0;
-    left: 0;
-    right: 0;
-    padding: 32px 32px 110px;
+    left: 50%;
+    width: var(--profile-hero-focus-width);
+    transform: translateX(-50%);
+    padding: 32px 0 110px;
     display: flex;
     align-items: flex-end;
     gap: 24px;
@@ -1835,18 +1861,35 @@ body {
     }
 }
 
+.profile-info {
+    position: relative;
+    z-index: 1;
+}
+
+.profile-info::before {
+    content: "";
+    position: absolute;
+    inset: -20px -28px;
+    background: rgba(0, 0, 0, 0.45);
+    filter: blur(32px);
+    border-radius: 20px;
+    z-index: -1;
+    pointer-events: none;
+}
+
 .profile-info h1 {
     font-size: 28px;
     font-weight: 700;
     color: white;
     letter-spacing: -0.02em;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6), 0 0 40px rgba(0, 0, 0, 0.4);
 }
 
 .profile-role {
     font-size: 15px;
-    color: rgba(255, 255, 255, 0.8);
+    color: rgba(255, 255, 255, 0.95);
     margin-top: 4px;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
 }
 
 .profile-links {
@@ -1860,21 +1903,26 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 14px;
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 7px 16px;
+    background: rgba(255, 255, 255, 0.22);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.38);
     border-radius: 999px;
     color: white;
-    font-size: 12px;
-    font-weight: 500;
+    font-size: 13px;
+    font-weight: 600;
     text-decoration: none;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
     transition: all 0.25s var(--bounce);
 }
 
 .profile-links a:hover {
-    background: rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.35);
+    border-color: rgba(255, 255, 255, 0.55);
     transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 /* ── Profile Metadata Chips ─────────────────────────────── */
@@ -1896,18 +1944,22 @@ body {
     align-items: center;
     gap: 6px;
     padding: 5px 14px;
-    background: var(--bg-glass);
-    border: 1px solid var(--border-glass);
+    background: rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.32);
     border-radius: 999px;
-    color: var(--text-secondary);
+    color: rgba(255, 255, 255, 0.95);
     font-size: 12px;
     font-weight: 500;
     text-decoration: none;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
     transition: all 0.25s var(--bounce);
 }
 
 .profile-meta-chip .meta-label {
-    color: var(--text-tertiary);
+    color: rgba(255, 255, 255, 0.65);
     font-weight: 400;
 }
 
@@ -2922,6 +2974,7 @@ body.reading-mode .reading-mode-btn {
         font-size: 38px;
     }
     .profile-hero {
+        --profile-hero-focus-width: 100vw;
         width: 100vw;
         margin-left: calc(-50vw + 50%);
         margin-right: calc(-50vw + 50%);
@@ -2929,13 +2982,25 @@ body.reading-mode .reading-mode-btn {
         margin-bottom: 0;
         height: 360px;
     }
+    .profile-hero-bg::before {
+        display: none;
+    }
+    .profile-hero-bg::after {
+        background-size: cover;
+    }
     .profile-hero-content {
+        left: 0;
+        width: 100%;
+        transform: none;
         padding: 20px 20px 110px;
         gap: 16px;
     }
     .profile-hero-share {
-        top: 60px;
-        right: 12px;
+        top: 48px;
+        left: 0;
+        width: 100%;
+        transform: none;
+        padding: 0 12px;
     }
     .profile-avatar-wrap,
     .profile-avatar {
@@ -3294,13 +3359,16 @@ body.reading-mode .reading-mode-btn {
 /* ── TOC ─────────────────────────────────────────────────── */
 
 .toc-block {
-    background: var(--glass-bg);
-    border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
-    border-left: 4px solid var(--accent);
+    background: var(--bg-card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border-glass);
     border-radius: var(--radius-md);
     padding: 14px 16px;
     margin: 24px 0;
-    box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 16%, transparent);
+    box-shadow:
+        0 4px 24px rgba(0, 0, 0, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .toc-head {
@@ -3323,8 +3391,8 @@ body.reading-mode .reading-mode-btn {
     width: 28px;
     height: 28px;
     border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
+    border: 1px solid var(--border-glass);
+    background: var(--bg-glass);
     color: var(--text-secondary);
     cursor: pointer;
     display: inline-flex;
@@ -3335,7 +3403,8 @@ body.reading-mode .reading-mode-btn {
 
 .toc-toggle-btn:hover {
     color: var(--text-primary);
-    border-color: var(--accent);
+    background: var(--bg-hover);
+    border-color: var(--border-color);
 }
 
 .toc-toggle-btn svg {
@@ -3348,6 +3417,8 @@ body.reading-mode .reading-mode-btn {
 
 .toc-content {
     margin-top: 12px;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 10px;
 }
 
 .toc-list {
@@ -3357,19 +3428,33 @@ body.reading-mode .reading-mode-btn {
 }
 
 .toc-list li {
-    margin: 5px 0;
+    margin: 3px 0;
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+}
+
+.toc-marker {
+    flex-shrink: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--accent);
+    font-weight: 600;
+    min-width: 18px;
+    font-variant-numeric: tabular-nums;
 }
 
 .toc-list li a {
     color: var(--text-primary);
     text-decoration: none;
-    font-size: 14px;
-    line-height: 1.5;
+    font-size: 13.5px;
+    line-height: 1.55;
+    flex: 1;
+    transition: color 0.15s ease;
 }
 
 .toc-list li a:hover {
     color: var(--accent);
-    text-decoration: underline;
 }
 
 /* ── Chapters Table ──────────────────────────────────────── */
