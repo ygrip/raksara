@@ -1470,38 +1470,56 @@ function renderHomePagePrerender(posts, thoughts, portfolio, gallery, config, im
   let galleryHtml;
   const galleryCoverPath = path.join(WEB_DIR, "content", "assets", "images", "gallery-cover.webp");
   if (fs.existsSync(galleryCoverPath)) {
+    const stackSrc = "content/assets/images/gallery-cover.webp";
     galleryHtml = `
-      <div class="gallery-album-cover is-loading" role="button" tabindex="0" onclick="window.location.hash='/gallery'" onkeydown="if(event.key==='Enter')window.location.hash='/gallery'">
-        <img src="content/assets/images/gallery-cover.webp" alt="Gallery" loading="lazy" decoding="async">
-        <div class="gallery-item-overlay"><div class="gallery-item-title">View Gallery →</div></div>
+      <div class="gallery-window" role="button" tabindex="0" onclick="window.location.hash='/gallery'" onkeydown="if(event.key==='Enter')window.location.hash='/gallery'">
+        <div class="gallery-window-chrome">
+          <div class="gallery-window-dots">
+            <span class="dot red"></span>
+            <span class="dot yellow"></span>
+            <span class="dot green"></span>
+          </div>
+          <div class="gallery-window-title">Gallery</div>
+        </div>
+        <div class="gallery-window-body">
+          <div class="gallery-stack">
+            <div class="gallery-stack-card layer-1 is-loading"><img src="${stackSrc}" alt="Gallery preview 1" loading="lazy" decoding="async"></div>
+            <div class="gallery-stack-card layer-2 is-loading"><img src="${stackSrc}" alt="Gallery preview 2" loading="lazy" decoding="async"></div>
+            <div class="gallery-stack-card layer-3 is-loading"><img src="${stackSrc}" alt="Gallery preview 3" loading="lazy" decoding="async"></div>
+          </div>
+        </div>
       </div>`;
   } else {
-    galleryHtml = gallery
-      .slice(0, 4)
+    const stackSources = gallery
+      .slice(0, 3)
       .map((g) => {
-        const images = g.images && g.images.length > 0 ? g.images :
-                      g.image ? [{ src: g.image }] : [];
-        if (!images.length) return "";
-        const imgSrc = resolvePath(images[0].src);
-        const isMulti = images.length > 1;
-        const countBadge = isMulti
-          ? `<div class="gallery-image-count"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="1" width="9" height="9" rx="1.5"/><rect x="5" y="5" width="9" height="9" rx="1.5"/></svg>${images.length}</div>`
-          : "";
-        const galleryIndex = gallery.indexOf(g);
-        return `
-        <div class="gallery-item is-loading${isMulti ? " multi-image" : ""}" onclick="window.__openGallery(${galleryIndex})">
-          <img ${buildResponsiveImageAttrsPrerender(imgSrc, {
-            alt: g.title || "",
-            loading: "lazy",
-            sizes: "(max-width: 768px) calc(50vw - 24px), 240px",
-          }, imageManifest)}>
-          <div class="gallery-item-overlay">
-            <div class="gallery-item-title">${escapeHtml(g.title)}</div>
-          </div>
-          ${countBadge}
-        </div>`;
+        const images = g.images && g.images.length > 0 ? g.images : g.image ? [{ src: g.image }] : [];
+        return images.length ? resolvePath(images[0].src) : "";
       })
-      .join("");
+      .filter(Boolean);
+    if (stackSources.length) {
+      while (stackSources.length < 3) stackSources.push(stackSources[stackSources.length - 1]);
+      galleryHtml = `
+      <div class="gallery-window" role="button" tabindex="0" onclick="window.location.hash='/gallery'" onkeydown="if(event.key==='Enter')window.location.hash='/gallery'">
+        <div class="gallery-window-chrome">
+          <div class="gallery-window-dots">
+            <span class="dot red"></span>
+            <span class="dot yellow"></span>
+            <span class="dot green"></span>
+          </div>
+          <div class="gallery-window-title">Gallery</div>
+        </div>
+        <div class="gallery-window-body">
+          <div class="gallery-stack">
+            <div class="gallery-stack-card layer-1 is-loading"><img ${buildResponsiveImageAttrsPrerender(stackSources[0], { alt: "Gallery preview 1", loading: "lazy", sizes: "(max-width: 768px) calc(100vw - 48px), 520px" }, imageManifest)}></div>
+            <div class="gallery-stack-card layer-2 is-loading"><img ${buildResponsiveImageAttrsPrerender(stackSources[1], { alt: "Gallery preview 2", loading: "lazy", sizes: "(max-width: 768px) calc(100vw - 48px), 520px" }, imageManifest)}></div>
+            <div class="gallery-stack-card layer-3 is-loading"><img ${buildResponsiveImageAttrsPrerender(stackSources[2], { alt: "Gallery preview 3", loading: "lazy", sizes: "(max-width: 768px) calc(100vw - 48px), 520px" }, imageManifest)}></div>
+          </div>
+        </div>
+      </div>`;
+    } else {
+      galleryHtml = "";
+    }
   }
 
   const heroTitle = (config && config.hero_title) || "Raksara";
@@ -1527,15 +1545,6 @@ function renderHomePagePrerender(posts, thoughts, portfolio, gallery, config, im
         <div class="post-list">${postsHtml || '<div class="empty-state"><p>No posts yet.</p></div>'}</div>
       </div>
 
-      ${
-        thoughtsHtml
-          ? `<div class="home-section">
-        <div class="home-section-header"><h2>Shower Thoughts</h2><a href="#/thoughts">View all →</a></div>
-        <div class="thoughts-list">${thoughtsHtml}</div>
-      </div>`
-          : ""
-      }
-
       <div class="home-section">
         <div class="home-section-header"><h2>Projects</h2><a href="#/portfolio">View all →</a></div>
         <div class="portfolio-grid">${portfolioHtml || '<div class="empty-state"><p>No projects yet.</p></div>'}</div>
@@ -1544,8 +1553,16 @@ function renderHomePagePrerender(posts, thoughts, portfolio, gallery, config, im
       ${
         galleryHtml
           ? `<div class="home-section">
-        <div class="home-section-header"><h2>Gallery</h2><a href="#/gallery">View all →</a></div>
-        <div class="gallery-grid">${galleryHtml}</div>
+        ${galleryHtml}
+      </div>`
+          : ""
+      }
+
+      ${
+        thoughtsHtml
+          ? `<div class="home-section">
+        <div class="home-section-header"><h2>Shower Thoughts</h2><a href="#/thoughts">View all →</a></div>
+        <div class="thoughts-list">${thoughtsHtml}</div>
       </div>`
           : ""
       }`;

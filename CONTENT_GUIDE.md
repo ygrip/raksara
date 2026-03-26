@@ -165,6 +165,26 @@ The desert wind howled across the dunes...
 | `chapter` | Chapter number (shown above the title) |
 | `readingMode` | Auto-enable reading mode when opened |
 
+#### Comic
+
+Image-first comic layout with two reading modes:
+- `scroll` mode: vertical long-strip reading
+- `swipe` mode: one panel/page at a time with previous/next controls
+
+Reader mode choice is persisted in-session.
+
+```yaml
+---
+title: "Episode 01"
+date: 2026-03-10
+type: comic
+images:
+  - src: content/assets/images/comic/ep01-01.jpg
+    caption: "Opening"
+  - src: content/assets/images/comic/ep01-02.jpg
+---
+```
+
 ### Reading Mode
 
 Any post can include a reading mode toggle (appears in the toolbar).
@@ -179,13 +199,14 @@ Readers can also toggle it manually.
 |---|---|---|
 | `title` | Yes | Display title of the post |
 | `date` | Yes | Publication date (`YYYY-MM-DD`) |
-| `type` | No | Content type: `default`, `poem`, or `novel` |
+| `type` | No | Content type: `default`, `poem`, `novel`, or `comic` |
 | `tags` | No | List of tags (lowercase, hyphenated) |
 | `category` | No | Single category string |
 | `summary` | No | Short description for cards. Auto-generated from body if omitted |
 | `cover` | No | Cover image URL (used by poem type) |
 | `series` | No | Series identifier (used by novel type) |
 | `chapter` | No | Chapter number (used by novel type) |
+| `images` | No | Array of image objects/paths (used by comic type) |
 | `readingMode` | No | Auto-enable reading mode (`true` / `false`) |
 | `next_page` | No | Link to the next post in a series |
 | `previous_page` | No | Link to the previous post in a series |
@@ -274,6 +295,53 @@ Reference them from any post:
 | Text | `.md` `.txt` `.log` |
 
 Any other extension renders as a generic file card.
+
+---
+
+## 3. Custom Markdown Components
+
+### Table of Contents
+
+Use `::toc(...)` to inject a table of contents generated from headings in the same document.
+
+```markdown
+::toc(type=bullet, level=3)
+```
+
+Options:
+- `type=bullet` or `type=number`
+- `level=1..6` (maximum heading depth included)
+
+The TOC is expanded by default and can be collapsed/expanded by readers.
+
+### Chapters Table
+
+Use `::chapters(...)` to inject a chapter list from a blog directory:
+
+```markdown
+::chapters(/blog/novel/my-series)
+```
+
+This renders a sortable chapter-like table linked to each post in the matched directory path.
+
+---
+
+## 4. Code Blocks
+
+Standard fenced code blocks are supported:
+
+````markdown
+```js
+console.log("hello");
+```
+````
+
+For long code blocks, Raksara shows:
+- a fade indicator at the bottom
+- an expand button
+- a collapse button once expanded
+
+Default for long blocks is collapsed.
 
 ---
 

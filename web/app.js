@@ -102,18 +102,24 @@
     }
   }
 
-  function initDirControls(allItems) {
+  function initDirControls(allItems, options = {}) {
     const searchInput = document.getElementById("dir-search");
     const sortSelect = document.getElementById("dir-sort");
+    const sortWrap = document.querySelector(".dir-sort-wrap");
     if (!searchInput || !sortSelect || !_paginationState) return;
+    const onQueryChange =
+      options && typeof options.onQueryChange === "function"
+        ? options.onQueryChange
+        : null;
     let debounce;
     searchInput.addEventListener("input", (e) => {
       clearTimeout(debounce);
       debounce = setTimeout(() => {
         const q = e.target.value.trim().toLowerCase();
         _paginationState.searchQuery = q;
+        if (onQueryChange) onQueryChange(q);
         if (q) {
-          sortSelect.style.display = "none";
+          if (sortWrap) sortWrap.style.display = "none";
           _paginationState.filteredItems = allItems.filter(
             (item) =>
               (item.title || "").toLowerCase().includes(q) ||
@@ -121,7 +127,7 @@
               (item.summary || "").toLowerCase().includes(q),
           );
         } else {
-          sortSelect.style.display = "";
+          if (sortWrap) sortWrap.style.display = "";
           _paginationState.filteredItems = getSortedItems(allItems, _paginationState.sort);
         }
         refreshPaginatedList();
@@ -148,14 +154,17 @@
     return `<div class="dir-controls">
       <div class="dir-search-wrap">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.3"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-        <input id="dir-search" class="dir-search-input" type="search" placeholder="Search\u2026" aria-label="Search">
+        <input id="dir-search" class="dir-search-input" type="search" placeholder="Search here\u2026" aria-label="Search current listing">
       </div>
-      <select id="dir-sort" class="dir-sort-select" aria-label="Sort by">
-        <option value="latest">Latest</option>
-        <option value="oldest">Oldest</option>
-        <option value="az">A \u2192 Z</option>
-        <option value="za">Z \u2192 A</option>
-      </select>
+      <div class="dir-sort-wrap">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 3v9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M3 10.5L5 12.5L7 10.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 13V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M9 5.5L11 3.5L13 5.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <select id="dir-sort" class="dir-sort-select" aria-label="Sort listing">
+          <option value="latest">Latest</option>
+          <option value="oldest">Oldest</option>
+          <option value="az">A \u2192 Z</option>
+          <option value="za">Z \u2192 A</option>
+        </select>
+      </div>
     </div>`;
   }
 
@@ -603,6 +612,7 @@
   }
 
   function renderMd(md, opts = {}) {
+    let tocCounter = 0;
     const renderer = new marked.Renderer();
     renderer.image = function (href, title, text) {
       const resolved = resolvePath(typeof href === "object" ? href.href : href);
@@ -633,6 +643,17 @@
       const external =
         resolved.startsWith("http://") || resolved.startsWith("https://");
       return `<a href="${resolved}"${rawTitle ? ` title="${rawTitle}"` : ""}${external ? ' target="_blank" rel="noopener"' : ""}>${rawText || resolved}</a>`;
+    };
+    renderer.code = function (codeOrToken, infostring) {
+      const rawCode =
+        typeof codeOrToken === "object" ? codeOrToken.text || "" : codeOrToken || "";
+      const rawLang =
+        typeof codeOrToken === "object"
+          ? codeOrToken.lang || ""
+          : infostring || "";
+      const lang = rawLang ? String(rawLang).trim().split(/\s+/)[0] : "";
+      const classAttr = lang ? ` class="language-${escapeHtml(lang)}"` : "";
+      return `<pre><code${classAttr}>${escapeHtml(rawCode)}</code></pre>\n`;
     };
     marked.setOptions({
       renderer,
@@ -675,7 +696,39 @@
       const items = filtered
         .map((h) => `<li style="padding-left:${(h.level - 1) * 16}px"><a href="#${escapeHtml(h.id)}">${escapeHtml(h.text)}</a></li>`)
         .join("");
-      return `<nav class="toc-block" aria-label="Table of contents"><div class="toc-title">Table of Contents</div><${tag} class="toc-list">${items}</${tag}></nav>`;
+      tocCounter += 1;
+      const contentId = `toc-content-${tocCounter}`;
+      return `<nav class="toc-block" aria-label="Table of contents">
+        <div class="toc-head">
+          <div class="toc-title">Table of Contents</div>
+          <button type="button" class="toc-toggle-btn" data-toc-target="${contentId}" aria-expanded="true" aria-label="Collapse table of contents">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 6l5 5 5-5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+        <div class="toc-content" id="${contentId}">
+          <${tag} class="toc-list">${items}</${tag}>
+        </div>
+      </nav>`;
+    });
+  }
+
+  function initTocBlocks() {
+    document.querySelectorAll(".toc-toggle-btn").forEach((btn) => {
+      if (btn.dataset.bound === "1") return;
+      btn.dataset.bound = "1";
+      btn.addEventListener("click", () => {
+        const targetId = btn.getAttribute("data-toc-target");
+        if (!targetId) return;
+        const content = document.getElementById(targetId);
+        if (!content) return;
+        const expanded = btn.getAttribute("aria-expanded") !== "false";
+        btn.setAttribute("aria-expanded", expanded ? "false" : "true");
+        btn.setAttribute(
+          "aria-label",
+          expanded ? "Expand table of contents" : "Collapse table of contents",
+        );
+        content.hidden = expanded;
+      });
     });
   }
 
@@ -718,6 +771,7 @@
     el.style.transform = "translateY(8px)";
     el.innerHTML = html;
     normalizeLegacyRouteLinks(el);
+    initTocBlocks();
     requestAnimationFrame(() => {
       el.style.transition = "opacity 0.3s ease, transform 0.3s ease";
       el.style.opacity = "1";
@@ -1112,30 +1166,7 @@
 
     let thoughtsHtml = recentThoughts.map((t) => renderThoughtCard(t)).join("");
 
-    let galleryHtml = state.gallery
-      .slice(0, 4)
-      .map((g) => {
-        const images = getGalleryImages(g);
-        if (!images.length) return "";
-        const imgSrc = resolvePath(images[0].src);
-        const isMulti = images.length > 1;
-        const countBadge = isMulti
-          ? `<div class="gallery-image-count"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="1" width="9" height="9" rx="1.5"/><rect x="5" y="5" width="9" height="9" rx="1.5"/></svg>${images.length}</div>`
-          : "";
-        return `
-      <div class="gallery-item is-loading${isMulti ? " multi-image" : ""}" onclick="window.__openGallery(${state.gallery.indexOf(g)})">
-        <img ${buildResponsiveImageAttrs(imgSrc, {
-          alt: g.title,
-          loading: "lazy",
-          sizes: "(max-width: 768px) calc(50vw - 24px), 240px",
-        })}>
-        <div class="gallery-item-overlay">
-          <div class="gallery-item-title">${escapeHtml(g.title)}</div>
-        </div>
-        ${countBadge}
-      </div>`;
-      })
-      .join("");
+    const homeGalleryStackHtml = renderHomeGalleryStack();
 
     const waveSvg = `<div class="hero-waves"><svg class="hero-wave hero-wave-back" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,45 C100,20 200,55 360,30 C480,12 560,50 720,35 C850,22 1000,55 1140,28 C1280,8 1380,42 1440,38 L1440,80 L0,80 Z"/></svg><svg class="hero-wave hero-wave-front" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,38 C80,52 180,15 320,42 C430,60 540,18 700,40 C820,55 960,12 1100,45 C1220,62 1340,22 1440,35 L1440,80 L0,80 Z"/></svg></div>`;
 
@@ -1156,25 +1187,24 @@
         <div class="post-list">${postsHtml || '<div class="empty-state"><p>No posts yet.</p></div>'}</div>
       </div>
 
-      ${
-        thoughtsHtml
-          ? `<div class="home-section">
-        <div class="home-section-header"><h2>Shower Thoughts</h2><a href="#/thoughts">View all \u2192</a></div>
-        <div class="thoughts-list">${thoughtsHtml}</div>
-      </div>`
-          : ""
-      }
-
       <div class="home-section">
         <div class="home-section-header"><h2>Projects</h2><a href="#/portfolio">View all \u2192</a></div>
         <div class="portfolio-grid">${portfolioHtml || '<div class="empty-state"><p>No projects yet.</p></div>'}</div>
       </div>
 
       ${
-        galleryHtml
+        homeGalleryStackHtml
           ? `<div class="home-section">
-        <div class="home-section-header"><h2>Gallery</h2><a href="#/gallery">View all \u2192</a></div>
-        <div class="gallery-grid">${galleryHtml}</div>
+        ${homeGalleryStackHtml}
+      </div>`
+          : ""
+      }
+
+      ${
+        thoughtsHtml
+          ? `<div class="home-section">
+        <div class="home-section-header"><h2>Shower Thoughts</h2><a href="#/thoughts">View all \u2192</a></div>
+        <div class="thoughts-list">${thoughtsHtml}</div>
       </div>`
           : ""
       }
@@ -1187,6 +1217,35 @@
     initPortfolioCards();
     initLazyImages();
     initHeroTyping(heroTitle);
+  }
+
+  function renderHomeGalleryStack() {
+    const stackSources = state.gallery
+      .slice(0, 3)
+      .map((g) => {
+        const imgs = getGalleryImages(g);
+        return imgs.length ? resolvePath(imgs[0].src) : "";
+      })
+      .filter(Boolean);
+    if (!stackSources.length) return "";
+    while (stackSources.length < 3) stackSources.push(stackSources[stackSources.length - 1]);
+    return `<div class="gallery-window" role="button" tabindex="0" onclick="window.location.hash='/gallery'" onkeydown="if(event.key==='Enter')window.location.hash='/gallery'">
+      <div class="gallery-window-chrome">
+        <div class="gallery-window-dots">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
+        </div>
+        <div class="gallery-window-title">Gallery</div>
+      </div>
+      <div class="gallery-window-body">
+        <div class="gallery-stack">
+          <div class="gallery-stack-card layer-1 is-loading"><img ${buildResponsiveImageAttrs(stackSources[0], { alt: "Gallery preview 1", loading: "lazy", sizes: "(max-width: 768px) calc(100vw - 48px), 520px" })}></div>
+          <div class="gallery-stack-card layer-2 is-loading"><img ${buildResponsiveImageAttrs(stackSources[1], { alt: "Gallery preview 2", loading: "lazy", sizes: "(max-width: 768px) calc(100vw - 48px), 520px" })}></div>
+          <div class="gallery-stack-card layer-3 is-loading"><img ${buildResponsiveImageAttrs(stackSources[2], { alt: "Gallery preview 3", loading: "lazy", sizes: "(max-width: 768px) calc(100vw - 48px), 520px" })}></div>
+        </div>
+      </div>
+    </div>`;
   }
 
   // ── Blog ──────────────────────────────────────────────
@@ -1259,9 +1318,11 @@
         const fullDir = dirPath ? dirPath + "/" + d : d;
         const childDir = state.blogDirs[fullDir];
         const count = childDir ? childDir.posts.length + childDir.subdirs.length : 0;
-        return `<a href="#/blog/dir/${fullDir}" class="blog-dir-chip">
+        const rawLabel = String(d || "").toLowerCase();
+        const humanLabel = humanize(d).toLowerCase();
+        return `<a href="#/blog/dir/${fullDir}" class="blog-dir-chip" data-subdir-name="${escapeHtml(rawLabel)}" data-subdir-human="${escapeHtml(humanLabel)}">
           <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M2 4.5A1.5 1.5 0 013.5 3h3.586a1.5 1.5 0 011.06.44L8.854 4.145A.5.5 0 009.207 4.3H12.5A1.5 1.5 0 0114 5.8V12a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 12V4.5z" stroke="currentColor" stroke-width="1.2"/></svg>
-          <span>${escapeHtml(humanize(d))}</span>
+          <span class="blog-dir-chip-label">${escapeHtml(humanize(d))}</span>
           ${count ? `<span class="blog-dir-count">${count}</span>` : ""}
         </a>`;
       };
@@ -1298,7 +1359,7 @@
         </div>
         ${shareButton(title)}
       </div>
-      ${total > 0 ? dirControlsHtml() : ""}
+      ${total > 0 || dir.subdirs.length ? dirControlsHtml() : ""}
       ${foldersHtml}
       <div class="post-list" id="paginated-list">${
         initial.map(renderPostCard).join("") ||
@@ -1321,7 +1382,31 @@
     requestAnimationFrame(() => {
       _paginationState.itemsPerPage = computeItemsPerPage();
       if (_paginationState.currentIndex < sortedPosts.length) setupPaginationSentinel();
-      initDirControls(dirPosts);
+      const applySubdirFilter = (query) => {
+        const chips = Array.from(document.querySelectorAll(".blog-dir-chip[data-subdir-name]"));
+        const hiddenWrap = document.getElementById("blog-dir-hidden");
+        const moreBtn = document.getElementById("more-dirs-btn");
+        if (!chips.length) return;
+
+        if (query) {
+          if (hiddenWrap) hiddenWrap.hidden = false;
+          if (moreBtn) moreBtn.style.display = "none";
+          chips.forEach((chip) => {
+            const raw = (chip.getAttribute("data-subdir-name") || "").toLowerCase();
+            const human = (chip.getAttribute("data-subdir-human") || "").toLowerCase();
+            chip.style.display = raw.includes(query) || human.includes(query) ? "" : "none";
+          });
+          return;
+        }
+
+        chips.forEach((chip) => {
+          chip.style.display = "";
+        });
+        if (hiddenWrap) hiddenWrap.hidden = true;
+        if (moreBtn) moreBtn.style.display = "";
+      };
+
+      initDirControls(dirPosts, { onQueryChange: applySubdirFilter });
       initMoreDirsButton();
     });
   }
@@ -1771,12 +1856,9 @@
   }
 
   function renderPortfolioList() {
-    const allItems = getSortedItems(state.portfolio, "latest");
-
-    initPagination("portfolio", allItems, renderPortfolioCard);
-    const initial = allItems.slice(0, SEO_INITIAL_COUNT);
-    _paginationState.currentIndex = initial.length;
-
+    const allItems = [...state.portfolio];
+    let currentSort = "latest";
+    let currentQuery = "";
     const subtitle = `${state.portfolio.length} project${state.portfolio.length !== 1 ? "s" : ""}`;
 
     showContent(`
@@ -1788,26 +1870,90 @@
         ${shareButton("Portfolio")}
       </div>
       ${allItems.length > 0 ? dirControlsHtml() : ""}
-      <div class="portfolio-grid" id="paginated-list">${
-        initial.map(renderPortfolioCard).join("") ||
-        '<div class="empty-state"><p>No projects yet.</p></div>'
-      }</div>
+      <div id="portfolio-timeline-root"></div>
     `);
     updatePageMeta({ title: "Portfolio" });
     initShareButton("Portfolio", {
       isDirectory: true,
       pageCount: state.portfolio.length,
-      dirPostTitles: allItems.slice(0, 4).map((p) => p.title),
+      dirPostTitles: getSortedItems(allItems, currentSort).slice(0, 4).map((p) => p.title),
       pageLabel: "project",
     });
-    initPortfolioCards();
-    initLazyImages();
 
-    requestAnimationFrame(() => {
-      _paginationState.itemsPerPage = computeItemsPerPage();
-      if (_paginationState.currentIndex < allItems.length) setupPaginationSentinel();
-      initDirControls(allItems);
+    function applyPortfolioFilters() {
+      const query = currentQuery.toLowerCase();
+      const filtered = allItems.filter((item) => {
+        if (!query) return true;
+        return (
+          (item.title || "").toLowerCase().includes(query) ||
+          (item.summary || "").toLowerCase().includes(query) ||
+          (item.category || "").toLowerCase().includes(query) ||
+          (item.tags || []).some((t) => String(t).toLowerCase().includes(query))
+        );
+      });
+      const sorted = getSortedItems(filtered, currentSort);
+      const root = document.getElementById("portfolio-timeline-root");
+      if (!root) return;
+      root.innerHTML =
+        sorted.length > 0
+          ? renderPortfolioTimeline(sorted, currentSort)
+          : '<div class="empty-state"><p>No projects match your query.</p></div>';
+      initPortfolioCards();
+      initLazyImages();
+    }
+
+    const searchInput = document.getElementById("dir-search");
+    const sortSelect = document.getElementById("dir-sort");
+    if (searchInput) {
+      searchInput.placeholder = "Search projects...";
+      searchInput.addEventListener("input", () => {
+        currentQuery = searchInput.value.trim();
+        applyPortfolioFilters();
+      });
+    }
+    if (sortSelect) {
+      sortSelect.addEventListener("change", () => {
+        currentSort = sortSelect.value || "latest";
+        applyPortfolioFilters();
+      });
+    }
+
+    applyPortfolioFilters();
+  }
+
+  function getPortfolioTimelineKey(item, sort) {
+    if (sort === "az" || sort === "za") {
+      const title = (item.title || "").trim();
+      const ch = title ? title.charAt(0).toUpperCase() : "#";
+      return /[A-Z]/.test(ch) ? ch : "#";
+    }
+    if (!item.date || item.date === "1970-01-01") return "Other";
+    const year = new Date(`${item.date}T00:00:00`).getFullYear();
+    return Number.isFinite(year) ? String(year) : "Other";
+  }
+
+  function renderPortfolioTimeline(items, sort) {
+    const groups = [];
+    const groupMap = new Map();
+    items.forEach((item) => {
+      const key = getPortfolioTimelineKey(item, sort);
+      if (!groupMap.has(key)) {
+        groupMap.set(key, []);
+        groups.push(key);
+      }
+      groupMap.get(key).push(item);
     });
+
+    const timelineHtml = groups
+      .map((key) => {
+        const itemsHtml = (groupMap.get(key) || [])
+          .map((p) => `<div class="timeline-item">${renderPortfolioCard(p)}</div>`)
+          .join("");
+        return `<div class="timeline-year"><div class="timeline-year-label">${escapeHtml(key)}</div>${itemsHtml}</div>`;
+      })
+      .join("");
+
+    return `<div class="timeline">${timelineHtml}</div>`;
   }
 
   function initPortfolioCards() {
@@ -3518,6 +3664,29 @@
       wrapper.className = "code-block-wrap";
       pre.parentNode.insertBefore(wrapper, pre);
       wrapper.appendChild(pre);
+      const code = pre.querySelector("code");
+      const codeText = code ? code.textContent || "" : pre.textContent || "";
+      const lineCount = codeText ? codeText.split(/\r?\n/).length : 0;
+      const isLong = lineCount > 18 || codeText.length > 1100;
+      if (isLong) {
+        wrapper.classList.add("is-collapsed");
+        const fade = document.createElement("div");
+        fade.className = "code-fade";
+        wrapper.appendChild(fade);
+
+        const toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "code-toggle-btn";
+        toggle.setAttribute("aria-expanded", "false");
+        toggle.textContent = "Expand code";
+        toggle.addEventListener("click", () => {
+          const expanded = toggle.getAttribute("aria-expanded") === "true";
+          toggle.setAttribute("aria-expanded", expanded ? "false" : "true");
+          wrapper.classList.toggle("is-collapsed", expanded);
+          toggle.textContent = expanded ? "Expand code" : "Collapse code";
+        });
+        wrapper.appendChild(toggle);
+      }
       const btn = document.createElement("button");
       btn.className = "code-copy-btn";
       btn.title = "Copy code";

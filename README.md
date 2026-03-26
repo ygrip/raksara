@@ -10,6 +10,10 @@ A GitHub-native static content platform that transforms a repository into a blog
 - **Portfolio** — Project showcase with GitHub/demo links
 - **Gallery** — Image grid with lightbox viewer
 - **Shower Thoughts** — Short-form content section
+- **Collapsible TOC** — `::toc(...)` component with expand/collapse toggle (expanded by default)
+- **Collapsible Long Code Blocks** — Long snippets start collapsed with fade indicator and expand/collapse control
+- **Homepage Gallery Window** — Mac-like gallery stack card that opens the full gallery
+- **Portfolio Timeline Controls** — Search and sort while preserving timeline-style visual grouping
 - **Profile** — Parallax hero with avatar, cover, and social links
 - **Search** — Client-side full-text search powered by MiniSearch
 - **Optimized Build Output** — Rollup vendor bundle + Terser JS minification + cssnano CSS minification + HTML/JSON minification
@@ -136,6 +140,7 @@ npm run dev
 - Minifies `web/styles.css` into `web/styles.min.css` using cssnano
 - Minifies generated static HTML route files (including `web/index.html`) with `html-minifier-next`
 - Writes compact JSON metadata (no pretty-print whitespace) for smaller payloads
+- Generates a homepage gallery cover image (`web/content/assets/images/gallery-cover.webp`) used by prerendered homepage gallery window
 
 ### Local build behavior
 
