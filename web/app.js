@@ -616,11 +616,10 @@
     const renderer = new marked.Renderer();
     renderer.image = function (href, title, text) {
       const resolved = resolvePath(typeof href === "object" ? href.href : href);
-      return `<img ${buildResponsiveImageAttrs(resolved, {
+      return `<img ${buildDetailImageAttrs(resolved, {
         alt: text || "",
         title: title || "",
         loading: "lazy",
-        sizes: "(max-width: 832px) calc(100vw - 32px), 800px",
       })}>`;
     };
     renderer.heading = function (tokenOrText, level) {
@@ -864,6 +863,40 @@
         attrs.push(`srcset="${srcset.join(", ")}"`);
         attrs.push(`sizes="${escapeHtml(sizes)}"`);
       }
+    }
+
+    return attrs.join(" ");
+  }
+
+  function buildDetailImageAttrs(src, options = {}) {
+    const resolved = resolvePath(src);
+    if (!resolved) return "";
+
+    const {
+      alt = "",
+      title = "",
+      className = "",
+      loading = "lazy",
+      fetchPriority = "auto",
+      decoding = "async",
+    } = options;
+
+    const attrs = [`src="${escapeHtml(resolved)}"`, `alt="${escapeHtml(alt)}"`];
+    const manifestEntry = getImageManifestEntry(resolved);
+
+    if (className) attrs.push(`class="${escapeHtml(className)}"`);
+    if (title) attrs.push(`title="${escapeHtml(title)}"`);
+    if (loading) attrs.push(`loading="${loading}"`);
+    if (decoding) attrs.push(`decoding="${decoding}"`);
+    if (fetchPriority && fetchPriority !== "auto") {
+      attrs.push(`fetchpriority="${fetchPriority}"`);
+    }
+
+    if (manifestEntry && manifestEntry.width) {
+      attrs.push(`width="${manifestEntry.width}"`);
+    }
+    if (manifestEntry && manifestEntry.height) {
+      attrs.push(`height="${manifestEntry.height}"`);
     }
 
     return attrs.join(" ");
@@ -1434,10 +1467,9 @@
       renderBody(body, frontmatter) {
         const coverUrl = resolvePath(frontmatter.cover) || "";
         const coverHtml = coverUrl
-          ? `<div class="poem-cover is-loading"><img ${buildResponsiveImageAttrs(coverUrl, {
+          ? `<div class="poem-cover is-loading"><img ${buildDetailImageAttrs(coverUrl, {
               alt: frontmatter.title || "",
               loading: "lazy",
-              sizes: "(max-width: 704px) calc(100vw - 32px), 640px",
             })}></div>`
           : "";
         return `<div class="article-body poem-body">${coverHtml}${renderMd(body, { breaks: true })}</div>`;
@@ -1762,10 +1794,9 @@
       const coverUrl = resolvePath(frontmatter.cover || post.cover) || "";
       const coverHtml =
         coverUrl && !layout.handlesCover
-          ? `<div class="article-cover is-loading"><img ${buildResponsiveImageAttrs(coverUrl, {
+          ? `<div class="article-cover is-loading"><img ${buildDetailImageAttrs(coverUrl, {
               alt: frontmatter.title || "",
               loading: "lazy",
-              sizes: "(max-width: 832px) calc(100vw - 32px), 800px",
             })}></div>`
           : "";
 
@@ -3728,10 +3759,9 @@
       player.className = "video-player";
       player.addEventListener("click", () => window.open(href, "_blank"));
       player.innerHTML = `
-        <img ${buildResponsiveImageAttrs(thumbSrc, {
+        <img ${buildDetailImageAttrs(thumbSrc, {
           alt: title,
           loading: "lazy",
-          sizes: "(max-width: 832px) calc(100vw - 32px), 800px",
         })}>
         <div class="video-player-overlay">
           <div class="video-player-play">
