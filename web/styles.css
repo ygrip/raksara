@@ -2793,9 +2793,8 @@ body.reading-mode .reading-mode-btn {
 @media screen and (not (max-width: 768px)) {
   /* CSS rules here */
    .home-hero-content {
-        width: 50%;
-        margin-left: auto;
-        margin-right: auto;
+        margin: 0 auto;
+        max-width: 800px;   
     }
 }
 
