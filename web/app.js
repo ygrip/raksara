@@ -2044,9 +2044,20 @@
       }
       let postNavHtml = "";
       if (prevPage || nextPage) {
+        // Resolve content-relative links (e.g. /blog/x → /blog/post/x) and
+        // encode any special characters in path segments so the href is valid.
+        function resolveNavLink(link) {
+          if (!link) return link;
+          const resolved = resolveContentLink(link);
+          // Encode each path segment, preserving existing percent-encoding
+          return resolved.split("/").map((seg) => {
+            try { seg = decodeURIComponent(seg); } catch { /* keep */ }
+            return encodeURIComponent(seg);
+          }).join("/").replace(/^%2F/, "/"); // keep leading slash
+        }
         postNavHtml = '<div class="post-nav">';
         if (prevPage && prevPage.link) {
-          postNavHtml += `<a href="${escapeHtml(prevPage.link)}" class="post-nav-link prev">
+          postNavHtml += `<a href="${escapeHtml(resolveNavLink(prevPage.link))}" class="post-nav-link prev">
             <span class="post-nav-label">\u2190 Previous</span>
             <span class="post-nav-title">${escapeHtml(prevPage.title || "Previous Page")}</span>
           </a>`;
@@ -2054,7 +2065,7 @@
           postNavHtml += "<div></div>";
         }
         if (nextPage && nextPage.link) {
-          postNavHtml += `<a href="${escapeHtml(nextPage.link)}" class="post-nav-link next">
+          postNavHtml += `<a href="${escapeHtml(resolveNavLink(nextPage.link))}" class="post-nav-link next">
             <span class="post-nav-label">Next \u2192</span>
             <span class="post-nav-title">${escapeHtml(nextPage.title || "Next Page")}</span>
           </a>`;
