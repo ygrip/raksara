@@ -32,6 +32,7 @@ const COLOR_TONES = {
   green: { accent: "#22c55e", hoverDark: "#4ade80", hoverLight: "#16a34a", g1: "#22c55e", g2: "#10b981", g3: "#14b8a6", rgb: "34,197,94" },
   orange: { accent: "#f97316", hoverDark: "#fb923c", hoverLight: "#ea580c", g1: "#f97316", g2: "#fb923c", g3: "#fbbf24", rgb: "249,115,22" },
 };
+const VALID_STATUSES = new Set(["draft", "ongoing", "completed"]);
 
 fs.mkdirSync(METADATA_DIR, { recursive: true });
 
@@ -113,6 +114,11 @@ function shouldIncludeInSearch(section) {
   return ["blog", "portfolio", "pages"].includes(section);
 }
 
+function normalizeStatus(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return VALID_STATUSES.has(normalized) ? normalized : "";
+}
+
 async function buildMetadata() {
   console.log("Building metadata...\n");
 
@@ -152,6 +158,7 @@ async function buildMetadata() {
         : "1970-01-01";
       entry.summary =
         data.summary || stripMarkdown(content).substring(0, 160) + "...";
+      if (normalizeStatus(data.status)) entry.status = normalizeStatus(data.status);
       if (data.type) entry.type = data.type;
       if (data.cover) entry.cover = data.cover;
       if (data.series) entry.series = data.series;
@@ -166,6 +173,7 @@ async function buildMetadata() {
         : "";
       entry.summary =
         data.summary || stripMarkdown(content).substring(0, 160) + "...";
+      if (normalizeStatus(data.status)) entry.status = normalizeStatus(data.status);
       portfolioItems.push(entry);
     } else if (section === "gallery") {
       entry.date = data.date

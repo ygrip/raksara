@@ -42,6 +42,7 @@ Create a `.md` file inside `blog/` in your content repo. The full path within
 ---
 title: "Your Post Title"
 date: 2026-03-08
+status: ongoing
 tags:
   - javascript
   - webdev
@@ -151,6 +152,7 @@ serif font, optimized for immersive reading.
 title: "The Desert Wolf"
 date: 2026-03-10
 type: novel
+status: ongoing
 series: desert-wolf
 chapter: 1
 readingMode: true
@@ -203,6 +205,7 @@ Readers can also toggle it manually.
 | `tags` | No | List of tags (lowercase, hyphenated) |
 | `category` | No | Single category string |
 | `summary` | No | Short description for cards. Auto-generated from body if omitted |
+| `status` | No | Workflow state: `draft`, `ongoing`, or `completed` |
 | `cover` | No | Cover image URL (used by poem type) |
 | `series` | No | Series identifier (used by novel type) |
 | `chapter` | No | Chapter number (used by novel type) |
@@ -523,6 +526,7 @@ Create a `.md` file in `portfolio/`:
 ---
 title: "Project Name"
 type: project
+status: completed
 tags:
   - python
   - automation
@@ -534,6 +538,14 @@ summary: "What the project does"
 
 Detailed project description in markdown...
 ```
+
+Valid `status` values for blog/novel and portfolio content are:
+
+- `draft`
+- `ongoing`
+- `completed`
+
+When provided, Raksara shows a status chip on cards and detail pages.
 
 ---
 

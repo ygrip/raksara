@@ -940,6 +940,12 @@
     });
   }
 
+  function renderStatusChip(status) {
+    const normalized = String(status || "").trim().toLowerCase();
+    if (!["draft", "ongoing", "completed"].includes(normalized)) return "";
+    return `<span class="status-chip status-${normalized}">${escapeHtml(humanize(normalized))}</span>`;
+  }
+
   function escapeHtml(str) {
     if (!str) return "";
     const el = document.createElement("div");
@@ -1492,6 +1498,7 @@
           <div class="post-card-meta">
             <span class="post-card-date">${formatDate(p.date)}</span>
             ${p.category ? `<span class="post-card-category">${escapeHtml(p.category)}</span>` : ""}
+            ${renderStatusChip(p.status)}
             ${(p.tags || []).map((t) => `<span class="tag" style="padding:2px 8px;font-size:11px">${escapeHtml(t)}</span>`).join("")}
           </div>
         </div>
@@ -1949,6 +1956,7 @@
             <div class="article-meta">
               <span class="post-card-date">${formatDate(post.date)}</span>
               ${post.category ? `<a href="#/category/${encodeURIComponent(post.category)}" class="post-card-category">${escapeHtml(post.category)}</a>` : ""}
+              ${renderStatusChip(frontmatter.status || post.status)}
               ${tagsHtml}
             </div>
           </div>`
@@ -1957,6 +1965,7 @@
             <div class="article-meta">
               <span class="post-card-date">${formatDate(post.date)}</span>
               ${post.category ? `<a href="#/category/${encodeURIComponent(post.category)}" class="post-card-category">${escapeHtml(post.category)}</a>` : ""}
+              ${renderStatusChip(frontmatter.status || post.status)}
               ${tagsHtml}
             </div>
           </div>`;
@@ -2057,6 +2066,7 @@
       <div class="portfolio-card" data-href="#/portfolio/${p.slug}">
         <div class="portfolio-card-title">${escapeHtml(p.title)}</div>
         <div class="portfolio-card-summary">${escapeHtml(p.summary || "")}</div>
+        <div class="portfolio-card-meta-row">${renderStatusChip(p.status)}</div>
         <div class="portfolio-card-tags">${tagsHtml}</div>
         ${links.length ? `<div class="portfolio-card-links">${links.join("")}</div>` : ""}
       </div>`;
@@ -2212,6 +2222,7 @@
           <h1>${escapeHtml(item.title)}</h1>
           <div class="article-meta">
             ${item.category ? `<span class="post-card-category">${escapeHtml(item.category)}</span>` : ""}
+            ${renderStatusChip(frontmatter.status || item.status)}
             ${tagsHtml}
           </div>
           ${links.length ? `<div class="portfolio-detail-links">${links.join("")}</div>` : ""}
