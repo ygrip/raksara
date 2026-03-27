@@ -379,11 +379,18 @@
   }
 
   function getCurrentRoutePath() {
+    let rawPath;
     if (window.location.hash && window.location.hash.startsWith("#/")) {
-      return normalizeRoutePath(window.location.hash.slice(1));
+      rawPath = window.location.hash.slice(1);
+    } else {
+      rawPath = stripBasePath(window.location.pathname || "/");
     }
-    const path = stripBasePath(window.location.pathname || "/");
-    return normalizeRoutePath(path);
+    // Decode percent-encoded segments so slugs with spaces/special chars match
+    // the raw stored values (e.g. %20 → space, %2B → +).
+    try {
+      rawPath = rawPath.split("/").map((s) => decodeURIComponent(s)).join("/");
+    } catch { /* keep original if malformed */ }
+    return normalizeRoutePath(rawPath);
   }
 
   function getAbsolutePageUrl(routePath) {
@@ -974,7 +981,10 @@
     ) {
       return resolved;
     }
-    return toAssetHref(resolved);
+    // Encode each path segment so filenames with spaces or special chars are
+    // valid in fetch() URLs (e.g. "Part I - title" → "Part%20I%20-%20title").
+    const encoded = resolved.split("/").map((s) => encodeURIComponent(s)).join("/");
+    return toAssetHref(encoded);
   }
 
   function getImageManifestEntry(src) {

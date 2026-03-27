@@ -119,6 +119,57 @@ function normalizeStatus(value) {
   return VALID_STATUSES.has(normalized) ? normalized : "";
 }
 
+/**
+ * Auto-quote YAML scalar values that contain `: ` (colon-space), which is
+ * reserved as a mapping indicator in YAML block scalars. Runs before gray-matter
+ * so files written without quoting still parse cleanly.
+ */
+function sanitizeFrontmatter(raw) {
+  const fenceRe = /^---\r?\n([\s\S]*?)\n---/;
+  const match = raw.match(fenceRe);
+  if (!match) return raw;
+
+  const sanitizedBlock = match[1]
+    .split("\n")
+    .map((line) => {
+      // Match any simple scalar key: value line (not already in block/flow mode)
+      const m = line.match(/^(\s*([\w][\w-]*)\s*:\s+)(.*\S.*)$/);
+      if (!m) return line;
+      const [, prefix, , value] = m;
+      const trimmed = value.trim();
+      // Skip: already quoted, YAML block/flow indicators, pure numbers, dates
+      if (/^['"{[\|>!&*]/.test(trimmed)) return line;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed) || /^\d+(\.\d+)?$/.test(trimmed)) return line;
+      // If the value contains `: ` it must be quoted to be valid YAML
+      if (/:\s/.test(trimmed) || trimmed.endsWith(":")) {
+        const escaped = trimmed.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+        return prefix + '"' + escaped + '"';
+      }
+      return line;
+    })
+    .join("\n");
+
+  return raw.slice(0, match.index) + "---\n" + sanitizedBlock + "\n---" + raw.slice(match.index + match[0].length);
+}
+
+/** Parse frontmatter with automatic colon-in-value recovery and per-file error reporting. */
+function parseMatter(raw, file) {
+  try {
+    return matter(raw);
+  } catch (firstErr) {
+    try {
+      const sanitized = sanitizeFrontmatter(raw);
+      const result = matter(sanitized);
+      console.warn(`  ⚠  Auto-quoted YAML colon in: ${file}`);
+      return result;
+    } catch (secondErr) {
+      console.warn(`  ✗  Skipping unparseable file: ${file}`);
+      console.warn(`     ${secondErr.message.split("\n")[0]}`);
+      return null;
+    }
+  }
+}
+
 async function buildMetadata() {
   console.log("Building metadata...\n");
 
@@ -135,7 +186,9 @@ async function buildMetadata() {
   for (const file of files) {
     const fullPath = path.join(CONTENT_DIR, file);
     const raw = fs.readFileSync(fullPath, "utf-8");
-    const { data, content } = matter(raw);
+    const parsed = parseMatter(raw, file);
+    if (!parsed) continue;
+    const { data, content } = parsed;
     const section = file.split(path.sep)[0];
     const slug =
       section === "blog"
@@ -214,7 +267,9 @@ async function buildMetadata() {
   for (const file of files) {
     const fullPath = path.join(CONTENT_DIR, file);
     const raw = fs.readFileSync(fullPath, "utf-8");
-    const { data, content } = matter(raw);
+    const parsed2 = parseMatter(raw, file);
+    if (!parsed2) continue;
+    const { data, content } = parsed2;
     const section = file.split(path.sep)[0];
     if (!shouldIncludeInSearch(section)) continue;
     const searchSlug =
@@ -330,12 +385,15 @@ function buildBlogDirs(posts) {
       const pd = p.dir || "";
       if (pd === d) {
         childPosts.push(p.slug);
-      } else if (
-        d === ""
-          ? !pd.includes("/") && pd !== ""
-          : pd.startsWith(d + "/") && !pd.slice(d.length + 1).includes("/")
-      ) {
-        childDirs.add(d === "" ? pd : pd.slice(d.length + 1));
+      } else {
+        // A post at any deeper level contributes its first child segment.
+        // This handles arbitrary nesting, e.g. novels/book/chapters/Part I/ch1.md
+        const prefix = d === "" ? "" : d + "/";
+        if (!pd.startsWith(prefix) || pd === d) continue;
+        const remainder = pd.slice(prefix.length);
+        if (!remainder) continue;
+        const firstSeg = remainder.split("/")[0];
+        if (firstSeg) childDirs.add(firstSeg);
       }
     }
     dirs[d] = { subdirs: [...childDirs].sort(), posts: childPosts };
