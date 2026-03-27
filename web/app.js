@@ -799,7 +799,8 @@
     return md.replace(/::chapters\s*\(([^)]+)\)/g, (_m, pathArg) => {
       const clean = pathArg.trim().replace(/^\//, "");
       const parts = clean.split("/");
-      const dirPath = parts[0] === "blog" ? parts.slice(1).join("/") : clean;
+      // Strip trailing slashes: "novel/raging-sun-silent-moon/chapters/" → "…/chapters"
+      const dirPath = (parts[0] === "blog" ? parts.slice(1).join("/") : clean).replace(/\/+$/, "");
 
       const dir = state.blogDirs && state.blogDirs[dirPath];
       const subdirs = dir ? (dir.subdirs || []) : [];
@@ -807,8 +808,13 @@
         ? (dir.posts || []).map(s => state.posts.find(p => p.slug === s)).filter(Boolean)
         : state.posts.filter(p => p.dir === dirPath || p.slug.startsWith(dirPath + "/") || (p.dir || "").startsWith(dirPath));
 
+      const tableShell = (body) => {
+        const blockId = `chb-${dirPath.replace(/[^a-z0-9]/gi, "-") || "root"}`;
+        return `<div class="chapters-block" id="${blockId}"><table class="chapters-table" role="table" aria-label="Chapter list for ${escapeHtml(dirPath)}"><thead><tr><th class="chapters-th chapters-th-sortable" data-col="title" data-order="" scope="col">Title</th><th class="chapters-th chapters-th-sortable chapters-th-date" data-col="date" data-order="" scope="col">Date</th><th class="chapters-th chapters-th-type" scope="col">Type</th></tr></thead><tbody>${body}</tbody></table></div>`;
+      };
+
       if (!directPosts.length && !subdirs.length) {
-        return `<div class="chapters-empty">No chapters found for <code>${escapeHtml(dirPath)}</code></div>`;
+        return tableShell(`<tr class="chapters-row"><td class="chapters-cell-empty" colspan="3">No data</td></tr>`);
       }
 
       const sortByChapterDate = arr => [...arr].sort((a, b) => {
@@ -854,8 +860,7 @@
         </tr>`;
       }
 
-      const blockId = `chb-${dirPath.replace(/[^a-z0-9]/gi, "-") || "root"}`;
-      return `<div class="chapters-block" id="${blockId}"><table class="chapters-table" role="table" aria-label="Chapter list for ${escapeHtml(dirPath)}"><thead><tr><th class="chapters-th chapters-th-sortable" data-col="title" data-order="" scope="col">Title</th><th class="chapters-th chapters-th-sortable chapters-th-date" data-col="date" data-order="" scope="col">Date</th><th class="chapters-th chapters-th-type" scope="col">Type</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      return tableShell(rows);
     });
   }
 
@@ -910,7 +915,7 @@
         const row = e.target.closest(".chapters-row-page, .chapters-row-child[data-slug]");
         if (!row || e.target.closest(".chapters-row-dir")) return;
         const slug = row.dataset.slug;
-        if (slug) navigateTo(toRouteHref(`/blog/post/${slug}`));
+        if (slug) navigateTo(toRouteHref(`/blog/post/${slug.split("/").map(encodeURIComponent).join("/")}`));
       });
     });
   }
