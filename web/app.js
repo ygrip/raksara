@@ -865,10 +865,63 @@
   }
 
   function initChaptersBlocks() {
+    const PAGE_SIZE = 10;
+
     document.querySelectorAll(".chapters-block:not([data-init])").forEach(block => {
       block.dataset.init = "1";
       const tbody = block.querySelector("tbody");
       if (!tbody) return;
+
+      function getTopRows() {
+        return Array.from(tbody.querySelectorAll(".chapters-row:not(.chapters-row-child)"));
+      }
+
+      function applyPagination() {
+        block.querySelectorAll(".chapters-footer").forEach(f => f.remove());
+        const topRows = getTopRows();
+        if (topRows.length <= PAGE_SIZE) return;
+
+        // Show first PAGE_SIZE; hide the rest and their children
+        topRows.forEach((row, i) => {
+          const visible = i < PAGE_SIZE;
+          row.hidden = !visible;
+          if (!visible && row.classList.contains("chapters-row-dir")) {
+            const dId = row.dataset.dirId;
+            tbody.querySelectorAll(`[data-parent-dir="${dId}"]`).forEach(c => { c.hidden = true; });
+          }
+        });
+
+        let shown = PAGE_SIZE;
+        const footer = document.createElement("div");
+        footer.className = "chapters-footer";
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "chapters-show-more";
+
+        function updateBtn() {
+          const remaining = topRows.length - shown;
+          if (remaining <= 0) { footer.remove(); return; }
+          btn.textContent = `Show more (${remaining} remaining)`;
+        }
+
+        btn.addEventListener("click", () => {
+          topRows.slice(shown, shown + PAGE_SIZE).forEach(row => {
+            row.hidden = false;
+            if (row.classList.contains("chapters-row-dir")) {
+              const dId = row.dataset.dirId;
+              tbody.querySelectorAll(`[data-parent-dir="${dId}"]`).forEach(c => {
+                c.hidden = row.dataset.expanded !== "true";
+              });
+            }
+          });
+          shown += PAGE_SIZE;
+          updateBtn();
+        });
+
+        updateBtn();
+        footer.appendChild(btn);
+        block.appendChild(footer);
+      }
 
       // Sortable headers
       block.querySelectorAll(".chapters-th-sortable").forEach(th => {
@@ -878,7 +931,11 @@
           block.querySelectorAll(".chapters-th-sortable").forEach(h => { h.dataset.order = ""; });
           th.dataset.order = next;
 
-          const topRows = Array.from(tbody.querySelectorAll(".chapters-row:not(.chapters-row-child)"));
+          // Unhide all top-level rows before sorting; collapse all children
+          const topRows = getTopRows();
+          topRows.forEach(row => { row.hidden = false; });
+          tbody.querySelectorAll(".chapters-row-child").forEach(c => { c.hidden = true; });
+
           topRows.sort((a, b) => {
             if (col === "date") {
               const ta = new Date(a.dataset.date || "").getTime() || 0;
@@ -893,10 +950,14 @@
           for (const row of topRows) {
             tbody.appendChild(row);
             if (row.classList.contains("chapters-row-dir")) {
+              row.dataset.expanded = "false";
               const dId = row.dataset.dirId;
               tbody.querySelectorAll(`[data-parent-dir="${dId}"]`).forEach(c => tbody.appendChild(c));
             }
           }
+
+          // Re-apply pagination (collapses to first PAGE_SIZE)
+          applyPagination();
         });
       });
 
@@ -917,6 +978,8 @@
         const slug = row.dataset.slug;
         if (slug) navigateTo(toRouteHref(`/blog/post/${slug.split("/").map(encodeURIComponent).join("/")}`));
       });
+
+      applyPagination();
     });
   }
 
@@ -1932,18 +1995,42 @@
 
       const np = frontmatter.next_page;
       const pp = frontmatter.previous_page;
-      const nextPage =
+      let nextPage =
         Array.isArray(np) && np.length
           ? np[0]
           : typeof np === "object" && np
             ? np
             : null;
-      const prevPage =
+      let prevPage =
         Array.isArray(pp) && pp.length
           ? pp[0]
           : typeof pp === "object" && pp
             ? pp
             : null;
+
+      // Auto-compute prev/next from chapter order when not in frontmatter
+      if (!nextPage && !prevPage) {
+        const dir = post.dir || "";
+        const dirData = state.blogDirs && state.blogDirs[dir];
+        if (dirData && dirData.posts && dirData.posts.length > 1) {
+          const siblings = dirData.posts
+            .map(s => state.posts.find(p => p.slug === s))
+            .filter(Boolean)
+            .sort((a, b) => {
+              const ca = parseInt(a.chapter) || 0, cb = parseInt(b.chapter) || 0;
+              return ca !== cb ? ca - cb : new Date(a.date) - new Date(b.date);
+            });
+          const idx = siblings.findIndex(p => p.slug === slug);
+          if (idx > 0) {
+            const prev = siblings[idx - 1];
+            prevPage = { title: prev.title, link: `/blog/post/${prev.slug.split("/").map(encodeURIComponent).join("/")}` };
+          }
+          if (idx >= 0 && idx < siblings.length - 1) {
+            const next = siblings[idx + 1];
+            nextPage = { title: next.title, link: `/blog/post/${next.slug.split("/").map(encodeURIComponent).join("/")}` };
+          }
+        }
+      }
       let postNavHtml = "";
       if (prevPage || nextPage) {
         postNavHtml = '<div class="post-nav">';
