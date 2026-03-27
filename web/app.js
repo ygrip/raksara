@@ -575,6 +575,17 @@
             frontmatter[currentKey] = val;
             arrayMode = false;
           }
+        } else if (arrayMode && currentKey && line.match(/^\s+\w[\w-]*:/) && !line.match(/^\s*-\s/)) {
+          // Plain YAML object: `key:\n  subkey: val` (no dash prefix)
+          // Convert from empty array to plain object on first indented property seen.
+          if (Array.isArray(frontmatter[currentKey]) && frontmatter[currentKey].length === 0) {
+            frontmatter[currentKey] = {};
+          }
+          if (typeof frontmatter[currentKey] === "object" && !Array.isArray(frontmatter[currentKey])) {
+            const nestedKv = line.match(/^\s+(\w[\w-]*):\s*(.*)$/);
+            if (nestedKv)
+              frontmatter[currentKey][nestedKv[1]] = nestedKv[2].trim().replace(/^["']|["']$/g, "");
+          }
         } else if (arrayMode && currentKey && line.match(/^\s*-\s+\w[\w-]*:/)) {
           if (objBuffer) frontmatter[currentKey].push(objBuffer);
           const objKv = line.match(/^\s*-\s+(\w[\w-]*):\s*(.*)$/);
