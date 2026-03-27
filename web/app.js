@@ -1545,7 +1545,11 @@
   // ── Blog ──────────────────────────────────────────────
 
   function humanize(slug) {
-    return slug.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    return slug
+      .replace(/-{2,}/g, " \u2013 ")   // 2+ hyphens → " – " separator
+      .replace(/[-_]/g, " ")             // single hyphens/underscores → space
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+      .trim();
   }
 
   function blogBreadcrumbs(segments, options) {
