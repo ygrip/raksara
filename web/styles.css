@@ -3463,80 +3463,196 @@ body.reading-mode .reading-mode-btn {
     overflow: hidden;
     margin: 24px 0;
     background: var(--bg-card);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--border-glass);
     border-top: 3px solid var(--accent);
     border-radius: var(--radius-md);
     box-shadow:
-        0 4px 24px rgba(0, 0, 0, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.06);
-}
-
-.chapters-scroll {
-    overflow: auto;
-    max-height: 360px;
+        0 4px 28px rgba(0, 0, 0, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
 .chapters-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 14px;
+    font-size: 14.5px;
 }
 
-.chapters-table th {
-    background: color-mix(in srgb, var(--accent) 8%, var(--bg-card));
-    padding: 10px 14px;
+.chapters-th {
+    padding: 14px 18px;
     text-align: left;
-    font-weight: 600;
-    font-size: 11px;
+    font-weight: 700;
+    font-size: 12px;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
     color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
     position: sticky;
     top: 0;
-    z-index: 1;
-    border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border-glass));
-}
-
-.chapters-num {
-    width: 40px;
-    color: var(--text-secondary);
-    padding: 10px 14px;
-    font-variant-numeric: tabular-nums;
-    font-weight: 600;
-    font-size: 12px;
-}
-
-.chapters-title {
-    padding: 10px 14px;
-    max-width: 0;
-    width: 100%;
-}
-
-.chapters-title a {
-    color: var(--text-primary);
-    text-decoration: none;
-    font-weight: 500;
-}
-
-.chapters-title a:hover {
-    color: var(--accent);
-}
-
-.chapters-date {
-    padding: 10px 14px;
-    color: var(--text-secondary);
+    z-index: 2;
+    border-bottom: 2px solid color-mix(in srgb, var(--accent) 22%, var(--border-glass));
     white-space: nowrap;
-    font-size: 12px;
+}
+
+.chapters-th-sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.chapters-th-sortable::after {
+    content: " ⇅";
+    font-size: 10px;
+    opacity: 0.35;
+}
+
+.chapters-th-sortable[data-order="asc"]::after {
+    content: " ↑";
+    opacity: 1;
+}
+
+.chapters-th-sortable[data-order="desc"]::after {
+    content: " ↓";
+    opacity: 1;
+}
+
+.chapters-th-sortable:hover {
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--accent) 18%, var(--bg-card));
+}
+
+.chapters-th-date {
+    white-space: nowrap;
+}
+
+.chapters-th-type {
+    width: 56px;
+    text-align: center;
+}
+
+.chapters-row {
+    transition: background 0.15s ease;
 }
 
 .chapters-table tbody tr + tr {
     border-top: 1px solid var(--border-subtle);
 }
 
-.chapters-table tbody tr:hover {
+/* Page rows */
+.chapters-row-page {
+    cursor: pointer;
+}
+
+.chapters-row-page:hover {
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.chapters-row-page:hover .chapters-cell-title {
+    color: var(--accent);
+}
+
+/* Directory rows */
+.chapters-row-dir {
+    cursor: pointer;
+    background: color-mix(in srgb, var(--accent) 4%, transparent);
+    font-weight: 600;
+}
+
+.chapters-row-dir:hover {
+    background: color-mix(in srgb, var(--accent) 11%, transparent);
+}
+
+.chapters-chevron {
+    display: inline-block;
+    vertical-align: middle;
+    transition: transform 0.2s ease;
+}
+
+.chapters-row-dir[data-expanded="true"] .chapters-chevron {
+    transform: rotate(90deg);
+}
+
+/* Child rows (expanded under a dir) */
+.chapters-row-child {
+    cursor: pointer;
+}
+
+.chapters-row-child:hover {
     background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+.chapters-row-child:hover .chapters-cell-title {
+    color: var(--accent);
+}
+
+/* Cells */
+.chapters-cell-title {
+    padding: 12px 18px;
+    color: var(--text-primary);
+    font-weight: 500;
+    width: 100%;
+    max-width: 0;
+}
+
+.chapters-cell-indented {
+    padding-left: 42px;
+    color: var(--text-secondary);
+    font-weight: 400;
+}
+
+.chapters-cell-date {
+    padding: 12px 18px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+
+.chapters-cell-type {
+    padding: 12px 18px;
+    width: 56px;
+    text-align: center;
+}
+
+.chapters-type-dir {
+    color: var(--accent);
+}
+
+.chapters-type-page {
+    color: var(--text-tertiary);
+}
+
+.chapters-dir-toggle {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+.chapters-dir-name {
+    vertical-align: middle;
+}
+
+.chapters-dir-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    color: var(--accent);
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+.chapters-empty {
+    padding: 24px;
+    color: var(--text-secondary);
+    font-size: 14px;
 }
 
 /* ── Comic Viewer ────────────────────────────────────────── */

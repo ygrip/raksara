@@ -793,27 +793,118 @@
       const clean = pathArg.trim().replace(/^\//, "");
       const parts = clean.split("/");
       const dirPath = parts[0] === "blog" ? parts.slice(1).join("/") : clean;
-      const matched = state.posts.filter(
-        (p) => p.dir === dirPath || p.slug.startsWith(dirPath + "/") || (p.dir || "").startsWith(dirPath),
-      );
-      if (!matched.length) {
+
+      const dir = state.blogDirs && state.blogDirs[dirPath];
+      const subdirs = dir ? (dir.subdirs || []) : [];
+      const directPosts = dir
+        ? (dir.posts || []).map(s => state.posts.find(p => p.slug === s)).filter(Boolean)
+        : state.posts.filter(p => p.dir === dirPath || p.slug.startsWith(dirPath + "/") || (p.dir || "").startsWith(dirPath));
+
+      if (!directPosts.length && !subdirs.length) {
         return `<div class="chapters-empty">No chapters found for <code>${escapeHtml(dirPath)}</code></div>`;
       }
-      const sorted = [...matched].sort((a, b) => {
-        const ca = parseInt(a.chapter) || 0;
-        const cb = parseInt(b.chapter) || 0;
+
+      const sortByChapterDate = arr => [...arr].sort((a, b) => {
+        const ca = parseInt(a.chapter) || 0, cb = parseInt(b.chapter) || 0;
         return ca !== cb ? ca - cb : new Date(a.date) - new Date(b.date);
       });
-      const rows = sorted
-        .map(
-          (p, i) => `<tr>
-          <td class="chapters-num">${i + 1}</td>
-          <td class="chapters-title"><a href="#/blog/post/${escapeHtml(p.slug)}" title="${escapeHtml(p.title)}">${escapeHtml(p.title)}</a></td>
-          <td class="chapters-date">${formatDate(p.date)}</td>
-        </tr>`,
-        )
-        .join("");
-      return `<div class="chapters-block"><div class="chapters-scroll"><table class="chapters-table" role="table" aria-label="Chapter list for ${escapeHtml(dirPath)}"><thead><tr><th scope="col">#</th><th scope="col">Title</th><th scope="col">Date</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+
+      const iconDir = `<svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2 4.5A1.5 1.5 0 013.5 3h3.586a1.5 1.5 0 011.06.44L9.354 4.646A.5.5 0 009.707 4.8H12.5A1.5 1.5 0 0114 6.3V12a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 12V4.5z" stroke="currentColor" stroke-width="1.3"/></svg>`;
+      const iconPage = `<svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 2h6l3 3v9a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" stroke-width="1.3"/><path d="M10 2v3h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`;
+      const iconChevron = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" class="chapters-chevron" aria-hidden="true"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+      let rows = "";
+
+      for (const subdir of subdirs) {
+        const fullPath = dirPath ? `${dirPath}/${subdir}` : subdir;
+        const childDir = state.blogDirs && state.blogDirs[fullPath];
+        const childPosts = childDir
+          ? sortByChapterDate((childDir.posts || []).map(s => state.posts.find(p => p.slug === s)).filter(Boolean))
+          : [];
+        const label = humanize(subdir);
+        const dirId = fullPath.replace(/[^a-zA-Z0-9]/g, "-");
+
+        rows += `<tr class="chapters-row chapters-row-dir" data-dir-id="${escapeHtml(dirId)}" data-expanded="false" data-title="${escapeHtml(label)}" data-date="">
+          <td class="chapters-cell-title"><span class="chapters-dir-toggle">${iconChevron}</span><span class="chapters-dir-name">${escapeHtml(label)}</span>${childPosts.length ? `<span class="chapters-dir-badge">${childPosts.length}</span>` : ""}</td>
+          <td class="chapters-cell-date">—</td>
+          <td class="chapters-cell-type chapters-type-dir" title="Directory">${iconDir}</td>
+        </tr>`;
+
+        for (const p of childPosts) {
+          rows += `<tr class="chapters-row chapters-row-child" data-parent-dir="${escapeHtml(dirId)}" data-slug="${escapeHtml(p.slug)}" hidden>
+            <td class="chapters-cell-title chapters-cell-indented">${escapeHtml(p.title)}</td>
+            <td class="chapters-cell-date">${formatDate(p.date)}</td>
+            <td class="chapters-cell-type chapters-type-page" title="Page">${iconPage}</td>
+          </tr>`;
+        }
+      }
+
+      for (const p of sortByChapterDate(directPosts)) {
+        rows += `<tr class="chapters-row chapters-row-page" data-slug="${escapeHtml(p.slug)}" data-title="${escapeHtml(p.title)}" data-date="${escapeHtml(p.date || "")}">
+          <td class="chapters-cell-title">${escapeHtml(p.title)}</td>
+          <td class="chapters-cell-date">${formatDate(p.date)}</td>
+          <td class="chapters-cell-type chapters-type-page" title="Page">${iconPage}</td>
+        </tr>`;
+      }
+
+      const blockId = `chb-${dirPath.replace(/[^a-z0-9]/gi, "-") || "root"}`;
+      return `<div class="chapters-block" id="${blockId}"><table class="chapters-table" role="table" aria-label="Chapter list for ${escapeHtml(dirPath)}"><thead><tr><th class="chapters-th chapters-th-sortable" data-col="title" data-order="" scope="col">Title</th><th class="chapters-th chapters-th-sortable chapters-th-date" data-col="date" data-order="" scope="col">Date</th><th class="chapters-th chapters-th-type" scope="col">Type</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    });
+  }
+
+  function initChaptersBlocks() {
+    document.querySelectorAll(".chapters-block:not([data-init])").forEach(block => {
+      block.dataset.init = "1";
+      const tbody = block.querySelector("tbody");
+      if (!tbody) return;
+
+      // Sortable headers
+      block.querySelectorAll(".chapters-th-sortable").forEach(th => {
+        th.addEventListener("click", () => {
+          const col = th.dataset.col;
+          const next = th.dataset.order === "asc" ? "desc" : "asc";
+          block.querySelectorAll(".chapters-th-sortable").forEach(h => { h.dataset.order = ""; });
+          th.dataset.order = next;
+
+          const topRows = Array.from(tbody.querySelectorAll(".chapters-row:not(.chapters-row-child)"));
+          topRows.sort((a, b) => {
+            if (col === "date") {
+              const ta = new Date(a.dataset.date || "").getTime() || 0;
+              const tb = new Date(b.dataset.date || "").getTime() || 0;
+              return next === "asc" ? ta - tb : tb - ta;
+            }
+            const va = (a.dataset.title || "").toLowerCase();
+            const vb = (b.dataset.title || "").toLowerCase();
+            return next === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+          });
+
+          for (const row of topRows) {
+            tbody.appendChild(row);
+            if (row.classList.contains("chapters-row-dir")) {
+              const dId = row.dataset.dirId;
+              tbody.querySelectorAll(`[data-parent-dir="${dId}"]`).forEach(c => tbody.appendChild(c));
+            }
+          }
+        });
+      });
+
+      // Dir expand/collapse
+      block.querySelectorAll(".chapters-row-dir").forEach(row => {
+        row.addEventListener("click", () => {
+          const dId = row.dataset.dirId;
+          const expanded = row.dataset.expanded === "true";
+          row.dataset.expanded = expanded ? "false" : "true";
+          tbody.querySelectorAll(`[data-parent-dir="${dId}"]`).forEach(c => { c.hidden = expanded; });
+        });
+      });
+
+      // Page/child row click to navigate
+      block.addEventListener("click", e => {
+        const row = e.target.closest(".chapters-row-page, .chapters-row-child[data-slug]");
+        if (!row || e.target.closest(".chapters-row-dir")) return;
+        const slug = row.dataset.slug;
+        if (slug) navigateTo(toRouteHref(`/blog/post/${slug}`));
+      });
     });
   }
 
@@ -826,6 +917,7 @@
     el.innerHTML = html;
     normalizeLegacyRouteLinks(el);
     initTocBlocks();
+    initChaptersBlocks();
     requestAnimationFrame(() => {
       el.style.transition = "opacity 0.3s ease, transform 0.3s ease";
       el.style.opacity = "1";
