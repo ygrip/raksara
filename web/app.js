@@ -629,7 +629,11 @@
       href.startsWith("http://") ||
       href.startsWith("https://") ||
       href.startsWith("mailto:") ||
-      href.startsWith("#")
+      href.startsWith("#") ||
+      href.startsWith("/blog/post/") ||
+      href.startsWith("/portfolio/") ||
+      href.startsWith("/tag/") ||
+      href.startsWith("/category/")
     )
       return href;
     const m = href.match(/^\/?(content\/)?blog\/(.+?)(?:#(.+))?$/);
@@ -2023,8 +2027,8 @@
             ? pp
             : null;
 
-      // Auto-compute prev/next from chapter order when not in frontmatter
-      if (!nextPage && !prevPage) {
+      // Auto-compute prev/next from chapter order when not in frontmatter (only for novel and comic types)
+      if (!nextPage && !prevPage && (type === "novel" || type === "comic")) {
         const dir = post.dir || "";
         const dirData = state.blogDirs && state.blogDirs[dir];
         if (dirData && dirData.posts && dirData.posts.length > 1) {

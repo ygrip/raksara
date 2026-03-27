@@ -87,11 +87,11 @@ A navigation bar appears at the bottom of the post.
 title: "Chapter 1"
 date: 2026-03-08
 next_page:
-  - title: "Chapter 2: The Journey"
-    link: "#/blog/post/novel/chapter-2"
+  title: "Chapter 2: The Journey"
+  link: "/blog/post/novel/chapter-2"
 previous_page:
-  - title: "Prologue"
-    link: "#/blog/post/novel/prologue"
+  title: "Prologue"
+  link: "/blog/post/novel/prologue"
 ---
 ```
 
