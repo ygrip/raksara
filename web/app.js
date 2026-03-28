@@ -575,9 +575,11 @@
             frontmatter[currentKey] = val;
             arrayMode = false;
           }
-        } else if (arrayMode && currentKey && line.match(/^\s+\w[\w-]*:/) && !line.match(/^\s*-\s/)) {
-          // Plain YAML object: `key:\n  subkey: val` (no dash prefix)
+        } else if (!objBuffer && arrayMode && currentKey && line.match(/^\s+\w[\w-]*:/) && !line.match(/^\s*-\s/)) {
+          // Plain YAML object: `key:\n  subkey: val` (no dash prefix, not inside an array item)
           // Convert from empty array to plain object on first indented property seen.
+          // Guard: only fires when objBuffer is null — if we're building an array item object,
+          // its sub-keys must be handled by the objBuffer branch below.
           if (Array.isArray(frontmatter[currentKey]) && frontmatter[currentKey].length === 0) {
             frontmatter[currentKey] = {};
           }
@@ -2774,7 +2776,8 @@
       });
       initProfileMedia(coverUrl);
       initArticleImages();
-    } catch {
+    } catch (err) {
+      console.error("renderProfile error:", err);
       showContent('<div class="empty-state"><h3>Profile not found</h3></div>');
     }
   }
