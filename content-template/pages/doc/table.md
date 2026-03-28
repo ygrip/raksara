@@ -1,6 +1,8 @@
 ---
 title: "Sortable Tables"
 summary: "Interactive columns with ascending, descending, and reset sorting"
+icon: "📊"
+status: "available"
 ---
 
 # Sortable Tables

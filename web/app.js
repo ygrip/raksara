@@ -709,9 +709,9 @@
       breaks: opts.breaks || false,
       gfm: true,
     });
-    const preprocessed = preprocessCustomChips(preprocessCustomContainers(preprocessCustomPanels(preprocessChapters(preprocessToc(preprocessFileAttachments(md))))));
+    const preprocessed = preprocessCustomComponents(preprocessCustomChips(preprocessCustomContainers(preprocessCustomPanels(preprocessChapters(preprocessToc(preprocessFileAttachments(md)))))));
     const rawHtml = marked.parse(preprocessed);
-    return injectChips(injectContainers(injectPanels(injectToc(rawHtml))));
+    return injectCustomComponents(injectChips(injectContainers(injectPanels(injectToc(rawHtml)))));
   }
 
   // ── TOC Custom Component ──────────────────────────────
@@ -1423,6 +1423,53 @@
       return `<span class="chip-icon-text">${escapeHtml(icon)}</span>`;
     }
     return "";
+  }
+
+  // ── ::component Card List ────────────────────────────
+
+  const componentStorage = [];
+
+  function preprocessCustomComponents(md) {
+    componentStorage.length = 0;
+    return md.replace(/::component\s*\(\s*([^)]+?)\s*\)/g, (match, pathArg) => {
+      componentStorage.push(pathArg.trim());
+      return `[[RAKSARA_COMPONENT:${componentStorage.length - 1}]]`;
+    });
+  }
+
+  function injectCustomComponents(html) {
+    if (componentStorage.length === 0) return html;
+    return html.replace(/(?:<p>)?\[\[RAKSARA_COMPONENT:(\d+)\]\](?:<\/p>)?/g, (match, indexStr) => {
+      const index = parseInt(indexStr, 10);
+      if (index < 0 || index >= componentStorage.length) return match;
+      const pathArg = componentStorage[index];
+      const prefix = "content/" + pathArg.replace(/^\/|\/$/g, "") + "/";
+      const allEntries = [...(state.docs || []), ...(state.pages || [])];
+      const matching = allEntries.filter(e => e.path && e.path.startsWith(prefix));
+      if (matching.length === 0) return "";
+      let out = '<div class="component-list">';
+      for (const entry of matching) {
+        const title = escapeHtml(entry.title || "Untitled");
+        const desc = escapeHtml(entry.summary || entry.description || "");
+        const icon = entry.icon || "";
+        const status = entry.status || "";
+        const href = `#/${entry.slug}`;
+        const statusClass = "status-" + status.toLowerCase().replace(/\s+/g, "-");
+        out += `<div class="component-card glass">`;
+        out += `<div class="component-card-header">`;
+        if (icon) out += `<span class="component-card-icon">${escapeHtml(icon)}</span>`;
+        out += `<a href="${href}" class="component-card-title">${title}</a>`;
+        if (status) out += `<span class="component-card-status ${escapeHtml(statusClass)}">${escapeHtml(status)}</span>`;
+        out += `</div>`;
+        if (desc) out += `<p class="component-card-desc">${desc}</p>`;
+        out += `<div class="component-card-footer">`;
+        out += `<a href="${href}" class="component-card-link">See more →</a>`;
+        out += `</div>`;
+        out += `</div>`;
+      }
+      out += '</div>';
+      return out;
+    });
   }
 
   // ── Table Sorting ────────────────────────────────────
@@ -3177,16 +3224,12 @@
       
       // Add documentation section for About page
       let content = `<div class="article-body">${html}</div>`;
-      if (slug === "about" && state.docs && state.docs.length > 0) {
-        content += '<section class="docs-section"><h2>Documentation</h2>';
-        content += '<div class="docs-grid">';
-        for (const doc of state.docs) {
-          content += `<a href="#/doc/${doc.slug.substring(4)}" class="doc-card glass">
-            <h3>${escapeHtml(doc.title)}</h3>
-            <p>${escapeHtml(doc.summary || "")}</p>
-          </a>`;
-        }
-        content += '</div></section>';
+      if (slug === "about") {
+        content += `<section class="docs-section">
+          <h2>Documentation</h2>
+          <p>Raksara supports a set of custom components — panels, containers, chips, and sortable tables — available directly in Markdown with simple syntax extensions.</p>
+          <a href="#/documentation" class="docs-section-link">View component documentation &#x2192;</a>
+        </section>`;
       }
       content += contentFooter(frontmatter.author);
       

@@ -1,6 +1,8 @@
 ---
 title: "Container Component"
 summary: "Glassmorphism flex containers with scrolling"
+icon: "📦"
+status: "available"
 ---
 
 # Container Component

@@ -1,6 +1,8 @@
 ---
 title: "Panel Component"
 summary: "Styled content blocks with icons and color coding"
+icon: "📌"
+status: "available"
 ---
 
 # Panel Component

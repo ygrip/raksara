@@ -550,43 +550,63 @@ body {
 }
 
 .panel.panel-info {
-    background: var(--bg-glass);
+    background: rgba(59, 130, 246, 0.07);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--border-glass);
-    border-left-color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-left: 3px solid #3b82f6;
+}
+
+.panel.panel-info .panel-icon {
+    color: #3b82f6;
 }
 
 .panel.panel-note {
-    background: var(--bg-glass);
+    background: rgba(139, 92, 246, 0.07);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--border-glass);
-    border-left-color: #8b5cf6;
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-left: 3px solid #8b5cf6;
+}
+
+.panel.panel-note .panel-icon {
+    color: #8b5cf6;
 }
 
 .panel.panel-warning {
-    background: var(--bg-glass);
+    background: rgba(245, 158, 11, 0.07);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--border-glass);
-    border-left-color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-left: 3px solid #f59e0b;
+}
+
+.panel.panel-warning .panel-icon {
+    color: #f59e0b;
 }
 
 .panel.panel-error {
-    background: var(--bg-glass);
+    background: rgba(239, 68, 68, 0.07);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--border-glass);
-    border-left-color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-left: 3px solid #ef4444;
+}
+
+.panel.panel-error .panel-icon {
+    color: #ef4444;
 }
 
 .panel.panel-success {
-    background: var(--bg-glass);
+    background: rgba(var(--accent-rgb), 0.07);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--border-glass);
-    border-left-color: var(--accent);
+    border: 1px solid rgba(var(--accent-rgb), 0.2);
+    border-left: 3px solid var(--accent);
+}
+
+.panel.panel-success .panel-icon {
+    color: var(--accent);
 }
 
 .panel-icon {
@@ -730,49 +750,144 @@ body {
 }
 
 .docs-section h2 {
-    margin-bottom: 24px;
+    margin-bottom: 12px;
     color: var(--text-primary);
     font-size: 20px;
     font-weight: 600;
 }
 
-.docs-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 16px;
-    margin-bottom: 0;
+.docs-section p {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 16px;
 }
 
-.doc-card {
-    display: block;
-    padding: 20px;
+.docs-section-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: opacity var(--transition);
+}
+
+.docs-section-link:hover {
+    opacity: 0.8;
+}
+
+/* ── ::component Card List ──────────────────────────────── */
+
+.component-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin: 20px 0;
+}
+
+.component-card {
+    display: flex;
+    flex-direction: column;
+    padding: 20px 22px;
     border-radius: var(--radius-md);
     background: var(--bg-glass);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--border-glass);
-    text-decoration: none;
-    color: inherit;
-    transition: all var(--transition);
+    transition: border-color var(--transition), background var(--transition);
+    gap: 10px;
 }
 
-.doc-card:hover {
+.component-card:hover {
     border-color: var(--accent);
     background: var(--bg-card);
 }
 
-.doc-card h3 {
-    margin: 0 0 8px 0;
-    color: var(--text-primary);
-    font-size: 16px;
-    font-weight: 600;
+.component-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
-.doc-card p {
+.component-card-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.component-card-title {
+    flex: 1;
     margin: 0;
-    color: var(--text-tertiary);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-decoration: none;
+}
+
+.component-card-title:hover {
+    color: var(--accent);
+}
+
+.component-card-status {
+    flex-shrink: 0;
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-weight: 500;
+    text-transform: capitalize;
+}
+
+.component-card-status.status-available {
+    background: rgba(var(--accent-rgb), 0.12);
+    color: var(--accent);
+    border: 1px solid rgba(var(--accent-rgb), 0.25);
+}
+
+.component-card-status.status-wip,
+.component-card-status.status-draft {
+    background: rgba(245, 158, 11, 0.12);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.component-card-status.status-deprecated {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.component-card-desc {
+    margin: 0;
     font-size: 13px;
-    line-height: 1.5;
+    color: var(--text-tertiary);
+    line-height: 1.55;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.component-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+
+.component-card-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+    text-decoration: none;
+    transition: opacity var(--transition);
+}
+
+.component-card-link:hover {
+    opacity: 0.7;
 }
 
 /* ── Blog Directory Folders ─────────────────────────────── */

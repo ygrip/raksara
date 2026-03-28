@@ -1,6 +1,8 @@
 ---
 title: "Chip Component"
 summary: "Compact pill-shaped badges with icons and labels"
+icon: "🏷️"
+status: "available"
 ---
 
 # Chip Component
