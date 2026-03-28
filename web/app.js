@@ -1454,12 +1454,14 @@
         const icon = entry.icon || "";
         const status = entry.status || "";
         const href = `#/${entry.slug}`;
-        const statusClass = "status-" + status.toLowerCase().replace(/\s+/g, "-");
         out += `<div class="component-card glass">`;
         out += `<div class="component-card-header">`;
         if (icon) out += `<span class="component-card-icon">${escapeHtml(icon)}</span>`;
         out += `<a href="${href}" class="component-card-title">${title}</a>`;
-        if (status) out += `<span class="component-card-status ${escapeHtml(statusClass)}">${escapeHtml(status)}</span>`;
+        if (status) {
+          const statusClass = "status-" + status.toLowerCase().replace(/\s+/g, "-");
+          out += `<span class="component-card-status ${escapeHtml(statusClass)}">${escapeHtml(status)}</span>`;
+        }
         out += `</div>`;
         if (desc) out += `<p class="component-card-desc">${desc}</p>`;
         out += `<div class="component-card-footer">`;
@@ -1790,15 +1792,23 @@
     // Check if collapse is needed
     if (segments.length > BREADCRUMB_MAX_VISIBLE) {
       const id = `breadcrumb-nav-${Math.random().toString(36).substr(2, 9)}`;
+
+      // Show immediate parent dir + current item so context is preserved when collapsed
+      const parentSegs = segments.slice(0, segments.length - 1);
+      const parentPath = parentSegs.join("/");
+      const parentLabel = humanize(parentSegs[parentSegs.length - 1]);
+      const lastSegment = segments[segments.length - 1];
+      const lastLabel_ = lastLabel ? lastLabel : humanize(lastSegment);
+
       let html = `<nav class="breadcrumbs" id="${id}">
         <a href="#/blog">Blog</a>
         <span class="breadcrumb-sep">/</span>
-        <button class="breadcrumb-ellipsis" aria-label="Show full path" data-for="${id}">…</button>`;
-      
-      const lastSegment = segments[segments.length - 1];
-      const lastLabel_ = lastLabel ? lastLabel : humanize(lastSegment);
-      html += `<span class="breadcrumb-sep">/</span><span class="breadcrumb-current">${escapeHtml(lastLabel_)}</span>`;
-      html += "</nav>";
+        <button class="breadcrumb-ellipsis" aria-label="Show full path" data-for="${id}">…</button>
+        <span class="breadcrumb-sep">/</span>
+        <a href="#/blog/dir/${parentPath}">${escapeHtml(parentLabel)}</a>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">${escapeHtml(lastLabel_)}</span>
+      </nav>`;
       
       // Attach handler via event delegation after render
       setTimeout(() => {
