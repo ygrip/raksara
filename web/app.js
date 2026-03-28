@@ -486,6 +486,7 @@
         gallery,
         thoughts,
         pages,
+        docs,
         tags,
         categories,
         blogDirs,
@@ -499,6 +500,7 @@
         loadJSON("metadata/gallery.json"),
         loadJSON("metadata/thoughts.json"),
         loadJSON("metadata/pages.json"),
+        loadJSON("metadata/docs.json").catch(() => []),
         loadJSON("metadata/tags.json"),
         loadJSON("metadata/categories.json"),
         loadJSON("metadata/blog-dirs.json"),
@@ -513,6 +515,7 @@
         gallery,
         thoughts,
         pages,
+        docs,
         tags,
         categories,
         blogDirs,
@@ -706,9 +709,9 @@
       breaks: opts.breaks || false,
       gfm: true,
     });
-    const preprocessed = preprocessChapters(preprocessToc(preprocessFileAttachments(md)));
+    const preprocessed = preprocessCustomChips(preprocessCustomContainers(preprocessCustomPanels(preprocessChapters(preprocessToc(preprocessFileAttachments(md))))));
     const rawHtml = marked.parse(preprocessed);
-    return injectToc(rawHtml);
+    return injectChips(injectContainers(injectPanels(injectToc(rawHtml))));
   }
 
   // ── TOC Custom Component ──────────────────────────────
@@ -1308,6 +1311,181 @@
     });
   }
 
+  // ── Custom Element: PANEL ────────────────────────────────
+
+  const panelStorage = [];
+
+  function preprocessCustomPanels(md) {
+    panelStorage.length = 0;
+    return md.replace(/\<panel\s+type=["']?(info|note|warning|error|success)["']?\s*\>([\s\S]*?)\<\/panel\>/gi, (_match, type, inner) => {
+      panelStorage.push({ type: type.toLowerCase(), content: inner.trim() });
+      return `[[RAKSARA_PANEL:${panelStorage.length - 1}]]`;
+    });
+  }
+
+  function injectPanels(html) {
+    if (panelStorage.length === 0) return html;
+    return html.replace(/\[\[RAKSARA_PANEL:(\d+)\]\]/g, (match, indexStr) => {
+      const index = parseInt(indexStr, 10);
+      if (index < 0 || index >= panelStorage.length) return match;
+      const { type, content } = panelStorage[index];
+      const panelContent = marked.parse(content);
+      const icons = {
+        info: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M8 5.5v4M8 4v0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+        note: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" stroke-width="1.2"/><path d="M4 5h8M4 8.5h8M4 12h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
+        warning: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1L1.5 14h13L8 1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><circle cx="8" cy="11" r="0.5" fill="currentColor"/><path d="M8 6v3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
+        error: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        success: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M4 8l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      };
+      const icon = icons[type] || icons.info;
+      return `<div class="panel panel-${type}" role="note"><span class="panel-icon">${icon}</span><div class="panel-body">${panelContent}</div></div>`;
+    });
+  }
+
+  // ── Custom Element: CONTAINER ────────────────────────────────
+
+  const containerStorage = [];
+
+  function preprocessCustomContainers(md) {
+    containerStorage.length = 0;
+    return md.replace(/\<container\s*\>([\s\S]*?)\<\/container\>/gi, (_match, inner) => {
+      containerStorage.push(inner.trim());
+      return `[[RAKSARA_CONTAINER:${containerStorage.length - 1}]]`;
+    });
+  }
+
+  function injectContainers(html) {
+    if (containerStorage.length === 0) return html;
+    return html.replace(/\[\[RAKSARA_CONTAINER:(\d+)\]\]/g, (match, indexStr) => {
+      const index = parseInt(indexStr, 10);
+      if (index < 0 || index >= containerStorage.length) return match;
+      const content = marked.parse(containerStorage[index]);
+      return `<div class="custom-container glass">${content}</div>`;
+    });
+  }
+
+  // ── Custom Element: CHIP ────────────────────────────────
+
+  const chipStorage = [];
+
+  function preprocessCustomChips(md) {
+    chipStorage.length = 0;
+    return md.replace(/\<chip((?:\s+\w+(?:=(?:"[^"]*"|'[^']*'|\S+))?)*)\s*\>([\s\S]*?)\<\/chip\>/gi, (_match, attrsStr, inner) => {
+      const attrs = parseChipAttributes(attrsStr);
+      chipStorage.push({ attrs, content: inner.trim() });
+      return `[[RAKSARA_CHIP:${chipStorage.length - 1}]]`;
+    });
+  }
+
+  function parseChipAttributes(str) {
+    const attrs = { icon: null, label: null };
+    const matches = str.matchAll(/(\w+)(?:=(?:"([^"]*)"|'([^']*)'|(\S+)))?/g);
+    for (const m of matches) {
+      const key = m[1];
+      const value = m[2] || m[3] || m[4] || "";
+      if (key === "icon") attrs.icon = value;
+      if (key === "label") attrs.label = value;
+    }
+    return attrs;
+  }
+
+  function injectChips(html) {
+    if (chipStorage.length === 0) return html;
+    return html.replace(/\[\[RAKSARA_CHIP:(\d+)\]\]/g, (match, indexStr) => {
+      const index = parseInt(indexStr, 10);
+      if (index < 0 || index >= chipStorage.length) return match;
+      const { attrs, content } = chipStorage[index];
+      const iconHtml = renderChipIcon(attrs.icon);
+      const labelHtml = attrs.label ? `<span class="chip-label">${escapeHtml(attrs.label)}</span>` : "";
+      return `<span class="chip glass">${iconHtml}${labelHtml}<span class="chip-text">${escapeHtml(content)}</span></span>`;
+    });
+  }
+
+  function renderChipIcon(icon) {
+    if (!icon) return "";
+    const namedIcons = {
+      check: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M4 8l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      info: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M8 5.5v4M8 4v0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+      warning: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1L1.5 14h13L8 1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 6v3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
+      star: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2l2 5h5l-4 3 2 5-5-3-5 3 2-5-4-3h5l2-5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>',
+      tag: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 8L8 2h6a1 1 0 011 1v5a1 1 0 01-1 1H8l-6 6z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><circle cx="11" cy="5" r="1" fill="currentColor"/></svg>',
+      link: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 9a3 3 0 103-3M10 7a3 3 0 11-1.5 2.6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      user: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.2"/><path d="M2.5 14c0-3 2.5-4.5 5.5-4.5s5.5 1.5 5.5 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
+      code: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4.5 3L1 8l3.5 5M11.5 3l3.5 5-3.5 5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      'arrow-right': '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M10 5l3 3-3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      external: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 3a1 1 0 011-1h7a1 1 0 011 1v7a1 1 0 01-1 1h-1.5M2 7v6a1 1 0 001 1h6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    };
+    if (namedIcons[icon]) {
+      return `<span class="chip-icon">${namedIcons[icon]}</span>`;
+    }
+    // Check if it's an emoji or single character
+    if (icon.length > 0 && !/^https?:\/\/|^\//.test(icon)) {
+      return `<span class="chip-icon-text">${escapeHtml(icon)}</span>`;
+    }
+    return "";
+  }
+
+  // ── Table Sorting ────────────────────────────────────
+
+  function initSortableTables() {
+    const tables = document.querySelectorAll(".article-body table");
+    tables.forEach((table) => {
+      const thead = table.querySelector("thead");
+      if (!thead) return;
+      const headers = thead.querySelectorAll("th");
+      headers.forEach((th, colIndex) => {
+        th.style.cursor = "pointer";
+        th.style.userSelect = "none";
+        th.setAttribute("role", "button");
+        th.setAttribute("aria-sort", "none");
+        const sortIcon = document.createElement("span");
+        sortIcon.className = "sort-icon";
+        sortIcon.innerHTML = '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="display: inline; margin-left: 4px;"><path d="M3 1l2 2 2-2M3 6l2-2 2 2" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/></svg>';
+        th.appendChild(sortIcon);
+        th.addEventListener("click", () => sortTable(table, colIndex, th, headers));
+      });
+    });
+  }
+
+  function sortTable(table, colIndex, th, headers) {
+    const tbody = table.querySelector("tbody");
+    if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll("tr"));
+    const currentSort = th.getAttribute("aria-sort") || "none";
+    let isAsc = currentSort === "none" || currentSort === "desc";
+    if (currentSort === "none") {
+      headers.forEach((h) => h.setAttribute("aria-sort", "none"));
+      th.setAttribute("aria-sort", "ascending");
+      isAsc = true;
+    } else if (currentSort === "ascending") {
+      th.setAttribute("aria-sort", "descending");
+      isAsc = false;
+    } else {
+      th.setAttribute("aria-sort", "none");
+      isAsc = null;
+    }
+    if (isAsc === null) {
+      const firstRow = tbody.querySelector("tr");
+      if (firstRow) {
+        const origOrder = Array.from(firstRow.parentElement.querySelectorAll("tr"));
+        origOrder.forEach((r) => tbody.appendChild(r));
+      }
+      return;
+    }
+    rows.sort((rowA, rowB) => {
+      const cellA = rowA.querySelectorAll("td")[colIndex]?.textContent.trim() || "";
+      const cellB = rowB.querySelectorAll("td")[colIndex]?.textContent.trim() || "";
+      const numA = parseFloat(cellA);
+      const numB = parseFloat(cellB);
+      const isNumeric = !isNaN(numA) && !isNaN(numB) && cellA !== "" && cellB !== "";
+      if (isNumeric) {
+        return isAsc ? numA - numB : numB - numA;
+      }
+      return isAsc ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
+    });
+    rows.forEach((r) => tbody.appendChild(r));
+  }
+
   async function initFileAttachments() {
     const els = document.querySelectorAll(
       ".file-attachment-size[data-size-url]",
@@ -1559,7 +1737,40 @@
   }
 
   function blogBreadcrumbs(segments, options) {
+    const BREADCRUMB_MAX_VISIBLE = 3;
     const { linkLast = false, lastLabel = "" } = options || {};
+    
+    // Check if collapse is needed
+    if (segments.length > BREADCRUMB_MAX_VISIBLE) {
+      const id = `breadcrumb-nav-${Math.random().toString(36).substr(2, 9)}`;
+      let html = `<nav class="breadcrumbs" id="${id}">
+        <a href="#/blog">Blog</a>
+        <span class="breadcrumb-sep">/</span>
+        <button class="breadcrumb-ellipsis" aria-label="Show full path" data-for="${id}">…</button>`;
+      
+      const lastSegment = segments[segments.length - 1];
+      const lastLabel_ = lastLabel ? lastLabel : humanize(lastSegment);
+      html += `<span class="breadcrumb-sep">/</span><span class="breadcrumb-current">${escapeHtml(lastLabel_)}</span>`;
+      html += "</nav>";
+      
+      // Attach handler via event delegation after render
+      setTimeout(() => {
+        const navEl = document.getElementById(id);
+        if (navEl) {
+          const btn = navEl.querySelector(".breadcrumb-ellipsis");
+          if (btn) {
+            btn.addEventListener("click", function() {
+              const expanded = blogBreadcrumbs(segments, options);
+              navEl.outerHTML = expanded;
+            });
+          }
+        }
+      }, 0);
+      
+      return html;
+    }
+    
+    // Normal breadcrumb (not collapsed)
     let html = '<nav class="breadcrumbs"><a href="#/blog">Blog</a>';
     let accum = "";
     for (let i = 0; i < segments.length; i++) {
@@ -2175,6 +2386,7 @@
       });
       initReadingMode(frontmatter);
       initArticleImages();
+      initSortableTables();
       initContentLinks();
       scrollToAnchor();
       if (showGiscus) initGiscus(`/blog/post/${slug}`);
@@ -2395,6 +2607,7 @@
         isPortfolioDetail: true,
       });
       initArticleImages();
+      initSortableTables();
       initContentLinks();
       scrollToAnchor();
       if (showGiscusPortfolio) initGiscus(`/portfolio/${slug}`);
@@ -2790,6 +3003,7 @@
       });
       initProfileMedia(coverUrl);
       initArticleImages();
+      initSortableTables();
     } catch (err) {
       console.error("renderProfile error:", err);
       showContent('<div class="empty-state"><h3>Profile not found</h3></div>');
@@ -2918,6 +3132,36 @@
 
   async function renderPage(slug) {
     showLoading();
+    
+    // Handle doc pages
+    if (slug.startsWith("doc/")) {
+      const docName = slug.substring(4);
+      const doc = state.docs && state.docs.find((d) => d.slug === slug);
+      const path = doc ? doc.path : `content/pages/${slug}.md`;
+      try {
+        const raw = await loadMarkdown(path);
+        const { frontmatter, body } = parseMarkdown(raw);
+        const html = renderMd(body);
+        document.getElementById("page-content").removeAttribute("data-layout");
+        updatePageMeta({
+          title: frontmatter.title || docName,
+          description: frontmatter.summary || frontmatter.description || "",
+          author: frontmatter.author || "",
+        });
+        showContent(
+          `<div class="article-body">${html}</div>${contentFooter(frontmatter.author)}`,
+        );
+        initArticleImages();
+        initSortableTables();
+        initContentLinks();
+        scrollToAnchor();
+      } catch {
+        showContent('<div class="empty-state"><h3>Documentation page not found</h3></div>');
+      }
+      return;
+    }
+    
+    // Handle regular pages
     const page = state.pages.find((p) => p.slug === slug);
     const path = page ? page.path : `content/pages/${slug}.md`;
     try {
@@ -2930,10 +3174,25 @@
         description: frontmatter.summary || frontmatter.description || "",
         author: frontmatter.author || "",
       });
-      showContent(
-        `<div class="article-body">${html}</div>${contentFooter(frontmatter.author)}`,
-      );
+      
+      // Add documentation section for About page
+      let content = `<div class="article-body">${html}</div>`;
+      if (slug === "about" && state.docs && state.docs.length > 0) {
+        content += '<section class="docs-section"><h2>Documentation</h2>';
+        content += '<div class="docs-grid">';
+        for (const doc of state.docs) {
+          content += `<a href="#/doc/${doc.slug.substring(4)}" class="doc-card glass">
+            <h3>${escapeHtml(doc.title)}</h3>
+            <p>${escapeHtml(doc.summary || "")}</p>
+          </a>`;
+        }
+        content += '</div></section>';
+      }
+      content += contentFooter(frontmatter.author);
+      
+      showContent(content);
       initArticleImages();
+      initSortableTables();
       initContentLinks();
       scrollToAnchor();
     } catch {
@@ -4357,6 +4616,7 @@
       (parts[0] === "portfolio" && !!parts[1]) ||
       parts[0] === "profile" ||
       parts[0] === "about" ||
+      parts[0] === "doc" ||
       (parts.length === 1 &&
         parts[0] &&
         ![
@@ -4370,6 +4630,7 @@
           "category",
           "profile",
           "about",
+          "doc",
         ].includes(parts[0]));
     if (needsMarkdown) {
       await ensureMarkdownVendorLoaded();
@@ -4396,6 +4657,8 @@
       renderCategoryPosts(decodeURIComponent(parts[1]));
     else if (parts[0] === "profile") await renderProfile();
     else if (parts[0] === "about") await renderPage("about");
+    else if (parts[0] === "doc" && parts[1])
+      await renderPage(`doc/${parts[1]}`);
     else await renderPage(parts[0]);
   }
 

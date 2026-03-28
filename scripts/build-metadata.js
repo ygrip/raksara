@@ -190,10 +190,15 @@ async function buildMetadata() {
     if (!parsed) continue;
     const { data, content } = parsed;
     const section = file.split(path.sep)[0];
-    const slug =
+    let slug =
       section === "blog"
         ? file.replace(/^blog\//, "").replace(/\.md$/, "")
         : path.basename(file, ".md");
+
+    // Handle doc/ subdirectory in pages
+    if (section === "pages" && file.includes("doc/")) {
+      slug = `doc/${path.basename(file, ".md")}`;
+    }
 
     titleMap[`content/${file}`] = data.title || slug;
 
@@ -257,6 +262,17 @@ async function buildMetadata() {
     }
   }
 
+  // Separate docs from pages
+  const docs = [];
+  const regularPages = [];
+  for (const page of pages) {
+    if (page.slug.startsWith("doc/")) {
+      docs.push(page);
+    } else {
+      regularPages.push(page);
+    }
+  }
+
   posts.sort((a, b) => new Date(b.date) - new Date(a.date));
   galleryItems.sort((a, b) => new Date(b.date) - new Date(a.date));
   thoughts.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -304,7 +320,8 @@ async function buildMetadata() {
   write("portfolio.json", portfolioItems);
   write("gallery.json", galleryItems);
   write("thoughts.json", thoughts);
-  write("pages.json", pages);
+  write("pages.json", regularPages);
+  write("docs.json", docs);
   write("tags.json", tags);
   write("categories.json", categories);
   write("search-index.json", searchIndex);

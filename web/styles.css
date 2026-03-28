@@ -523,6 +523,258 @@ body {
     font-weight: 500;
 }
 
+.breadcrumb-ellipsis {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 0 4px;
+    font-size: 13px;
+    transition: color var(--transition);
+}
+
+.breadcrumb-ellipsis:hover {
+    color: var(--accent);
+}
+
+/* ── Panel Component ────────────────────────────────────── */
+
+.panel {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin: 20px 0;
+    padding: 14px 16px;
+    border-radius: var(--radius-md);
+    border-left: 3px solid transparent;
+}
+
+.panel.panel-info {
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-glass);
+    border-left-color: #3b82f6;
+}
+
+.panel.panel-note {
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-glass);
+    border-left-color: #8b5cf6;
+}
+
+.panel.panel-warning {
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-glass);
+    border-left-color: #f59e0b;
+}
+
+.panel.panel-error {
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-glass);
+    border-left-color: #ef4444;
+}
+
+.panel.panel-success {
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-glass);
+    border-left-color: var(--accent);
+}
+
+.panel-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    color: currentColor;
+}
+
+.panel-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.panel-body {
+    flex: 1;
+    color: var(--text-secondary);
+}
+
+.panel-body > :first-child {
+    margin-top: 0;
+}
+
+.panel-body > :last-child {
+    margin-bottom: 0;
+}
+
+/* ── Container Component ──────────────────────────────── */
+
+.custom-container {
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin: 20px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    overflow: auto;
+    max-height: 480px;
+    max-width: 100%;
+}
+
+.custom-container > * {
+    min-width: 0;
+}
+
+/* ── Chip Component ──────────────────────────────────── */
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-glass);
+    font-size: 12px;
+    white-space: nowrap;
+    color: var(--text-secondary);
+}
+
+.chip-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    color: var(--accent);
+}
+
+.chip-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.chip-icon-text {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+}
+
+.chip-label {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.chip-text {
+    color: var(--text-secondary);
+}
+
+/* ── Table Sorting ────────────────────────────────────── */
+
+.table-scroll-wrap {
+    overflow-x: auto;
+    margin: 20px -20px;
+    padding: 0 20px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.article-body table th {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color var(--transition);
+}
+
+.article-body table th:hover {
+    background: var(--bg-card);
+    opacity: 0.8;
+}
+
+.article-body table th[aria-sort="ascending"],
+.article-body table th[aria-sort="descending"] {
+    background: var(--accent-subtle);
+}
+
+.sort-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 4px;
+    opacity: 0.6;
+}
+
+/* ── Documentation Section ────────────────────────────── */
+
+.docs-section {
+    margin-top: 48px;
+    padding-top: 32px;
+    border-top: 1px solid var(--border-color);
+}
+
+.docs-section h2 {
+    margin-bottom: 24px;
+    color: var(--text-primary);
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.docs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 0;
+}
+
+.doc-card {
+    display: block;
+    padding: 20px;
+    border-radius: var(--radius-md);
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-glass);
+    text-decoration: none;
+    color: inherit;
+    transition: all var(--transition);
+}
+
+.doc-card:hover {
+    border-color: var(--accent);
+    background: var(--bg-card);
+}
+
+.doc-card h3 {
+    margin: 0 0 8px 0;
+    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.doc-card p {
+    margin: 0;
+    color: var(--text-tertiary);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
 /* ── Blog Directory Folders ─────────────────────────────── */
 
 .blog-dir-folders {
