@@ -709,7 +709,19 @@
       breaks: opts.breaks || false,
       gfm: true,
     });
-    const preprocessed = preprocessCustomComponents(preprocessCustomChips(preprocessCustomContainers(preprocessCustomPanels(preprocessChapters(preprocessToc(preprocessFileAttachments(md)))))));
+    // Protect fenced code blocks and inline code from custom preprocessors
+    const codeBlocks = [];
+    let protected_md = md
+      .replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?\n\1[ \t]*$/gm, (m) => {
+        codeBlocks.push(m);
+        return `\x02RAKSARA_CB_${codeBlocks.length - 1}\x03`;
+      })
+      .replace(/`[^`\n]+`/g, (m) => {
+        codeBlocks.push(m);
+        return `\x02RAKSARA_CB_${codeBlocks.length - 1}\x03`;
+      });
+    const restore = (s) => s.replace(/\x02RAKSARA_CB_(\d+)\x03/g, (_, i) => codeBlocks[parseInt(i)]);
+    const preprocessed = restore(preprocessCustomComponents(preprocessCustomChips(preprocessCustomContainers(preprocessCustomPanels(preprocessChapters(preprocessToc(preprocessFileAttachments(protected_md))))))));
     const rawHtml = marked.parse(preprocessed);
     return injectCustomComponents(injectChips(injectContainers(injectPanels(injectToc(rawHtml)))));
   }
@@ -1003,6 +1015,37 @@
     });
   }
 
+  function initComponentLists() {
+    document.querySelectorAll(".component-list-search").forEach((input) => {
+      if (input.dataset.bound === "1") return;
+      input.dataset.bound = "1";
+      const listId = input.getAttribute("data-list");
+      const list = listId ? document.getElementById(listId) : null;
+      if (!list) return;
+      input.addEventListener("input", () => {
+        const q = input.value.trim().toLowerCase();
+        const cards = list.querySelectorAll(".component-card");
+        let visible = 0;
+        cards.forEach((card) => {
+          const title = (card.getAttribute("data-title") || "").toLowerCase();
+          const desc = (card.getAttribute("data-desc") || "").toLowerCase();
+          const match = !q || title.includes(q) || desc.includes(q);
+          card.style.display = match ? "" : "none";
+          if (match) visible++;
+        });
+        // Show/hide empty state
+        let empty = list.querySelector(".component-list-empty");
+        if (!empty) {
+          empty = document.createElement("p");
+          empty.className = "component-list-empty";
+          empty.textContent = "No components match your search.";
+          list.appendChild(empty);
+        }
+        empty.style.display = visible === 0 ? "" : "none";
+      });
+    });
+  }
+
   // ── Rendering Helpers ─────────────────────────────────
 
   function showContent(html) {
@@ -1013,6 +1056,7 @@
     normalizeLegacyRouteLinks(el);
     initTocBlocks();
     initChaptersBlocks();
+    initComponentLists();
     requestAnimationFrame(() => {
       el.style.transition = "opacity 0.3s ease, transform 0.3s ease";
       el.style.opacity = "1";
@@ -1447,17 +1491,22 @@
       const allEntries = [...(state.docs || []), ...(state.pages || [])];
       const matching = allEntries.filter(e => e.path && e.path.startsWith(prefix));
       if (matching.length === 0) return "";
-      let out = '<div class="component-list">';
+      const listId = `cl-${Math.random().toString(36).substr(2, 8)}`;
+      let out = `<div class="component-list-wrap">`;
+      out += `<div class="component-list-search-wrap"><input class="component-list-search" type="search" placeholder="Filter components…" aria-label="Filter components" data-list="${listId}"></div>`;
+      out += `<div class="component-list" id="${listId}">`;
       for (const entry of matching) {
         const title = escapeHtml(entry.title || "Untitled");
         const desc = escapeHtml(entry.summary || entry.description || "");
         const icon = entry.icon || "";
         const status = entry.status || "";
         const href = `#/${entry.slug}`;
-        out += `<div class="component-card glass">`;
+        out += `<a href="${href}" class="component-card glass"`;
+        out += ` data-title="${escapeHtml((entry.title || "").toLowerCase())}" data-desc="${escapeHtml((entry.summary || entry.description || "").toLowerCase())}"`;
+        out += `>`;
         out += `<div class="component-card-header">`;
         if (icon) out += `<span class="component-card-icon">${escapeHtml(icon)}</span>`;
-        out += `<a href="${href}" class="component-card-title">${title}</a>`;
+        out += `<span class="component-card-title">${title}</span>`;
         if (status) {
           const statusClass = "status-" + status.toLowerCase().replace(/\s+/g, "-");
           out += `<span class="component-card-status ${escapeHtml(statusClass)}">${escapeHtml(status)}</span>`;
@@ -1465,11 +1514,11 @@
         out += `</div>`;
         if (desc) out += `<p class="component-card-desc">${desc}</p>`;
         out += `<div class="component-card-footer">`;
-        out += `<a href="${href}" class="component-card-link">See more →</a>`;
+        out += `<span class="component-card-link">See more →</span>`;
         out += `</div>`;
-        out += `</div>`;
+        out += `</a>`;
       }
-      out += '</div>';
+      out += '</div></div>';
       return out;
     });
   }

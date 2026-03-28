@@ -6,6 +6,9 @@ status: "available"
 previous_page:
   title: "Video Player"
   link: "#/doc/video"
+next_page:
+  title: "Component List"
+  link: "#/doc/component"
 ---
 
 # Chapters Table

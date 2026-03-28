@@ -780,11 +780,48 @@ body {
 
 /* ── ::component Card List ──────────────────────────────── */
 
+.component-list-wrap {
+    margin: 20px 0;
+}
+
+.component-list-search-wrap {
+    margin-bottom: 14px;
+}
+
+.component-list-search {
+    width: 100%;
+    padding: 9px 14px;
+    font-size: 13px;
+    border-radius: var(--radius-md);
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color var(--transition);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-sizing: border-box;
+}
+
+.component-list-search:focus {
+    border-color: var(--accent);
+}
+
+.component-list-search::placeholder {
+    color: var(--text-tertiary);
+}
+
 .component-list {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    margin: 20px 0;
+    gap: 12px;
+}
+
+.component-list-empty {
+    color: var(--text-tertiary);
+    font-size: 13px;
+    padding: 12px 0;
+    margin: 0;
 }
 
 .component-card {
@@ -798,11 +835,18 @@ body {
     border: 1px solid var(--border-glass);
     transition: border-color var(--transition), background var(--transition);
     gap: 10px;
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
 }
 
 .component-card:hover {
     border-color: var(--accent);
     background: var(--bg-card);
+}
+
+.component-card:hover .component-card-link {
+    opacity: 0.7;
 }
 
 .component-card-header {
@@ -823,11 +867,6 @@ body {
     font-size: 16px;
     font-weight: 600;
     color: var(--text-primary);
-    text-decoration: none;
-}
-
-.component-card-title:hover {
-    color: var(--accent);
 }
 
 .component-card-status {
