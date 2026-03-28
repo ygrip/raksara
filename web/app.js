@@ -2954,6 +2954,25 @@
     return defaultPages.includes(pageType);
   }
 
+  function getGiscusTheme(theme) {
+    return theme === "light" ? "light" : "dark_dimmed";
+  }
+
+  function syncGiscusTheme(theme) {
+    const iframe = document.querySelector(".giscus-frame");
+    if (!iframe || !iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(
+      {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme),
+          },
+        },
+      },
+      "https://giscus.app",
+    );
+  }
+
   function initGiscus(term) {
     const cfg = state.config && state.config.comments;
     if (!cfg || !cfg.enabled) return;
@@ -2977,7 +2996,12 @@
           script.setAttribute("data-reactions-enabled", cfg.reactions_enabled ? "1" : "0");
           script.setAttribute("data-emit-metadata", cfg.emit_metadata ? "1" : "0");
           script.setAttribute("data-input-position", cfg.input_position || "top");
-          script.setAttribute("data-theme", "preferred_color_scheme");
+          script.setAttribute(
+            "data-theme",
+            getGiscusTheme(
+              document.documentElement.getAttribute("data-theme") || "dark",
+            ),
+          );
           script.setAttribute("data-lang", cfg.lang || "en");
           script.setAttribute("data-loading", "lazy");
           script.crossOrigin = "anonymous";
@@ -4674,6 +4698,7 @@
     localStorage.setItem("raksara-theme", theme);
     syncThemeIcons(theme);
     applyAccentColor(getConfiguredAccentColor(state.config));
+    syncGiscusTheme(theme);
     const hljsDark = document.getElementById("hljs-dark");
     const hljsLight = document.getElementById("hljs-light");
     if (hljsDark) hljsDark.disabled = theme === "light";

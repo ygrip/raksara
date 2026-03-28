@@ -4053,6 +4053,18 @@ body.reading-mode .reading-mode-btn {
     border-radius: var(--radius-lg);
 }
 
+[data-theme="light"] .giscus-container {
+    background: rgba(255, 255, 255, 0.72);
+    border-color: rgba(0, 0, 0, 0.08);
+    box-shadow: 0 10px 36px rgba(15, 23, 42, 0.06);
+}
+
+[data-theme="dark"] .giscus-container {
+    background: rgba(15, 23, 42, 0.22);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+}
+
 .giscus-container .giscus,
 .giscus-container .giscus-frame {
     width: 100%;
