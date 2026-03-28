@@ -672,6 +672,63 @@ When this field is set, build output will include:
 
 If `adsense` is missing, `ads.txt` is not generated.
 
+### Giscus Comments (GitHub Discussions)
+
+Raksara supports optional comments using [Giscus](https://giscus.app/) on detail pages.
+
+- **Default behavior**: enabled for blog post detail (`/blog/post/*`) and portfolio detail (`/portfolio/*`)
+- **Lazy loading**: the Giscus script is only injected when the comments area is near the viewport
+- **Stable mapping**: uses `data-mapping="specific"` with a path term per page
+
+Add this block in `raksara.yml`:
+
+```yaml
+comments:
+  enabled: true
+  repo: ygrip/raksara
+  repo_id: R_kgDORhluFg
+  category: Q&A
+  category_id: DIC_kwDORhluFs4C5dRd
+  strict: true
+  reactions_enabled: true
+  emit_metadata: false
+  input_position: top
+  lang: en
+  pages:
+    - blog
+    - portfolio
+```
+
+Field notes:
+
+| Field | Required | Description |
+|---|---|---|
+| `enabled` | Yes | Global on/off switch for comments |
+| `repo` | Yes | GitHub repo in `owner/name` format |
+| `repo_id` | Yes | Giscus repository ID |
+| `category` | Yes | Discussion category name |
+| `category_id` | Yes | Discussion category ID |
+| `strict` | No | `true` for strict term matching |
+| `reactions_enabled` | No | Enable GitHub reactions in comment thread |
+| `emit_metadata` | No | Emit metadata events from Giscus iframe |
+| `input_position` | No | `top` or `bottom` |
+| `lang` | No | UI language (for example `en`) |
+| `pages` | No | Defaults to `blog` and `portfolio` when omitted |
+
+#### Per-Content Override (`comments_enabled`)
+
+You can override comment visibility from frontmatter for a single post/project:
+
+```yaml
+comments_enabled: false
+```
+
+Rules:
+
+- `comments_enabled: false` → comments are hidden for that page
+- `comments_enabled: true` → force-enable comments for that page (if global `enabled: true`)
+- not set → fallback to default page rules (`pages` list)
+
 ---
 
 ## 9. Sharing
@@ -706,5 +763,6 @@ sheet instead.
 | Add a static page | `pages/slug.md` |
 | Upload an image | `assets/images/filename.ext` |
 | Change accent color | `raksara.yml` → `color: blue` |
+| Disable comments on one post | Frontmatter → `comments_enabled: false` |
 | Link to another post | `[text](/blog/slug)` |
 | Link to a heading | `[text](/blog/slug#heading-id)` |

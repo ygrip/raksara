@@ -20,6 +20,7 @@ A GitHub-native static content platform that transforms a repository into a blog
 - **Navigation Tree** — Auto-generated content tree sidebar
 - **Light/Dark Theme** — Glassmorphism UI with animated gradients
 - **Configurable Accent Color** — Choose from 6 color presets (purple, blue, red, yellow, green, orange) via `raksara.yml`
+- **Giscus Comments (Optional)** — GitHub Discussions-powered comments for blog and portfolio detail pages, configurable via `raksara.yml` with per-post override
 - **Share Anywhere** — Share button on posts, directories, gallery, thoughts, and portfolio pages; copies `Title : URL` to clipboard or opens native share sheet
 - **GitHub Pages** — Automatic deployment via GitHub Actions
 

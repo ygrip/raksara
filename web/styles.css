@@ -4041,6 +4041,23 @@ body.reading-mode .reading-mode-btn {
     }
 }
 
+/* ── Giscus Comments ─────────────────────────────────────── */
+
+.giscus-container {
+    margin-top: 48px;
+    padding: 24px;
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-lg);
+}
+
+.giscus-container .giscus,
+.giscus-container .giscus-frame {
+    width: 100%;
+}
+
 /* ── Reduced Motion ──────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {

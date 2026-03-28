@@ -1622,7 +1622,7 @@
       const makeChip = (d) => {
         const fullDir = dirPath ? dirPath + "/" + d : d;
         const childDir = state.blogDirs[fullDir];
-        const count = childDir ? childDir.posts.length + childDir.subdirs.length : 0;
+        const count = childDir ? childDir.posts.length : 0;
         const rawLabel = String(d || "").toLowerCase();
         const humanLabel = humanize(d).toLowerCase();
         return `<a href="#/blog/dir/${fullDir}" class="blog-dir-chip" data-subdir-name="${escapeHtml(rawLabel)}" data-subdir-human="${escapeHtml(humanLabel)}">
@@ -2113,6 +2113,11 @@
             })}></div>`
           : "";
 
+      const showGiscus = shouldShowGiscus(frontmatter, "blog");
+      const giscusHtml = showGiscus
+        ? '<div class="giscus-container"><div id="giscus-sentinel"></div></div>'
+        : "";
+
       if (layout.bodyClass)
         document
           .getElementById("page-content")
@@ -2133,6 +2138,7 @@
         ${coverHtml}
         ${bodyHtml}
         ${postNavHtml}
+        ${giscusHtml}
         ${contentFooter(frontmatter.author)}
       `);
       updatePageMeta({
@@ -2171,6 +2177,7 @@
       initArticleImages();
       initContentLinks();
       scrollToAnchor();
+      if (showGiscus) initGiscus(`/blog/post/${slug}`);
     } catch {
       showContent(
         '<div class="empty-state"><h3>Failed to load post</h3></div>',
@@ -2346,6 +2353,11 @@
         links.push(
           `<a href="${escapeHtml(item.demo)}" class="btn-demo" target="_blank" rel="noopener"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 3h7v7M13 3L6 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Live Demo</a>`,
         );
+      const showGiscusPortfolio = shouldShowGiscus(frontmatter, "portfolio");
+      const giscusPortfolioHtml = showGiscusPortfolio
+        ? '<div class="giscus-container"><div id="giscus-sentinel"></div></div>'
+        : "";
+
       document.getElementById("page-content").removeAttribute("data-layout");
       showContent(`
         <div class="article-top-bar">
@@ -2362,6 +2374,7 @@
           ${links.length ? `<div class="portfolio-detail-links">${links.join("")}</div>` : ""}
         </div>
         <div class="article-body">${html}</div>
+        ${giscusPortfolioHtml}
         ${contentFooter(frontmatter.author)}
       `);
       const portfolioCoverUrl = resolvePath(frontmatter.cover || item.cover) || "";
@@ -2384,6 +2397,7 @@
       initArticleImages();
       initContentLinks();
       scrollToAnchor();
+      if (showGiscusPortfolio) initGiscus(`/portfolio/${slug}`);
     } catch {
       showContent(
         '<div class="empty-state"><h3>Failed to load project</h3></div>',
@@ -2928,6 +2942,53 @@
   }
 
   // ── Content Footer ──────────────────────────────────────
+
+  // ── Giscus Comments ──────────────────────────────────────
+
+  function shouldShowGiscus(frontmatter, pageType) {
+    const cfg = state.config && state.config.comments;
+    if (!cfg || !cfg.enabled) return false;
+    if (frontmatter.comments_enabled === false) return false;
+    if (frontmatter.comments_enabled === true) return true;
+    const defaultPages = Array.isArray(cfg.pages) ? cfg.pages : ["blog", "portfolio"];
+    return defaultPages.includes(pageType);
+  }
+
+  function initGiscus(term) {
+    const cfg = state.config && state.config.comments;
+    if (!cfg || !cfg.enabled) return;
+    const sentinel = document.getElementById("giscus-sentinel");
+    if (!sentinel) return;
+    let loaded = false;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loaded) {
+          loaded = true;
+          observer.disconnect();
+          const script = document.createElement("script");
+          script.src = "https://giscus.app/client.js";
+          script.setAttribute("data-repo", cfg.repo);
+          script.setAttribute("data-repo-id", cfg.repo_id);
+          script.setAttribute("data-category", cfg.category);
+          script.setAttribute("data-category-id", cfg.category_id);
+          script.setAttribute("data-mapping", "specific");
+          script.setAttribute("data-term", term);
+          script.setAttribute("data-strict", cfg.strict ? "1" : "0");
+          script.setAttribute("data-reactions-enabled", cfg.reactions_enabled ? "1" : "0");
+          script.setAttribute("data-emit-metadata", cfg.emit_metadata ? "1" : "0");
+          script.setAttribute("data-input-position", cfg.input_position || "top");
+          script.setAttribute("data-theme", "preferred_color_scheme");
+          script.setAttribute("data-lang", cfg.lang || "en");
+          script.setAttribute("data-loading", "lazy");
+          script.crossOrigin = "anonymous";
+          script.async = true;
+          sentinel.appendChild(script);
+        }
+      },
+      { rootMargin: "300px" },
+    );
+    observer.observe(sentinel);
+  }
 
   function contentFooter(frontmatterAuthor) {
     const author =

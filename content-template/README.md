@@ -11,7 +11,7 @@ your-content-repo/
   pages/          # Static pages like profile.md, about.md
   assets/
     images/       # Images referenced in your content
-  raksara.yml     # Site configuration (accent color, etc.)
+  raksara.yml     # Site configuration (accent color, hero, SEO, optional comments)
 ```
 
 Copy this structure into your own private content repository. See the main
