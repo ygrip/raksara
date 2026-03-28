@@ -710,18 +710,17 @@
       gfm: true,
     });
     // Protect fenced code blocks and inline code from custom preprocessors
-    const codeBlocks = [];
+    renderCodeBlocks.length = 0;
     let protected_md = md
       .replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?\n\1[ \t]*$/gm, (m) => {
-        codeBlocks.push(m);
-        return `\x02RAKSARA_CB_${codeBlocks.length - 1}\x03`;
+        renderCodeBlocks.push(m);
+        return `\x02RAKSARA_CB_${renderCodeBlocks.length - 1}\x03`;
       })
       .replace(/`[^`\n]+`/g, (m) => {
-        codeBlocks.push(m);
-        return `\x02RAKSARA_CB_${codeBlocks.length - 1}\x03`;
+        renderCodeBlocks.push(m);
+        return `\x02RAKSARA_CB_${renderCodeBlocks.length - 1}\x03`;
       });
-    const restore = (s) => s.replace(/\x02RAKSARA_CB_(\d+)\x03/g, (_, i) => codeBlocks[parseInt(i)]);
-    const preprocessed = restore(preprocessCustomComponents(preprocessCustomChips(preprocessCustomContainers(preprocessCustomPanels(preprocessChapters(preprocessToc(preprocessFileAttachments(protected_md))))))));
+    const preprocessed = restoreRenderCodeBlocks(preprocessCustomComponents(preprocessCustomChips(preprocessCustomContainers(preprocessCustomPanels(preprocessChapters(preprocessToc(preprocessFileAttachments(protected_md))))))));
     const rawHtml = marked.parse(preprocessed);
     return injectCustomComponents(injectChips(injectContainers(injectPanels(injectToc(rawHtml)))));
   }
@@ -1357,6 +1356,13 @@
 
   // ── Custom Element: PANEL ────────────────────────────────
 
+  // Module-scope code-block vault — populated during renderMd so inject
+  // functions (injectPanels, injectContainers) can restore inline/fenced
+  // code that was hidden before preprocessors ran.
+  const renderCodeBlocks = [];
+  const restoreRenderCodeBlocks = (s) =>
+    s.replace(/\x02RAKSARA_CB_(\d+)\x03/g, (_, i) => renderCodeBlocks[parseInt(i, 10)] || "");
+
   const panelStorage = [];
 
   function preprocessCustomPanels(md) {
@@ -1373,7 +1379,7 @@
       const index = parseInt(indexStr, 10);
       if (index < 0 || index >= panelStorage.length) return match;
       const { type, content } = panelStorage[index];
-      const panelContent = marked.parse(content);
+      const panelContent = marked.parse(restoreRenderCodeBlocks(content));
       const icons = {
         info: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M8 5.5v4M8 4v0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
         note: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" stroke-width="1.2"/><path d="M4 5h8M4 8.5h8M4 12h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
@@ -1403,7 +1409,7 @@
     return html.replace(/\[\[RAKSARA_CONTAINER:(\d+)\]\]/g, (match, indexStr) => {
       const index = parseInt(indexStr, 10);
       if (index < 0 || index >= containerStorage.length) return match;
-      const content = marked.parse(containerStorage[index]);
+      const content = marked.parse(restoreRenderCodeBlocks(containerStorage[index]));
       return `<div class="custom-container glass">${content}</div>`;
     });
   }
@@ -1514,7 +1520,7 @@
         out += `</div>`;
         if (desc) out += `<p class="component-card-desc">${desc}</p>`;
         out += `<div class="component-card-footer">`;
-        out += `<span class="component-card-link">See more →</span>`;
+        out += `<span class="component-card-link">See detail →</span>`;
         out += `</div>`;
         out += `</a>`;
       }

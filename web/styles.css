@@ -790,21 +790,21 @@ body {
 
 .component-list-search {
     width: 100%;
-    padding: 9px 14px;
-    font-size: 13px;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 500;
     border-radius: var(--radius-md);
-    background: var(--bg-glass);
-    border: 1px solid var(--border-glass);
+    background: var(--bg-card);
+    border: 1.5px solid var(--border-glass);
     color: var(--text-primary);
     outline: none;
-    transition: border-color var(--transition);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    transition: border-color var(--transition), box-shadow var(--transition);
     box-sizing: border-box;
 }
 
 .component-list-search:focus {
     border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.15);
 }
 
 .component-list-search::placeholder {
@@ -838,6 +838,7 @@ body {
     text-decoration: none;
     color: inherit;
     cursor: pointer;
+    -webkit-text-decoration: none;
 }
 
 .component-card:hover {
