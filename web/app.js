@@ -3205,8 +3205,41 @@
           description: frontmatter.summary || frontmatter.description || "",
           author: frontmatter.author || "",
         });
+
+        // Breadcrumb: Documentation → current title
+        const breadcrumbHtml = `<nav class="breadcrumbs">
+          <a href="#/documentation">Documentation</a>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">${escapeHtml(frontmatter.title || docName)}</span>
+        </nav>`;
+
+        // Next / previous page navigation
+        const np = frontmatter.next_page;
+        const pp = frontmatter.previous_page;
+        const nextPage = Array.isArray(np) && np.length ? np[0] : (typeof np === "object" && np ? np : null);
+        const prevPage = Array.isArray(pp) && pp.length ? pp[0] : (typeof pp === "object" && pp ? pp : null);
+        let docNavHtml = "";
+        if (prevPage || nextPage) {
+          docNavHtml = '<div class="post-nav">';
+          if (prevPage && prevPage.link) {
+            docNavHtml += `<a href="${escapeHtml(prevPage.link)}" class="post-nav-link prev">
+              <span class="post-nav-label">\u2190 Previous</span>
+              <span class="post-nav-title">${escapeHtml(prevPage.title || "Previous")}</span>
+            </a>`;
+          } else {
+            docNavHtml += "<div></div>";
+          }
+          if (nextPage && nextPage.link) {
+            docNavHtml += `<a href="${escapeHtml(nextPage.link)}" class="post-nav-link next">
+              <span class="post-nav-label">Next \u2192</span>
+              <span class="post-nav-title">${escapeHtml(nextPage.title || "Next")}</span>
+            </a>`;
+          }
+          docNavHtml += "</div>";
+        }
+
         showContent(
-          `<div class="article-body">${html}</div>${contentFooter(frontmatter.author)}`,
+          `${breadcrumbHtml}<div class="article-body">${html}</div>${docNavHtml}${contentFooter(frontmatter.author)}`,
         );
         initArticleImages();
         initSortableTables();

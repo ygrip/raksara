@@ -3,6 +3,12 @@ title: "Sortable Tables"
 summary: "Interactive columns with ascending, descending, and reset sorting"
 icon: "📊"
 status: "available"
+previous_page:
+  title: "Container Component"
+  link: "#/doc/container"
+next_page:
+  title: "File Attachment"
+  link: "#/doc/file"
 ---
 
 # Sortable Tables

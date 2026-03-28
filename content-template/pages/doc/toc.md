@@ -3,6 +3,9 @@ title: "Table of Contents"
 summary: "Auto-generated heading index with bullet or numbered list, collapsible by default"
 icon: "📑"
 status: "available"
+next_page:
+  title: "Panel Component"
+  link: "#/doc/panel"
 ---
 
 # Table of Contents

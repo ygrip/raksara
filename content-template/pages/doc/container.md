@@ -3,6 +3,12 @@ title: "Container Component"
 summary: "Glassmorphism flex containers with scrolling"
 icon: "📦"
 status: "available"
+previous_page:
+  title: "Chip Component"
+  link: "#/doc/chip"
+next_page:
+  title: "Sortable Tables"
+  link: "#/doc/table"
 ---
 
 # Container Component

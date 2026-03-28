@@ -3,6 +3,9 @@ title: "Chapters Table"
 summary: "Sortable post listing from a blog directory, with expandable subdirectory rows and pagination"
 icon: "📚"
 status: "available"
+previous_page:
+  title: "Video Player"
+  link: "#/doc/video"
 ---
 
 # Chapters Table

@@ -3,6 +3,12 @@ title: "File Attachment"
 summary: "Downloadable file cards with icon, filename, extension badge, and auto-fetched file size"
 icon: "📎"
 status: "available"
+previous_page:
+  title: "Sortable Tables"
+  link: "#/doc/table"
+next_page:
+  title: "Video Player"
+  link: "#/doc/video"
 ---
 
 # File Attachment

@@ -3,6 +3,12 @@ title: "Chip Component"
 summary: "Compact pill-shaped badges with icons and labels"
 icon: "🏷️"
 status: "available"
+previous_page:
+  title: "Panel Component"
+  link: "#/doc/panel"
+next_page:
+  title: "Container Component"
+  link: "#/doc/container"
 ---
 
 # Chip Component

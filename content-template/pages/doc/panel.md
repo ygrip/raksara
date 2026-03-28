@@ -3,6 +3,12 @@ title: "Panel Component"
 summary: "Styled content blocks with icons and color coding"
 icon: "📌"
 status: "available"
+previous_page:
+  title: "Table of Contents"
+  link: "#/doc/toc"
+next_page:
+  title: "Chip Component"
+  link: "#/doc/chip"
 ---
 
 # Panel Component

@@ -3,6 +3,12 @@ title: "Video Player"
 summary: "Thumbnail preview with a play button overlay that opens a video URL on click"
 icon: "🎬"
 status: "available"
+previous_page:
+  title: "File Attachment"
+  link: "#/doc/file"
+next_page:
+  title: "Chapters Table"
+  link: "#/doc/chapters"
 ---
 
 # Video Player
