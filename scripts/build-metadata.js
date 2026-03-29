@@ -942,11 +942,11 @@ function buildLogoIconMarkup(siteConfig, siteName, options = {}) {
 
   if (!logoPath || /^https?:\/\//i.test(logoPath) || logoPath.startsWith("data:")) {
     if (resolvedLogoPath) {
-      return `<img src="${escapeHtml(resolvedLogoPath)}" alt="${escapeHtml(siteName)}" width="${size}" height="${size}" loading="eager" decoding="async">`;
+      return `<img src="${escapeHtml(resolvedLogoPath)}" alt="${escapeHtml(siteName)}" width="${size}" height="${size}" loading="eager" decoding="async" fetchpriority="high">`;
     }
     return "&#9670;";
   }
-  return `<img src="${escapeHtml(resolvedLogoPath)}" alt="${escapeHtml(siteName)}" width="${size}" height="${size}" loading="eager" decoding="async">`;
+  return `<img src="${escapeHtml(resolvedLogoPath)}" alt="${escapeHtml(siteName)}" width="${size}" height="${size}" loading="eager" decoding="async" fetchpriority="high">`;
 }
 
 function build404IllustrationMarkup(palette) {
@@ -1091,6 +1091,27 @@ function getRouteMeta(route, context) {
   return { ...meta, title: `${humanizeSlug(parts[0] || siteName)} — ${siteName}`, robots: "noindex, nofollow" };
 }
 
+function extractCriticalCssSync() {
+  try {
+    const cssPath = path.join(WEB_DIR, "styles.css");
+    if (!fs.existsSync(cssPath)) return "";
+    const css = fs.readFileSync(cssPath, "utf-8");
+    const marker = "/* END CRITICAL CSS */";
+    const markerIdx = css.indexOf(marker);
+    const criticalRaw = markerIdx !== -1 ? css.slice(0, markerIdx) : "";
+    if (!criticalRaw.trim()) return "";
+    // Minify inline: collapse whitespace, strip comments (keep /* END CRITICAL CSS */ already excluded)
+    return criticalRaw
+      .replace(/\/\*[\s\S]*?\*\//g, "")     // strip block comments
+      .replace(/\s{2,}/g, " ")              // collapse whitespace
+      .replace(/\s*([{};:,>+~])\s*/g, "$1") // remove space around punctuation
+      .replace(/;\s*}/g, "}")               // remove trailing semicolons
+      .trim();
+  } catch {
+    return "";
+  }
+}
+
 function buildShellHtml(srcHtml, { baseHref, route, context }) {
   const siteConfig = context.siteConfig || {};
   const adsenseConfig = parseAdsenseConfig(siteConfig);
@@ -1127,6 +1148,10 @@ function buildShellHtml(srcHtml, { baseHref, route, context }) {
   html = upsertMetaTag(html, "name", "twitter:image", routeMeta.image || "");
   if (adsenseConfig && adsenseConfig.accountId) {
     html = upsertMetaTag(html, "name", "google-adsense-account", adsenseConfig.accountId);
+    // Inject AdSense async loader script before </head> if not already present
+    if (!html.includes("pagead2.googlesyndication.com")) {
+      html = html.replace("</head>", `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseConfig.accountId}" crossorigin="anonymous"></script></head>`);
+    }
   }
   html = upsertLinkTag(html, "canonical", { href: routeMeta.url });
   html = upsertLinkTag(html, "icon", { type: "image/svg+xml", href: faviconRefs.svg });
@@ -1137,6 +1162,11 @@ function buildShellHtml(srcHtml, { baseHref, route, context }) {
   html = setHtmlInlineStyle(html, buildAccentCssVariables(palette));
   html = html.replace(/<span class="logo-text">[\s\S]*?<\/span>/g, `<span class="logo-text">${escapeHtml(siteName)}</span>`);
   html = html.replace(/<span class="logo-icon">[\s\S]*?<\/span>/g, `<span class="logo-icon">${logoMarkup}</span>`);
+  // Inline critical CSS extracted from styles.css
+  const criticalCss = extractCriticalCssSync();
+  if (criticalCss) {
+    html = html.replace('<style id="raksara-critical-css"></style>', `<style id="raksara-critical-css">${criticalCss}</style>`);
+  }
   return html;
 }
 
