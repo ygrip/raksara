@@ -328,6 +328,64 @@ body {
     line-height: 1;
 }
 
+/* ── Mobile header (critical: must be in initial paint to prevent CLS) ── */
+.mobile-header {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 52px;
+    background: var(--bg-primary);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border-color);
+    z-index: 99;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+}
+
+/* ── Desktop layout (critical: prevents margin-left CLS when stylesheet loads async) ── */
+#content {
+    flex: 1;
+    margin-left: var(--sidebar-width);
+    min-height: 100vh;
+    min-width: 0;
+    position: relative;
+    z-index: 1;
+}
+.page-content {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 48px 32px 80px;
+}
+/* Reserve hero height to prevent CLS when home prerender is inlined */
+.home-hero {
+    position: relative;
+    width: calc(100vw - var(--sidebar-width));
+    margin-left: calc(-50vw + 50% + var(--sidebar-width) / 2);
+    margin-right: calc(-50vw + 50% - var(--sidebar-width) / 2);
+    margin-top: -48px;
+    height: 360px;
+    overflow: hidden;
+}
+
+@media (max-width: 768px) {
+    .mobile-header { display: flex; }
+    #content { margin-left: 0; padding-top: 52px; }
+    .home-hero {
+        width: 100vw;
+        margin-left: calc(-50vw + 50%);
+        margin-right: calc(-50vw + 50%);
+        margin-top: -52px;
+        height: 300px;
+    }
+    #sidebar { transition: none; transform: translateX(-100%); }
+    body.sidebar-ready #sidebar { transition: transform 0.3s var(--smooth); }
+    #sidebar.open { transform: translateX(0); box-shadow: 4px 0 32px var(--shadow-heavy); }
+}
+
 /* END CRITICAL CSS */
 
 /* ── Search Overlay ──────────────────────────────────────── */
@@ -3384,7 +3442,11 @@ body.reading-mode .reading-mode-btn {
         display: flex;
     }
     #sidebar {
+        transition: none;
         transform: translateX(-100%);
+    }
+    body.sidebar-ready #sidebar {
+        transition: transform 0.3s var(--smooth);
     }
     #sidebar.open {
         transform: translateX(0);

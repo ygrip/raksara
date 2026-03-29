@@ -1162,7 +1162,24 @@ function buildShellHtml(srcHtml, { baseHref, route, context }) {
   // Inline critical CSS extracted from styles.css
   const criticalCss = extractCriticalCssSync();
   if (criticalCss) {
-    html = html.replace('<style id="raksara-critical-css"></style>', `<style id="raksara-critical-css">${criticalCss}</style>`);
+    html = html.replace(/<style id="raksara-critical-css">[\s\S]*?<\/style>/, `<style id="raksara-critical-css">${criticalCss}</style>`);
+  }
+  // Inline home prerender HTML for root route to improve LCP/CLS
+  if (route === "/") {
+    try {
+      const homePrerenderPath = path.join(WEB_DIR, "metadata", "home-prerender.json");
+      if (fs.existsSync(homePrerenderPath)) {
+        const prerender = JSON.parse(fs.readFileSync(homePrerenderPath, "utf-8"));
+        if (prerender && prerender.html) {
+          html = html.replace(
+            /<div id="page-content" class="page-content"><\/div>/,
+            `<div id="page-content" class="page-content" data-prerendered="home">${prerender.html}</div>`
+          );
+        }
+      }
+    } catch (_) {
+      // If home-prerender fails to load, skip — JS will render it
+    }
   }
   return html;
 }

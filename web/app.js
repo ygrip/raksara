@@ -178,6 +178,7 @@
     categories: {},
     blogDirs: {},
     searchIndex: null,
+    searchIndexPromise: null,
     miniSearch: null,
     config: window.__RAKSARA_SITE_CONFIG__ || {},
     imageManifest: {},
@@ -199,7 +200,9 @@
     scriptPromise: null,
     bootstrapped: false,
     observer: null,
-    interactionBound: false,
+    intentHandler: null,
+    idleTimer: null,
+    idleHandle: null,
   };
   const HIGHLIGHT_LANG_ALIASES = {
     js: "javascript",
@@ -246,17 +249,59 @@
     return vendorState[key];
   }
 
-  function getAdsenseAccountId() {
-    const metaAccount = document
-      .querySelector('meta[name="google-adsense-account"]')
-      ?.getAttribute("content")
-      ?.trim();
-    if (metaAccount && /^pub-\d{6,}$/.test(metaAccount)) return metaAccount;
+  function extractAdsenseAccountId(rawValue) {
+    if (!rawValue) return "";
+    const match = String(rawValue).match(/pub-\d{6,}/i);
+    if (!match) return "";
+    const accountId = match[0].toLowerCase();
+    // Ignore placeholder values like pub-0000000000000000.
+    if (/^pub-0+$/.test(accountId)) return "";
+    return accountId;
+  }
 
-    const raw = state && state.config ? state.config.adsense : "";
-    if (!raw) return "";
-    const match = String(raw).match(/pub-\d{6,}/);
-    return match ? match[0] : "";
+  function getConfiguredAdsenseRaw() {
+    if (!state || !state.config || typeof state.config !== "object") return "";
+    if (!Object.prototype.hasOwnProperty.call(state.config, "adsense")) return "";
+    const raw = state.config.adsense;
+    if (typeof raw === "string") return raw.trim();
+    if (Array.isArray(raw)) return raw.map((entry) => String(entry || "").trim()).join(", ");
+    if (raw && typeof raw === "object") {
+      const domain = raw.domain || raw.network || raw.host || "";
+      const publisher = raw.publisher || raw.pub || raw.account || raw.publisher_id || raw.publisherId || "";
+      const relationship = raw.relationship || raw.type || raw.account_type || "";
+      const cert = raw.cert || raw.cert_id || raw.certification || raw.caid || "";
+      return [domain, publisher, relationship, cert]
+        .map((entry) => String(entry || "").trim())
+        .filter(Boolean)
+        .join(", ");
+    }
+    return String(raw || "").trim();
+  }
+
+  function getAdsenseAccountId() {
+    const raw = getConfiguredAdsenseRaw();
+    return extractAdsenseAccountId(raw);
+  }
+
+  function teardownAdsenseBootstrap() {
+    if (adsenseState.observer) {
+      adsenseState.observer.disconnect();
+      adsenseState.observer = null;
+    }
+    if (adsenseState.intentHandler) {
+      window.removeEventListener("pointerdown", adsenseState.intentHandler, true);
+      window.removeEventListener("scroll", adsenseState.intentHandler, true);
+      window.removeEventListener("keydown", adsenseState.intentHandler, true);
+      adsenseState.intentHandler = null;
+    }
+    if (adsenseState.idleHandle && "cancelIdleCallback" in window) {
+      window.cancelIdleCallback(adsenseState.idleHandle);
+      adsenseState.idleHandle = null;
+    }
+    if (adsenseState.idleTimer) {
+      clearTimeout(adsenseState.idleTimer);
+      adsenseState.idleTimer = null;
+    }
   }
 
   function hasAdsenseSlots(root = document) {
@@ -275,9 +320,8 @@
     });
   }
 
-  async function ensureAdsenseScriptLoaded() {
+  async function ensureAdsenseScriptLoaded(accountId) {
     if (adsenseState.scriptPromise) return adsenseState.scriptPromise;
-    const accountId = getAdsenseAccountId();
     if (!accountId) return Promise.resolve();
 
     adsenseState.scriptPromise = new Promise((resolve, reject) => {
@@ -294,19 +338,18 @@
   }
 
   function scheduleAdsenseBootstrap() {
-    if (adsenseState.observer) {
-      adsenseState.observer.disconnect();
-      adsenseState.observer = null;
-    }
+    teardownAdsenseBootstrap();
     adsenseState.bootstrapped = false;
 
+    const accountId = getAdsenseAccountId();
+    if (!accountId) return;
     if (!hasAdsenseSlots()) return;
 
     const bootstrap = async () => {
       if (adsenseState.bootstrapped) return;
       adsenseState.bootstrapped = true;
       try {
-        await ensureAdsenseScriptLoaded();
+        await ensureAdsenseScriptLoaded(accountId);
         hydrateAdsenseSlots();
       } catch (err) {
         console.warn("AdSense bootstrap skipped:", err && err.message ? err.message : err);
@@ -329,23 +372,25 @@
       adsenseState.observer.observe(firstSlot);
     }
 
-    if (!adsenseState.interactionBound) {
-      const onFirstIntent = () => {
-        window.removeEventListener("pointerdown", onFirstIntent, true);
-        window.removeEventListener("scroll", onFirstIntent, true);
-        window.removeEventListener("keydown", onFirstIntent, true);
-        bootstrap();
-      };
-      window.addEventListener("pointerdown", onFirstIntent, true);
-      window.addEventListener("scroll", onFirstIntent, true);
-      window.addEventListener("keydown", onFirstIntent, true);
-      adsenseState.interactionBound = true;
-    }
+    const onFirstIntent = () => {
+      teardownAdsenseBootstrap();
+      bootstrap();
+    };
+    adsenseState.intentHandler = onFirstIntent;
+    window.addEventListener("pointerdown", onFirstIntent, true);
+    window.addEventListener("scroll", onFirstIntent, true);
+    window.addEventListener("keydown", onFirstIntent, true);
 
     if ("requestIdleCallback" in window) {
-      window.requestIdleCallback(() => bootstrap(), { timeout: 4000 });
+      adsenseState.idleHandle = window.requestIdleCallback(() => {
+        adsenseState.idleHandle = null;
+        bootstrap();
+      }, { timeout: 4000 });
     } else {
-      setTimeout(bootstrap, 2500);
+      adsenseState.idleTimer = setTimeout(() => {
+        adsenseState.idleTimer = null;
+        bootstrap();
+      }, 2500);
     }
   }
 
@@ -364,6 +409,10 @@
 
   async function ensureMiniSearchReady() {
     if (state.miniSearch) return;
+    // Wait for deferred background fetch of search index if in progress
+    if (!state.searchIndex && state.searchIndexPromise) {
+      await state.searchIndexPromise;
+    }
     if (!state.searchIndex) return;
     await ensureSearchVendorLoaded();
     if (typeof window.MiniSearch === "undefined") return;
@@ -599,7 +648,6 @@
         tags,
         categories,
         blogDirs,
-        searchIndex,
         config,
         imageManifest,
         homePrerender,
@@ -613,7 +661,7 @@
         loadJSON("metadata/tags.json"),
         loadJSON("metadata/categories.json"),
         loadJSON("metadata/blog-dirs.json"),
-        loadJSON("metadata/search-index.json"),
+        // search-index.json loaded lazily below (non-blocking)
         loadJSON("metadata/config.json").catch(() => (state.config || {})),
         loadJSON("metadata/image-manifest.json").catch(() => ({})),
         loadJSON("metadata/home-prerender.json").catch(() => ({})),
@@ -628,12 +676,17 @@
         tags,
         categories,
         blogDirs,
-        searchIndex,
         config,
         imageManifest,
         homePrerender,
         loaded: true,
       });
+      // Start background fetch of search index (non-blocking — loaded on demand)
+      if (!state.searchIndexPromise) {
+        state.searchIndexPromise = loadJSON("metadata/search-index.json")
+          .then((idx) => { state.searchIndex = idx; })
+          .catch(() => {});
+      }
 
       applyAccentColor(getConfiguredAccentColor(state.config));
       if (state.config.logo) applyLogo("content/" + state.config.logo);
@@ -1825,7 +1878,23 @@
       (state.config && state.config.hero_subtitle) ||
       "A place where ideas, knowledge, and engineering thoughts are recorded.";
 
-    // Use prerendered markup if available
+    // If content was pre-rendered into HTML, reuse it — no re-render or fade-in needed
+    const pageEl = document.getElementById("page-content");
+    if (pageEl && pageEl.dataset.prerendered === "home") {
+      delete pageEl.dataset.prerendered;
+      // Ensure no leftover opacity/transform from a prior showLoading() call
+      pageEl.style.opacity = "";
+      pageEl.style.transform = "";
+      pageEl.style.transition = "";
+      updatePageMeta({ title: null, description: heroSubtitle });
+      initParallax();
+      initPortfolioCards();
+      initLazyImages();
+      initHeroTyping(heroTitle);
+      return;
+    }
+
+    // Use prerendered markup from JS state if available
     if (state.homePrerender && state.homePrerender.html) {
       showContent(state.homePrerender.html);
       updatePageMeta({
@@ -4861,7 +4930,17 @@
     }
     document.body.classList.remove("reading-mode");
     document.body.style.overflow = "";
-    showLoading();
+
+    // Skip loading spinner if home page content was pre-rendered into HTML —
+    // keep it visible to the user while data loads in the background.
+    const pageContent = document.getElementById("page-content");
+    const isHomePrerendered = pageContent &&
+      pageContent.dataset.prerendered === "home" &&
+      (getCurrentRoutePath() === "/" || getCurrentRoutePath() === "");
+    if (!isHomePrerendered) {
+      showLoading();
+    }
+
     await loadData();
     if (!state.loaded) return;
 
@@ -5271,45 +5350,63 @@
   // ── Mobile Sidebar ────────────────────────────────────
 
   function initMobileSidebar() {
-    const siteName = (state.config && state.config.hero_title) || "Raksara";
-    const logoIcon = state.config && state.config.logo
-      ? `<img src="${escapeHtml(resolvePath("content/" + state.config.logo))}" alt="${escapeHtml(siteName)}" width="18" height="18">`
-      : "\u25C6";
-    const header = document.createElement("div");
-    header.className = "mobile-header";
-    header.innerHTML = `
-      <button class="mobile-menu-btn" aria-label="Menu">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      </button>
-      <a href="./" class="logo"><span class="logo-icon">${logoIcon}</span><span class="logo-text">${escapeHtml(siteName)}</span></a>
-      <button class="icon-btn mobile-theme-toggle" aria-label="Toggle theme">
-        <svg class="icon-sun" width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3.5" stroke="currentColor" stroke-width="1.2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-        <svg class="icon-moon" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.5 8.5a5.5 5.5 0 01-6-6 5.5 5.5 0 106 6z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-    `;
-    document.body.prepend(header);
+    let header = document.querySelector(".mobile-header");
 
-    header
-      .querySelector(".mobile-theme-toggle")
-      .addEventListener("click", (e) => {
+    if (!header) {
+      // Fallback: dynamically create header (should not happen with pre-rendered HTML)
+      const siteName = (state.config && state.config.hero_title) || "Raksara";
+      const logoIcon = state.config && state.config.logo
+        ? `<img src="${escapeHtml(resolvePath("content/" + state.config.logo))}" alt="${escapeHtml(siteName)}" width="18" height="18">`
+        : "\u25C6";
+      header = document.createElement("div");
+      header.className = "mobile-header";
+      header.innerHTML = `
+        <button class="mobile-menu-btn" aria-label="Menu">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+        <a href="./" class="logo"><span class="logo-icon">${logoIcon}</span><span class="logo-text">${escapeHtml(siteName)}</span></a>
+        <button class="icon-btn mobile-theme-toggle" aria-label="Toggle theme">
+          <svg class="icon-sun" width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3.5" stroke="currentColor" stroke-width="1.2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          <svg class="icon-moon" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.5 8.5a5.5 5.5 0 01-6-6 5.5 5.5 0 106 6z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      `;
+      document.body.prepend(header);
+    }
+
+    // Attach event listeners (only once, guarded by a flag)
+    if (!header._sidebarBound) {
+      header._sidebarBound = true;
+
+      const sidebar = document.getElementById("sidebar");
+
+      header
+        .querySelector(".mobile-theme-toggle")
+        .addEventListener("click", (e) => {
+          e.stopPropagation();
+          toggleTheme();
+        });
+
+      header.querySelector(".mobile-menu-btn").addEventListener("click", (e) => {
         e.stopPropagation();
-        toggleTheme();
+        sidebar.classList.toggle("open");
       });
+
+      document
+        .getElementById("content")
+        .addEventListener("click", () => sidebar.classList.remove("open"));
+
+      sidebar.querySelectorAll("a, button:not(#theme-toggle)").forEach((el) => {
+        el.addEventListener("click", () => sidebar.classList.remove("open"));
+      });
+    }
+
     syncThemeIcons(
       document.documentElement.getAttribute("data-theme") || "dark",
     );
 
-    const sidebar = document.getElementById("sidebar");
-    header.querySelector(".mobile-menu-btn").addEventListener("click", (e) => {
-      e.stopPropagation();
-      sidebar.classList.toggle("open");
-    });
-    document
-      .getElementById("content")
-      .addEventListener("click", () => sidebar.classList.remove("open"));
-
-    sidebar.querySelectorAll("a, button:not(#theme-toggle)").forEach((el) => {
-      el.addEventListener("click", () => sidebar.classList.remove("open"));
+    // Enable sidebar transitions after initial paint (prevents animation on first load)
+    requestAnimationFrame(() => {
+      document.body.classList.add("sidebar-ready");
     });
   }
 
