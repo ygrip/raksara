@@ -1552,6 +1552,62 @@ body {
     z-index: 0;
 }
 
+/* ── LQIP: skeleton → blur placeholder → sharp image ─────── */
+
+.post-card-thumb::after,
+.gallery-item::after,
+.gallery-card-img::after,
+.gallery-stack-card::after,
+.article-cover::after,
+.poem-cover::after,
+.profile-avatar-wrap::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: var(--lqip-url, none) center / cover no-repeat;
+    filter: blur(12px);
+    transform: scale(1.08);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+/* Phase 2: LQIP visible — shimmer fades, blurry preview takes over */
+.post-card-thumb.lqip-shown::before,
+.gallery-item.lqip-shown::before,
+.gallery-card-img.lqip-shown::before,
+.gallery-stack-card.lqip-shown::before,
+.article-cover.lqip-shown::before,
+.poem-cover.lqip-shown::before,
+.profile-avatar-wrap.lqip-shown::before {
+    animation: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.post-card-thumb.lqip-shown::after,
+.gallery-item.lqip-shown::after,
+.gallery-card-img.lqip-shown::after,
+.gallery-stack-card.lqip-shown::after,
+.article-cover.lqip-shown::after,
+.poem-cover.lqip-shown::after,
+.profile-avatar-wrap.lqip-shown::after {
+    opacity: 1;
+}
+
+/* Phase 3: actual image loaded — LQIP fades out */
+.post-card-thumb.is-loaded::after,
+.gallery-item.is-loaded::after,
+.gallery-card-img.is-loaded::after,
+.gallery-stack-card.is-loaded::after,
+.article-cover.is-loaded::after,
+.poem-cover.is-loaded::after,
+.profile-avatar-wrap.is-loaded::after {
+    opacity: 0;
+    transition: opacity 0.4s ease 0.05s;
+}
+
 .post-card-thumb img {
     position: relative;
     z-index: 1;
@@ -1912,7 +1968,7 @@ body {
     z-index: 1;
     width: 100%;
     height: auto;
-    max-height: min(80vh, 900px);
+    max-height: 360px;
     display: block;
     object-fit: contain;
     object-position: center;

@@ -1464,8 +1464,8 @@ async function generateResponsiveImages() {
     const parsed = path.posix.parse(normalizedRelativeFile);
     const variantDir = path.join(responsiveRoot, parsed.dir);
 
-    // Skip if hash matches and all variant files are present on disk
-    if (existing && existing.hash === hash && Array.isArray(existing.variants) && existing.variants.length > 0) {
+    // Skip if hash matches, lqip is present, and all variant files are on disk
+    if (existing && existing.hash === hash && existing.lqip && Array.isArray(existing.variants) && existing.variants.length > 0) {
       const allExist = existing.variants.every((v) => {
         const variantRel = v.path.replace(/^content\//, "");
         return fs.existsSync(path.join(contentWebDir, variantRel));
@@ -1514,8 +1514,16 @@ async function generateResponsiveImages() {
     );
 
     variants.sort((a, b) => a.width - b.width);
+
+    // Generate LQIP: tiny 20px wide WebP encoded as base64 data URI
+    const lqipBuffer = await sharp(absoluteFile)
+      .resize({ width: 20, withoutEnlargement: false })
+      .webp({ quality: 20 })
+      .toBuffer();
+    const lqip = `data:image/webp;base64,${lqipBuffer.toString("base64")}`;
+
     processed++;
-    manifest[publicPath] = { hash, width: metadata.width, height: metadata.height, variants };
+    manifest[publicPath] = { hash, width: metadata.width, height: metadata.height, lqip, variants };
   }
 
   // Process images in batches of 4 (safe parallelism on 2-vCPU CI runners)
@@ -1619,6 +1627,9 @@ function buildResponsiveImageAttrsPrerender(src, options = {}, imageManifest) {
     }
     if (srcset.length) {
       attrs.push(`srcset="${srcset.join(", ")}"`);
+    }
+    if (manifestEntry.lqip) {
+      attrs.push(`data-lqip="${escapeHtml(manifestEntry.lqip)}"`);
     }
   }
 

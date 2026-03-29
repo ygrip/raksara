@@ -1332,6 +1332,9 @@
         attrs.push(`srcset="${srcset.join(", ")}"`);
         attrs.push(`sizes="${escapeHtml(sizes)}"`);
       }
+      if (manifestEntry.lqip) {
+        attrs.push(`data-lqip="${escapeHtml(manifestEntry.lqip)}"`);
+      }
     }
 
     return attrs.join(" ");
@@ -1808,7 +1811,7 @@
 
   function getImageShell(img) {
     return img.closest(
-      ".post-card-thumb, .gallery-item, .gallery-card-img, .article-cover, .poem-cover, .profile-avatar-wrap",
+      ".post-card-thumb, .gallery-item, .gallery-card-img, .gallery-stack-card, .article-cover, .poem-cover, .profile-avatar-wrap",
     );
   }
 
@@ -1836,6 +1839,15 @@
         const shell = getImageShell(img);
         if (shell && !shell.classList.contains("is-loaded")) {
           shell.classList.add("is-loading");
+          const lqip = img.dataset.lqip;
+          if (lqip) {
+            shell.style.setProperty("--lqip-url", `url("${lqip}")`);
+            requestAnimationFrame(() => {
+              if (!shell.classList.contains("is-loaded")) {
+                shell.classList.add("lqip-shown");
+              }
+            });
+          }
         }
 
         if (img.complete) {
@@ -2964,7 +2976,7 @@
             alt: g.title,
             loading: isAboveFold ? "eager" : "lazy",
             fetchPriority: isAboveFold ? "high" : "auto",
-            sizes: "(max-width: 832px) calc(100vw - 32px), 800px",
+            sizes: "(max-width: 640px) calc(100vw - 32px), 600px",
           })}>
           ${countBadge}
         </div>
