@@ -902,6 +902,9 @@ body {
 }
 
 .component-card:hover {
+    text-decoration: none;
+    -webkit-text-decoration: none;
+    cursor: pointer;
     border-color: var(--accent);
     background: var(--bg-card);
 }
@@ -4328,8 +4331,23 @@ body.reading-mode .reading-mode-btn {
 
 /* ── Home Gallery Window ────────────────────────────────── */
 
+a.gallery-window-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  cursor: pointer;
+}
+
+a.gallery-window-link:hover,
+a.gallery-window-link:focus,
+a.gallery-window-link:active,
+a.gallery-window-link:visited {
+  text-decoration: none;
+  color: inherit;
+}
+
 .gallery-window {
-    width: min(640px, 100%);
+    width: 100%;
     margin: 0 auto;
     background: color-mix(in srgb, var(--bg-card) 86%, transparent);
     border: 1.5px solid color-mix(in srgb, var(--accent) 40%, var(--border));
@@ -4394,6 +4412,7 @@ body.reading-mode .reading-mode-btn {
 
 .gallery-window-body {
     padding: 18px;
+    padding-bottom: 48px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -4403,6 +4422,7 @@ body.reading-mode .reading-mode-btn {
 }
 
 .gallery-stack {
+    margin: 0 auto;
     position: relative;
     width: min(540px, 92%);
     height: min(320px, 58vw);
@@ -4496,6 +4516,7 @@ body.reading-mode .reading-mode-btn {
     .gallery-window-body {
         min-height: 250px;
         padding: 18px 14px;
+        padding-bottom: 48px;
     }
 
     .gallery-stack {

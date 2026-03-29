@@ -1945,12 +1945,12 @@
       </div>
 
       <div class="home-section">
-        <div class="home-section-header"><h2>Recent Posts</h2><a href="#/blog">View all \u2192</a></div>
+        <div class="home-section-header"><h2>Recent Posts</h2><a href="/blog">View all \u2192</a></div>
         <div class="post-list">${postsHtml || '<div class="empty-state"><p>No posts yet.</p></div>'}</div>
       </div>
 
       <div class="home-section">
-        <div class="home-section-header"><h2>Projects</h2><a href="#/portfolio">View all \u2192</a></div>
+        <div class="home-section-header"><h2>Projects</h2><a href="/portfolio">View all \u2192</a></div>
         <div class="portfolio-grid">${portfolioHtml || '<div class="empty-state"><p>No projects yet.</p></div>'}</div>
       </div>
 
@@ -1965,7 +1965,7 @@
       ${
         thoughtsHtml
           ? `<div class="home-section">
-        <div class="home-section-header"><h2>Shower Thoughts</h2><a href="#/thoughts">View all \u2192</a></div>
+        <div class="home-section-header"><h2>Shower Thoughts</h2><a href="/thoughts">View all \u2192</a></div>
         <div class="thoughts-list">${thoughtsHtml}</div>
       </div>`
           : ""
@@ -1991,7 +1991,9 @@
       .filter(Boolean);
     if (!stackSources.length) return "";
     while (stackSources.length < 3) stackSources.push(stackSources[stackSources.length - 1]);
-    return `<div class="gallery-window" role="button" tabindex="0" onclick="window.location.hash='/gallery'" onkeydown="if(event.key==='Enter')window.location.hash='/gallery'">
+    return `
+    <div class="gallery-window">
+    <a href="/gallery" class="gallery-window-link" aria-label="View gallery">
       <div class="gallery-window-chrome">
         <div class="gallery-window-dots">
           <span class="dot red"></span>
@@ -2007,12 +2009,7 @@
           <div class="gallery-stack-card layer-3 is-loading"><img ${buildResponsiveImageAttrs(stackSources[2], { alt: "Gallery preview 3", loading: "lazy", sizes: "(max-width: 768px) calc(100vw - 48px), 520px" })}></div>
         </div>
       </div>
-      <div class="gallery-window-footer">
-        <a class="gallery-view-all-btn" href="#/gallery" onclick="event.stopPropagation();window.location.hash='/gallery'">
-          View All Gallery
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-        </a>
-      </div>
+      </a>
     </div>`;
   }
 

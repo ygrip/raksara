@@ -1171,6 +1171,8 @@ function buildShellHtml(srcHtml, { baseHref, route, context }) {
       if (fs.existsSync(homePrerenderPath)) {
         const prerender = JSON.parse(fs.readFileSync(homePrerenderPath, "utf-8"));
         if (prerender && prerender.html) {
+          // Strip any previously inlined prerender so re-builds always use fresh content
+          html = stripPageContentPrerender(html);
           html = html.replace(
             /<div id="page-content" class="page-content"><\/div>/,
             `<div id="page-content" class="page-content" data-prerendered="home">${prerender.html}</div>`
@@ -1182,6 +1184,38 @@ function buildShellHtml(srcHtml, { baseHref, route, context }) {
     }
   }
   return html;
+}
+
+/**
+ * Strip previously inlined prerender content from #page-content so
+ * buildShellHtml can inject fresh content on every re-build.
+ * Uses depth-counted string walking to find the matching closing </div>.
+ */
+function stripPageContentPrerender(html) {
+  const OPEN_PRE = '<div id="page-content" class="page-content" data-prerendered="home">';
+  const OPEN_PLAIN = '<div id="page-content" class="page-content">';
+  const startIdx = html.indexOf(OPEN_PRE);
+  if (startIdx === -1) return html; // nothing to strip
+
+  const contentStart = startIdx + OPEN_PRE.length;
+  let depth = 1;
+  let i = contentStart;
+  while (i < html.length && depth > 0) {
+    const nextOpen = html.indexOf('<div', i);
+    const nextClose = html.indexOf('</div>', i);
+    if (nextClose === -1) return html; // malformed, leave unchanged
+    if (nextOpen !== -1 && nextOpen < nextClose) {
+      depth++;
+      i = nextOpen + 4;
+    } else {
+      depth--;
+      if (depth === 0) {
+        return html.slice(0, startIdx) + OPEN_PLAIN + '</div>' + html.slice(nextClose + 6);
+      }
+      i = nextClose + 6;
+    }
+  }
+  return html; // could not find matching close, leave unchanged
 }
 
 function escapeXml(value) {
@@ -1641,7 +1675,8 @@ function renderHomePagePrerender(posts, thoughts, portfolio, gallery, config, im
   if (fs.existsSync(galleryCoverPath)) {
     const stackSrc = "content/assets/images/gallery-cover.webp";
     galleryHtml = `
-      <div class="gallery-window" role="button" tabindex="0" onclick="window.location.hash='/gallery'" onkeydown="if(event.key==='Enter')window.location.hash='/gallery'">
+      <div class="gallery-window">
+      <a href="/gallery" class="gallery-window-link" aria-label="View gallery">
         <div class="gallery-window-chrome">
           <div class="gallery-window-dots">
             <span class="dot red"></span>
@@ -1657,6 +1692,7 @@ function renderHomePagePrerender(posts, thoughts, portfolio, gallery, config, im
             <div class="gallery-stack-card layer-3 is-loading"><img src="${stackSrc}" alt="Gallery preview 3" loading="lazy" decoding="async"></div>
           </div>
         </div>
+        </a>
       </div>`;
   } else {
     const stackSources = gallery
@@ -1669,12 +1705,13 @@ function renderHomePagePrerender(posts, thoughts, portfolio, gallery, config, im
     if (stackSources.length) {
       while (stackSources.length < 3) stackSources.push(stackSources[stackSources.length - 1]);
       galleryHtml = `
-      <div class="gallery-window" role="button" tabindex="0" onclick="window.location.hash='/gallery'" onkeydown="if(event.key==='Enter')window.location.hash='/gallery'">
-        <div class="gallery-window-chrome">
-          <div class="gallery-window-dots">
-            <span class="dot red"></span>
-            <span class="dot yellow"></span>
-            <span class="dot green"></span>
+          <div class="gallery-window">
+          <a href="/gallery" class="gallery-window-link" aria-label="View gallery">
+            <div class="gallery-window-chrome">
+              <div class="gallery-window-dots">
+                <span class="dot red"></span>
+                <span class="dot yellow"></span>
+              <span class="dot green"></span>
           </div>
           <div class="gallery-window-title">Gallery</div>
         </div>
@@ -1685,6 +1722,7 @@ function renderHomePagePrerender(posts, thoughts, portfolio, gallery, config, im
             <div class="gallery-stack-card layer-3 is-loading"><img ${buildResponsiveImageAttrsPrerender(stackSources[2], { alt: "Gallery preview 3", loading: "lazy", sizes: "(max-width: 768px) calc(100vw - 48px), 520px" }, imageManifest)}></div>
           </div>
         </div>
+        </a>
       </div>`;
     } else {
       galleryHtml = "";
@@ -1710,12 +1748,12 @@ function renderHomePagePrerender(posts, thoughts, portfolio, gallery, config, im
       </div>
 
       <div class="home-section">
-        <div class="home-section-header"><h2>Recent Posts</h2><a href="#/blog">View all →</a></div>
+        <div class="home-section-header"><h2>Recent Posts</h2><a href="/blog">View all →</a></div>
         <div class="post-list">${postsHtml || '<div class="empty-state"><p>No posts yet.</p></div>'}</div>
       </div>
 
       <div class="home-section">
-        <div class="home-section-header"><h2>Projects</h2><a href="#/portfolio">View all →</a></div>
+        <div class="home-section-header"><h2>Projects</h2><a href="/portfolio">View all →</a></div>
         <div class="portfolio-grid">${portfolioHtml || '<div class="empty-state"><p>No projects yet.</p></div>'}</div>
       </div>
 
@@ -1730,7 +1768,7 @@ function renderHomePagePrerender(posts, thoughts, portfolio, gallery, config, im
       ${
         thoughtsHtml
           ? `<div class="home-section">
-        <div class="home-section-header"><h2>Shower Thoughts</h2><a href="#/thoughts">View all →</a></div>
+        <div class="home-section-header"><h2>Shower Thoughts</h2><a href="/thoughts">View all →</a></div>
         <div class="thoughts-list">${thoughtsHtml}</div>
       </div>`
           : ""
