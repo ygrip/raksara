@@ -438,13 +438,20 @@
   async function ensureHighlightCoreLoaded() {
     if (highlightState.instance) return highlightState.instance;
     if (!highlightState.corePromise) {
-      const coreUrl = toAssetHref("vendor/hljs/es/core.js");
-      highlightState.corePromise = import(coreUrl).then((mod) => {
-        const instance = mod.default || mod.HighlightJS;
-        if (!instance) throw new Error("Highlight core failed to initialize");
-        highlightState.instance = instance;
-        return instance;
-      });
+      // Try local vendor bundle first (built from node_modules by the build script).
+      // vendor/hljs/es/core.js is a CJS re-export stub that fails in native browser ESM,
+      // so we ship a proper browser IIFE at vendor-highlight.min.js instead.
+      // Fall back to CDN if the local file is absent (e.g. fresh checkout before build).
+      const localUrl = toAssetHref("vendor-highlight.min.js");
+      const cdnUrl = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js";
+      highlightState.corePromise = loadScriptOnce(localUrl, "highlightLocalPromise")
+        .catch(() => loadScriptOnce(cdnUrl, "highlightLegacyPromise"))
+        .then(() => {
+          const instance = window.hljs;
+          if (!instance) throw new Error("Highlight core failed to initialize");
+          highlightState.instance = instance;
+          return instance;
+        });
     }
     return highlightState.corePromise;
   }
@@ -516,7 +523,9 @@
   function toRouteHref(route) {
     const normalized = normalizeRoutePath(route);
     if (normalized === "/") return runtime.basePath || "/";
-    return `${runtime.basePath}${normalized}` || normalized;
+    // Emit trailing slash so that GitHub Pages serves the pre-built index.html directly
+    // instead of issuing a 301 redirect from /path to /path/ on every hard reload.
+    return `${runtime.basePath}${normalized}/`;
   }
 
   function toRoutePathFromHref(href) {
@@ -1211,6 +1220,7 @@
 
   function showContent(html) {
     const el = document.getElementById("page-content");
+    delete el.dataset.prerendered; // clear stale prerendered flag on any content transition
     el.style.opacity = "0";
     el.style.transform = "translateY(8px)";
     el.innerHTML = html;
@@ -4816,18 +4826,7 @@
           codeNodes.forEach((el) => highlightState.instance.highlightElement(el));
         }
       } catch {
-        // Fallback to classic CDN bundle if ESM language imports fail in this environment.
-        try {
-          await loadScriptOnce(
-            "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js",
-            "highlightLegacyPromise",
-          );
-          if (window.hljs && typeof window.hljs.highlightElement === "function") {
-            codeNodes.forEach((el) => window.hljs.highlightElement(el));
-          }
-        } catch {
-          // Keep plain code rendering if fallback highlighting also fails.
-        }
+        // ensureHighlightCoreLoaded already tries local then CDN; if both fail, leave code plain.
       }
     }
 

@@ -1131,6 +1131,20 @@ function buildShellHtml(srcHtml, { baseHref, route, context }) {
   html = html
     .replace(/href=["']styles\.min\.css(?:\?[^"']*)?["']/g, `href="styles.min.css?v=${BUILD_CACHE_BUST}"`)
     .replace(/src=["']app\.min\.js(?:\?[^"']*)?["']/g, `src="app.min.js?v=${BUILD_CACHE_BUST}"`);
+
+  // Replace CDN highlight.js CSS links with local vendor copies when they exist.
+  // This makes the site work without any CDN dependency. If local files are absent
+  // (e.g. before first build), the CDN links are left untouched as fallback.
+  const localHljsStylesDir = path.join(WEB_DIR, "vendor", "hljs", "styles");
+  const HLJS_CDN_BASE = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/";
+  for (const theme of ["github-dark.min.css", "github.min.css"]) {
+    if (fs.existsSync(path.join(localHljsStylesDir, theme))) {
+      const cdnHref = HLJS_CDN_BASE + theme;
+      const localHref = `vendor/hljs/styles/${theme}`;
+      html = html.split(cdnHref).join(localHref);
+    }
+  }
+
   html = html.replace(/<script[^>]+pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js[^>]*><\/script>/gi, "");
   html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(routeMeta.title)}</title>`);
   html = upsertMetaTag(html, "name", "description", routeMeta.description);
@@ -1165,6 +1179,10 @@ function buildShellHtml(srcHtml, { baseHref, route, context }) {
   if (criticalCss) {
     html = html.replace(/<style id="raksara-critical-css">[\s\S]*?<\/style>/, `<style id="raksara-critical-css">${criticalCss}</style>`);
   }
+  // Strip any previously inlined prerender from all routes (prevents home content
+  // leaking into non-root pages when index.html is used as the build template).
+  html = stripPageContentPrerender(html);
+
   // Inline home prerender HTML for root route to improve LCP/CLS
   if (route === "/") {
     try {
@@ -1172,8 +1190,7 @@ function buildShellHtml(srcHtml, { baseHref, route, context }) {
       if (fs.existsSync(homePrerenderPath)) {
         const prerender = JSON.parse(fs.readFileSync(homePrerenderPath, "utf-8"));
         if (prerender && prerender.html) {
-          // Strip any previously inlined prerender so re-builds always use fresh content
-          html = stripPageContentPrerender(html);
+          // html already stripped above — inject fresh prerender into empty page-content
           html = html.replace(
             /<div id="page-content" class="page-content"><\/div>/,
             `<div id="page-content" class="page-content" data-prerendered="home">${prerender.html}</div>`
@@ -1372,6 +1389,7 @@ function copyHighlightRuntime() {
     const packageRoot = path.join(REPO_ROOT, "node_modules", "highlight.js");
     const srcEsDir = path.join(packageRoot, "es");
     const srcLibDir = path.join(packageRoot, "lib");
+    const srcStylesDir = path.join(packageRoot, "styles");
     const destRoot = path.join(WEB_DIR, "vendor", "hljs");
 
     if (!fs.existsSync(srcEsDir) || !fs.existsSync(srcLibDir)) {
@@ -1382,6 +1400,20 @@ function copyHighlightRuntime() {
     fs.rmSync(destRoot, { recursive: true, force: true });
     copyDirRecursive(srcEsDir, path.join(destRoot, "es"));
     copyDirRecursive(srcLibDir, path.join(destRoot, "lib"));
+
+    // Copy CSS theme files so highlight.js CSS works without CDN
+    const themeFiles = ["github-dark.min.css", "github.min.css"];
+    if (fs.existsSync(srcStylesDir)) {
+      const destStylesDir = path.join(destRoot, "styles");
+      fs.mkdirSync(destStylesDir, { recursive: true });
+      for (const theme of themeFiles) {
+        const src = path.join(srcStylesDir, theme);
+        if (fs.existsSync(src)) {
+          fs.copyFileSync(src, path.join(destStylesDir, theme));
+        }
+      }
+    }
+
     console.log("  ✓ Highlight.js runtime copied for on-demand language loading");
   } catch (err) {
     console.error("  ✗ Highlight runtime copy failed:", err.message);
@@ -1943,8 +1975,10 @@ async function bundleVendorJS() {
   try {
     const markdownInput = path.join(REPO_ROOT, "scripts", "vendor-markdown-entry.js");
     const searchInput = path.join(REPO_ROOT, "scripts", "vendor-search-entry.js");
+    const highlightInput = path.join(REPO_ROOT, "scripts", "vendor-highlight-entry.js");
     const markdownOutput = path.join(WEB_DIR, "vendor-markdown.min.js");
     const searchOutput = path.join(WEB_DIR, "vendor-search.min.js");
+    const highlightOutput = path.join(WEB_DIR, "vendor-highlight.min.js");
 
     if (!fs.existsSync(markdownInput) || !fs.existsSync(searchInput)) {
       console.log("  ⚠ vendor entry files not found, skipping Rollup vendor bundles");
@@ -1964,6 +1998,20 @@ async function bundleVendorJS() {
 
     console.log(`  ✓ Markdown vendor bundle: ${(markdownSize/1024).toFixed(1)} KB`);
     console.log(`  ✓ Search vendor bundle: ${(searchSize/1024).toFixed(1)} KB`);
+
+    // Bundle highlight.js core as a browser-ready IIFE (optional — CDN fallback used if absent)
+    if (fs.existsSync(highlightInput)) {
+      try {
+        const highlightSize = await bundleBrowserVendor({
+          inputPath: highlightInput,
+          outputPath: highlightOutput,
+          name: "RaksaraHighlightVendor",
+        });
+        console.log(`  ✓ Highlight vendor bundle: ${(highlightSize/1024).toFixed(1)} KB`);
+      } catch (err) {
+        console.warn("  ⚠ Highlight vendor bundle skipped:", err.message);
+      }
+    }
   } catch (err) {
     console.error("  ✗ Vendor bundle failed:", err.message);
   }
