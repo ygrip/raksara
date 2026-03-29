@@ -1891,6 +1891,8 @@ body {
     overflow: hidden;
     background: var(--bg-card);
     transition: all 0.3s var(--bounce);
+    content-visibility: auto;
+    contain-intrinsic-size: 720px;
 }
 
 .gallery-card:hover {
@@ -2066,7 +2068,7 @@ body {
     max-height: 80vh;
     border-radius: var(--radius-lg);
     box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
-    transition: opacity 0.15s ease;
+    transition: opacity 0.22s ease;
 }
 
 .lightbox-content p {

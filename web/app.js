@@ -1774,9 +1774,36 @@
   }
 
   function getGalleryImages(g) {
-    if (g.images && g.images.length > 0) return g.images;
-    if (g.image) return [{ src: g.image, caption: g.caption || "" }];
-    return [];
+    const raw = Array.isArray(g.images) && g.images.length > 0
+      ? g.images
+      : g.image
+        ? [{ src: g.image, caption: g.caption || "" }]
+        : [];
+
+    const normalized = raw
+      .map((img) => {
+        if (!img) return null;
+        if (typeof img === "string") {
+          return { src: img, caption: g.caption || "" };
+        }
+        if (typeof img === "object") {
+          return {
+            src: img.src || "",
+            caption: img.caption || g.caption || "",
+          };
+        }
+        return null;
+      })
+      .filter((img) => img && img.src);
+
+    // Deduplicate exact repeated sources to avoid duplicate carousel frames.
+    const seen = new Set();
+    return normalized.filter((img) => {
+      const key = resolvePath(img.src);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
 
   function getImageShell(img) {
@@ -2924,6 +2951,7 @@
         if (!images.length) return "";
         const imgSrc = resolvePath(images[0].src);
         const isMulti = images.length > 1;
+        const isAboveFold = galleryIndex < 2;
         const countBadge = isMulti
           ? `<div class="gallery-image-count"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="1" width="9" height="9" rx="1.5"/><rect x="5" y="5" width="9" height="9" rx="1.5"/></svg>${images.length}</div>`
           : "";
@@ -2934,7 +2962,8 @@
         <div class="gallery-card-img is-loading" onclick="window.__openGallery(${galleryIndex})">
           <img ${buildResponsiveImageAttrs(imgSrc, {
             alt: g.title,
-            loading: "lazy",
+            loading: isAboveFold ? "eager" : "lazy",
+            fetchPriority: isAboveFold ? "high" : "auto",
             sizes: "(max-width: 832px) calc(100vw - 32px), 800px",
           })}>
           ${countBadge}
@@ -4803,10 +4832,28 @@
 
   let _carouselImages = [];
   let _carouselIndex = 0;
+  let _carouselTransitionToken = 0;
+
+  function preloadCarouselImage(src) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = async () => {
+        try {
+          if (typeof img.decode === "function") await img.decode();
+        } catch {
+          // Ignore decode errors and continue with loaded bitmap.
+        }
+        resolve();
+      };
+      img.onerror = () => resolve();
+      img.src = src;
+    });
+  }
 
   function openLightbox(src, caption) {
     _carouselImages = [];
     _carouselIndex = 0;
+    _carouselTransitionToken += 1;
     const lb = document.getElementById("lightbox");
     const content = lb.querySelector(".lightbox-content");
     content
@@ -4820,6 +4867,7 @@
   function openCarousel(images, startIndex) {
     _carouselImages = images;
     _carouselIndex = startIndex || 0;
+    _carouselTransitionToken += 1;
     const lb = document.getElementById("lightbox");
     const content = lb.querySelector(".lightbox-content");
     content
@@ -4829,6 +4877,14 @@
     document.getElementById("lightbox-img").src = resolvePath(current.src);
     document.getElementById("lightbox-caption").textContent =
       current.caption || "";
+
+    // Preload adjacent slides for smoother next/prev transitions.
+    if (images.length > 1) {
+      const prev = images[(_carouselIndex - 1 + images.length) % images.length];
+      const next = images[(_carouselIndex + 1) % images.length];
+      if (prev && prev.src) preloadCarouselImage(resolvePath(prev.src));
+      if (next && next.src) preloadCarouselImage(resolvePath(next.src));
+    }
     if (images.length > 1) {
       const prevBtn = document.createElement("button");
       prevBtn.className = "lightbox-nav prev";
@@ -4877,16 +4933,37 @@
     updateCarouselSlide();
   }
 
-  function updateCarouselSlide() {
+  async function updateCarouselSlide() {
     const current = _carouselImages[_carouselIndex];
+    if (!current) return;
+
     const img = document.getElementById("lightbox-img");
+    const nextSrc = resolvePath(current.src);
+    const token = ++_carouselTransitionToken;
+
     img.style.opacity = "0";
-    setTimeout(() => {
-      img.src = resolvePath(current.src);
-      document.getElementById("lightbox-caption").textContent =
-        current.caption || "";
+    await preloadCarouselImage(nextSrc);
+    if (token !== _carouselTransitionToken) return;
+
+    img.src = nextSrc;
+    document.getElementById("lightbox-caption").textContent =
+      current.caption || "";
+
+    requestAnimationFrame(() => {
+      if (token !== _carouselTransitionToken) return;
       img.style.opacity = "1";
-    }, 150);
+    });
+
+    // Keep near slides warm in cache during carousel navigation.
+    if (_carouselImages.length > 1) {
+      const prev = _carouselImages[
+        (_carouselIndex - 1 + _carouselImages.length) % _carouselImages.length
+      ];
+      const next = _carouselImages[(_carouselIndex + 1) % _carouselImages.length];
+      if (prev && prev.src) preloadCarouselImage(resolvePath(prev.src));
+      if (next && next.src) preloadCarouselImage(resolvePath(next.src));
+    }
+
     document.querySelectorAll(".lightbox-dot").forEach((dot, i) => {
       dot.classList.toggle("active", i === _carouselIndex);
     });
@@ -4898,6 +4975,7 @@
     document.getElementById("lightbox-img").src = "";
     _carouselImages = [];
     _carouselIndex = 0;
+    _carouselTransitionToken += 1;
     lb.querySelector(".lightbox-content")
       .querySelectorAll(".lightbox-nav, .lightbox-dots")
       .forEach((el) => el.remove());
