@@ -2,6 +2,7 @@ const fg = require("fast-glob");
 const matter = require("gray-matter");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const { execSync } = require("child_process");
 const yaml = require("js-yaml");
 const MiniSearch = require("minisearch");
@@ -1429,7 +1430,16 @@ async function generateResponsiveImages() {
   }
 
   const responsiveRoot = path.join(contentWebDir, RESPONSIVE_DIR_NAME);
-  fs.rmSync(responsiveRoot, { recursive: true, force: true });
+  fs.mkdirSync(responsiveRoot, { recursive: true });
+
+  // Load existing manifest for hash-based incremental comparison
+  const existingManifestPath = path.join(METADATA_DIR, "image-manifest.json");
+  let existingManifest = {};
+  try {
+    existingManifest = JSON.parse(fs.readFileSync(existingManifestPath, "utf8"));
+  } catch {
+    // No existing manifest — process everything
+  }
 
   const imageFiles = await fg(["**/*.{jpg,jpeg,png,webp,avif}"], {
     cwd: contentWebDir,
@@ -1438,60 +1448,97 @@ async function generateResponsiveImages() {
   });
 
   const manifest = {};
+  let processed = 0;
+  let skipped = 0;
 
-  for (const relativeFile of imageFiles) {
+  async function processOneImage(relativeFile) {
     const normalizedRelativeFile = relativeFile.replace(/\\/g, "/");
     const absoluteFile = path.join(contentWebDir, relativeFile);
+    const publicPath = `content/${normalizedRelativeFile}`;
+
+    // Compute SHA-1 of source file for change detection
+    const fileBuffer = fs.readFileSync(absoluteFile);
+    const hash = crypto.createHash("sha1").update(fileBuffer).digest("hex");
+
+    const existing = existingManifest[publicPath];
+    const parsed = path.posix.parse(normalizedRelativeFile);
+    const variantDir = path.join(responsiveRoot, parsed.dir);
+
+    // Skip if hash matches and all variant files are present on disk
+    if (existing && existing.hash === hash && Array.isArray(existing.variants) && existing.variants.length > 0) {
+      const allExist = existing.variants.every((v) => {
+        const variantRel = v.path.replace(/^content\//, "");
+        return fs.existsSync(path.join(contentWebDir, variantRel));
+      });
+      if (allExist) {
+        skipped++;
+        manifest[publicPath] = existing;
+        return;
+      }
+    }
 
     let metadata;
     try {
       metadata = await sharp(absoluteFile).metadata();
     } catch {
-      continue;
+      return;
     }
 
     if (!metadata.width || !metadata.height) {
-      continue;
+      return;
     }
 
-    const publicPath = `content/${normalizedRelativeFile}`;
-    const parsed = path.posix.parse(normalizedRelativeFile);
-    const variantDir = path.join(responsiveRoot, parsed.dir);
     fs.mkdirSync(variantDir, { recursive: true });
 
+    const usableWidths = RESPONSIVE_WIDTHS.filter((w) => w < metadata.width);
     const variants = [];
-    const usableWidths = RESPONSIVE_WIDTHS.filter(
-      (width) => width < metadata.width,
+
+    // Generate all size variants for this image in parallel
+    await Promise.all(
+      usableWidths.map(async (width) => {
+        const variantFileName = `${parsed.name}-${width}w.webp`;
+        const variantAbsolutePath = path.join(variantDir, variantFileName);
+        const variantPublicPath = path.posix.join(
+          "content",
+          RESPONSIVE_DIR_NAME,
+          parsed.dir,
+          variantFileName,
+        );
+        const quality = width <= 320 ? 70 : width <= 640 ? 72 : width <= 1280 ? 75 : 78;
+        await sharp(absoluteFile)
+          .resize({ width, withoutEnlargement: true })
+          .webp({ quality })
+          .toFile(variantAbsolutePath);
+        variants.push({ width, path: variantPublicPath });
+      })
     );
 
-    for (const width of usableWidths) {
-      const variantFileName = `${parsed.name}-${width}w${parsed.ext}`;
-      const variantAbsolutePath = path.join(variantDir, variantFileName);
-      const variantPublicPath = path.posix.join(
-        "content",
-        RESPONSIVE_DIR_NAME,
-        parsed.dir,
-        variantFileName,
-      );
-
-      await sharp(absoluteFile)
-        .resize({ width, withoutEnlargement: true })
-        .toFile(variantAbsolutePath);
-
-      variants.push({
-        width,
-        path: variantPublicPath,
-      });
-    }
-
-    manifest[publicPath] = {
-      width: metadata.width,
-      height: metadata.height,
-      variants,
-    };
+    variants.sort((a, b) => a.width - b.width);
+    processed++;
+    manifest[publicPath] = { hash, width: metadata.width, height: metadata.height, variants };
   }
 
-  console.log(`  ✓ Responsive images generated (${Object.keys(manifest).length})`);
+  // Process images in batches of 4 (safe parallelism on 2-vCPU CI runners)
+  const CONCURRENCY = 4;
+  for (let i = 0; i < imageFiles.length; i += CONCURRENCY) {
+    await Promise.all(imageFiles.slice(i, i + CONCURRENCY).map(processOneImage));
+  }
+
+  // Orphan cleanup: remove variant files for images no longer in content
+  const currentPublicPaths = new Set(
+    imageFiles.map((f) => `content/${f.replace(/\\/g, "/")}`)
+  );
+  for (const [oldPath, oldEntry] of Object.entries(existingManifest)) {
+    if (!currentPublicPaths.has(oldPath) && Array.isArray(oldEntry.variants)) {
+      for (const v of oldEntry.variants) {
+        const variantRel = v.path.replace(/^content\//, "");
+        const vAbsPath = path.join(contentWebDir, variantRel);
+        try { fs.unlinkSync(vAbsPath); } catch { /* already gone */ }
+      }
+    }
+  }
+
+  console.log(`  ✓ Responsive images: ${processed} processed, ${skipped} unchanged (${Object.keys(manifest).length} total)`);
   return manifest;
 }
 

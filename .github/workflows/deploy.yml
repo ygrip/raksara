@@ -45,6 +45,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Restore image variant cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            web/content/.raksara-responsive
+            metadata/image-manifest.json
+          key: raksara-images-${{ hashFiles('content/assets/**') }}
+          restore-keys: |
+            raksara-images-
+
       - name: Build metadata
         env:
           SITE_URL: ${{ vars.SITE_URL }}
