@@ -1130,6 +1130,7 @@ function buildShellHtml(srcHtml, { baseHref, route, context }) {
   html = html
     .replace(/href=["']styles\.min\.css(?:\?[^"']*)?["']/g, `href="styles.min.css?v=${BUILD_CACHE_BUST}"`)
     .replace(/src=["']app\.min\.js(?:\?[^"']*)?["']/g, `src="app.min.js?v=${BUILD_CACHE_BUST}"`);
+  html = html.replace(/<script[^>]+pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js[^>]*><\/script>/gi, "");
   html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(routeMeta.title)}</title>`);
   html = upsertMetaTag(html, "name", "description", routeMeta.description);
   html = upsertMetaTag(html, "name", "author", routeMeta.author || "");
@@ -1148,10 +1149,6 @@ function buildShellHtml(srcHtml, { baseHref, route, context }) {
   html = upsertMetaTag(html, "name", "twitter:image", routeMeta.image || "");
   if (adsenseConfig && adsenseConfig.accountId) {
     html = upsertMetaTag(html, "name", "google-adsense-account", adsenseConfig.accountId);
-    // Inject AdSense async loader script before </head> if not already present
-    if (!html.includes("pagead2.googlesyndication.com")) {
-      html = html.replace("</head>", `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseConfig.accountId}" crossorigin="anonymous"></script></head>`);
-    }
   }
   html = upsertLinkTag(html, "canonical", { href: routeMeta.url });
   html = upsertLinkTag(html, "icon", { type: "image/svg+xml", href: faviconRefs.svg });

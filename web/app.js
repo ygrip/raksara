@@ -195,6 +195,12 @@
     markdownPromise: null,
     searchPromise: null,
   };
+  const adsenseState = {
+    scriptPromise: null,
+    bootstrapped: false,
+    observer: null,
+    interactionBound: false,
+  };
   const HIGHLIGHT_LANG_ALIASES = {
     js: "javascript",
     jsx: "javascript",
@@ -238,6 +244,109 @@
       document.head.appendChild(script);
     });
     return vendorState[key];
+  }
+
+  function getAdsenseAccountId() {
+    const metaAccount = document
+      .querySelector('meta[name="google-adsense-account"]')
+      ?.getAttribute("content")
+      ?.trim();
+    if (metaAccount && /^pub-\d{6,}$/.test(metaAccount)) return metaAccount;
+
+    const raw = state && state.config ? state.config.adsense : "";
+    if (!raw) return "";
+    const match = String(raw).match(/pub-\d{6,}/);
+    return match ? match[0] : "";
+  }
+
+  function hasAdsenseSlots(root = document) {
+    return Boolean(root.querySelector("ins.adsbygoogle"));
+  }
+
+  function hydrateAdsenseSlots() {
+    if (typeof window.adsbygoogle === "undefined") return;
+    document.querySelectorAll("ins.adsbygoogle").forEach((slot) => {
+      if (slot.dataset.adsbygoogleStatus) return;
+      try {
+        window.adsbygoogle.push({});
+      } catch {
+        // Ignore per-slot init errors and continue.
+      }
+    });
+  }
+
+  async function ensureAdsenseScriptLoaded() {
+    if (adsenseState.scriptPromise) return adsenseState.scriptPromise;
+    const accountId = getAdsenseAccountId();
+    if (!accountId) return Promise.resolve();
+
+    adsenseState.scriptPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.async = true;
+      script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${accountId}`;
+      script.crossOrigin = "anonymous";
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("Failed to load AdSense script"));
+      document.head.appendChild(script);
+    });
+
+    return adsenseState.scriptPromise;
+  }
+
+  function scheduleAdsenseBootstrap() {
+    if (adsenseState.observer) {
+      adsenseState.observer.disconnect();
+      adsenseState.observer = null;
+    }
+    adsenseState.bootstrapped = false;
+
+    if (!hasAdsenseSlots()) return;
+
+    const bootstrap = async () => {
+      if (adsenseState.bootstrapped) return;
+      adsenseState.bootstrapped = true;
+      try {
+        await ensureAdsenseScriptLoaded();
+        hydrateAdsenseSlots();
+      } catch (err) {
+        console.warn("AdSense bootstrap skipped:", err && err.message ? err.message : err);
+      }
+    };
+
+    const firstSlot = document.querySelector("ins.adsbygoogle");
+    if (firstSlot && "IntersectionObserver" in window) {
+      adsenseState.observer = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) return;
+          if (adsenseState.observer) {
+            adsenseState.observer.disconnect();
+            adsenseState.observer = null;
+          }
+          bootstrap();
+        },
+        { rootMargin: "300px 0px" },
+      );
+      adsenseState.observer.observe(firstSlot);
+    }
+
+    if (!adsenseState.interactionBound) {
+      const onFirstIntent = () => {
+        window.removeEventListener("pointerdown", onFirstIntent, true);
+        window.removeEventListener("scroll", onFirstIntent, true);
+        window.removeEventListener("keydown", onFirstIntent, true);
+        bootstrap();
+      };
+      window.addEventListener("pointerdown", onFirstIntent, true);
+      window.addEventListener("scroll", onFirstIntent, true);
+      window.addEventListener("keydown", onFirstIntent, true);
+      adsenseState.interactionBound = true;
+    }
+
+    if ("requestIdleCallback" in window) {
+      window.requestIdleCallback(() => bootstrap(), { timeout: 4000 });
+    } else {
+      setTimeout(bootstrap, 2500);
+    }
   }
 
   async function ensureMarkdownVendorLoaded() {
@@ -1670,6 +1779,14 @@
     }
     const span = document.querySelector(".accent-gradient");
     if (!span) return;
+    const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const isMobileViewport = window.innerWidth < 768;
+    if (reduceMotion || isMobileViewport) {
+      span.textContent = title;
+      span.classList.add("typed");
+      document.querySelectorAll(".hero-cursor").forEach((node) => node.remove());
+      return;
+    }
     span.textContent = "";
     span.classList.remove("typed");
     const cursor = document.createElement("span");
@@ -4801,6 +4918,9 @@
     else if (parts[0] === "doc" && parts[1])
       await renderPage(`doc/${parts[1]}`);
     else await renderPage(parts[0]);
+
+    // Defer AdSense script work until there is clear user intent or slot visibility.
+    scheduleAdsenseBootstrap();
   }
 
   function updateActiveNav(route) {
