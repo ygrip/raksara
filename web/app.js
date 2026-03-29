@@ -227,6 +227,16 @@
 
   function toAssetHref(pathname) {
     const normalized = String(pathname || "").replace(/^\/+/, "");
+    if (!normalized) return runtime.basePath || "/";
+    // Static asset paths (files with an extension such as .json, .js, .css,
+    // .md, .webp …) must be fetched without a trailing slash — a trailing slash
+    // produces a 404 because the server has no directory at that address.
+    // Extension-less paths are page routes: delegate to toRouteHref so that
+    // GitHub Pages receives the trailing slash it needs to serve pre-built
+    // index.html files directly without issuing a 301 redirect.
+    if (/\.[^/]+$/.test(normalized)) {
+      return `${runtime.basePath}/${normalized}`;
+    }
     return toRouteHref(`/${normalized}`);
   }
 
