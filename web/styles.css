@@ -895,15 +895,15 @@ body {
     border: 1px solid var(--border-glass);
     transition: border-color var(--transition), background var(--transition);
     gap: 10px;
-    text-decoration: none;
     color: inherit;
     cursor: pointer;
-    -webkit-text-decoration: none;
+    text-decoration: none !important;
+    -webkit-text-decoration: none !important;
 }
 
 .component-card:hover {
-    text-decoration: none;
-    -webkit-text-decoration: none;
+    text-decoration: none !important;
+    -webkit-text-decoration: none !important;
     cursor: pointer;
     border-color: var(--accent);
     background: var(--bg-card);
