@@ -362,7 +362,7 @@ async function buildMetadata() {
     path.join(WEB_DIR, "metadata", "image-manifest.json"),
   );
   await generateGalleryCover(galleryItems);
-  prerender(posts, thoughts, portfolioItems, galleryItems, siteConfig, imageManifest);
+  await prerender(posts, thoughts, portfolioItems, galleryItems, siteConfig, imageManifest, pages);
   await generateSeoArtifacts({
     posts,
     portfolioItems,
@@ -1201,6 +1201,34 @@ function buildShellHtml(srcHtml, { baseHref, route, context }) {
       // If home-prerender fails to load, skip — JS will render it
     }
   }
+
+  // Inline profile prerender HTML for /profile route to eliminate CLS
+  if (route === "/profile") {
+    try {
+      const profilePrerenderPath = path.join(WEB_DIR, "metadata", "profile-prerender.json");
+      if (fs.existsSync(profilePrerenderPath)) {
+        const prerender = JSON.parse(fs.readFileSync(profilePrerenderPath, "utf-8"));
+        if (prerender && prerender.html) {
+          html = html.replace(
+            /<div id="page-content" class="page-content"><\/div>/,
+            `<div id="page-content" class="page-content" data-prerendered="profile">${prerender.html}</div>`
+          );
+        }
+      }
+    } catch (_) {
+      // If profile-prerender fails to load, skip — JS will render it
+    }
+
+    // Preload the cover image so the browser fetches it as early as possible (LCP)
+    const profilePage = (context.pages || []).find((p) => p.slug === "profile");
+    if (profilePage && profilePage.cover) {
+      const coverHref = resolveSiteAssetUrl(siteUrl, profilePage.cover);
+      if (coverHref) {
+        html = html.replace("</head>", `<link rel="preload" as="image" href="${coverHref}" fetchpriority="high"/></head>`);
+      }
+    }
+  }
+
   return html;
 }
 
@@ -1210,30 +1238,33 @@ function buildShellHtml(srcHtml, { baseHref, route, context }) {
  * Uses depth-counted string walking to find the matching closing </div>.
  */
 function stripPageContentPrerender(html) {
-  const OPEN_PRE = '<div id="page-content" class="page-content" data-prerendered="home">';
   const OPEN_PLAIN = '<div id="page-content" class="page-content">';
-  const startIdx = html.indexOf(OPEN_PRE);
-  if (startIdx === -1) return html; // nothing to strip
+  for (const attr of ["home", "profile"]) {
+    const OPEN_PRE = `<div id="page-content" class="page-content" data-prerendered="${attr}">`;
+    const startIdx = html.indexOf(OPEN_PRE);
+    if (startIdx === -1) continue;
 
-  const contentStart = startIdx + OPEN_PRE.length;
-  let depth = 1;
-  let i = contentStart;
-  while (i < html.length && depth > 0) {
-    const nextOpen = html.indexOf('<div', i);
-    const nextClose = html.indexOf('</div>', i);
-    if (nextClose === -1) return html; // malformed, leave unchanged
-    if (nextOpen !== -1 && nextOpen < nextClose) {
-      depth++;
-      i = nextOpen + 4;
-    } else {
-      depth--;
-      if (depth === 0) {
-        return html.slice(0, startIdx) + OPEN_PLAIN + '</div>' + html.slice(nextClose + 6);
+    const contentStart = startIdx + OPEN_PRE.length;
+    let depth = 1;
+    let i = contentStart;
+    while (i < html.length && depth > 0) {
+      const nextOpen = html.indexOf('<div', i);
+      const nextClose = html.indexOf('</div>', i);
+      if (nextClose === -1) return html; // malformed, leave unchanged
+      if (nextOpen !== -1 && nextOpen < nextClose) {
+        depth++;
+        i = nextOpen + 4;
+      } else {
+        depth--;
+        if (depth === 0) {
+          return html.slice(0, startIdx) + OPEN_PLAIN + '</div>' + html.slice(nextClose + 6);
+        }
+        i = nextClose + 6;
       }
-      i = nextClose + 6;
     }
+    return html; // could not find matching close tag
   }
-  return html; // could not find matching close, leave unchanged
+  return html; // nothing to strip
 }
 
 function escapeXml(value) {
@@ -1900,7 +1931,97 @@ async function generateGalleryCover(galleryItems) {
   }
 }
 
-function prerender(posts, thoughts, portfolio, gallery, config, imageManifest) {
+async function renderProfilePagePrerender(pages, imageManifest) {
+  const profilePage = (pages || []).find((p) => p.slug === "profile");
+  if (!profilePage || !profilePage.path) return null;
+
+  const profilePath = path.join(REPO_ROOT, profilePage.path);
+  if (!fs.existsSync(profilePath)) return null;
+
+  const raw = fs.readFileSync(profilePath, "utf-8");
+  const { data: frontmatter, content: body } = matter(raw);
+
+  const { marked } = await import("marked");
+
+  const localResolvePath = (p) => {
+    if (!p) return "";
+    if (/^https?:\/\//.test(p) || p.startsWith("data:")) return p;
+    return p.replace(/^\/+/, "");
+  };
+
+  const coverUrl = localResolvePath(frontmatter.cover) || "";
+  const avatarUrl = localResolvePath(frontmatter.avatar) || "";
+  const name = frontmatter.title || "Profile";
+  const role = frontmatter.role || "";
+
+  const linkDefs = {
+    github: { label: "GitHub", prefix: "" },
+    linkedin: { label: "LinkedIn", prefix: "" },
+    medium: { label: "Medium", prefix: "" },
+    twitter: { label: "Twitter", prefix: "" },
+    website: { label: "Website", prefix: "" },
+    email: { label: "Email", prefix: "mailto:" },
+  };
+  const links = [];
+  for (const [key, def] of Object.entries(linkDefs)) {
+    if (frontmatter[key]) {
+      links.push(`<a href="${def.prefix}${escapeHtml(frontmatter[key])}" target="_blank" rel="noopener">${def.label}</a>`);
+    }
+  }
+
+  const metaItems = Array.isArray(frontmatter.metadata) ? frontmatter.metadata : [];
+  let metaHtml = "";
+  if (metaItems.length) {
+    metaHtml =
+      '<div class="profile-metadata">' +
+      metaItems
+        .map((m) => {
+          if (typeof m === "string") return `<span class="profile-meta-chip">${escapeHtml(m)}</span>`;
+          const label = m.label || "";
+          const value = m.value || "";
+          const url = m.url || "";
+          const display = value || label;
+          if (url)
+            return `<a href="${escapeHtml(url)}" class="profile-meta-chip has-link" target="_blank" rel="noopener">${label ? `<span class="meta-label">${escapeHtml(label)}</span>` : ""}${escapeHtml(display !== label ? display : "")}</a>`;
+          return `<span class="profile-meta-chip">${label ? `<span class="meta-label">${escapeHtml(label)}</span>` : ""}${escapeHtml(display !== label ? display : "")}</span>`;
+        })
+        .join("") +
+      "</div>";
+  }
+
+  const waveSvg = `<div class="hero-waves"><svg class="hero-wave hero-wave-back" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,45 C100,20 200,55 360,30 C480,12 560,50 720,35 C850,22 1000,55 1140,28 C1280,8 1380,42 1440,38 L1440,80 L0,80 Z"/></svg><svg class="hero-wave hero-wave-front" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,38 C80,52 180,15 320,42 C430,60 540,18 700,40 C820,55 960,12 1100,45 C1220,62 1340,22 1440,35 L1440,80 L0,80 Z"/></svg></div>`;
+  const shareButtonHtml = `<button class="share-btn" aria-label="Share"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M4 8.5v5a1 1 0 001 1h6a1 1 0 001-1v-5M8 1v8.5M5 4l3-3 3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Share</span></button>`;
+
+  const avatarHtml = avatarUrl
+    ? `<div class="profile-avatar-wrap is-loading"><img ${buildResponsiveImageAttrsPrerender(
+        avatarUrl,
+        { alt: name, className: "profile-avatar", loading: "eager", sizes: "110px" },
+        imageManifest,
+      )}></div>`
+    : "";
+
+  const bodyHtml = marked.parse(body || "");
+
+  return `<div class="profile-hero" id="profile-hero">
+      <div class="profile-hero-bg" id="profile-hero-bg" data-src="${escapeHtml(coverUrl)}"></div>
+      <div class="profile-hero-skeleton"></div>
+      <div class="profile-hero-overlay"></div>
+      <div class="profile-hero-share">${shareButtonHtml}</div>
+      <div class="profile-hero-content">
+        ${avatarHtml}
+        <div class="profile-info">
+          <h1>${escapeHtml(name)}</h1>
+          ${role ? `<div class="profile-role">${escapeHtml(role)}</div>` : ""}
+          ${links.length ? `<div class="profile-links">${links.join("")}</div>` : ""}
+        </div>
+      </div>
+      ${waveSvg}
+    </div>
+    ${metaHtml}
+    <div class="article-body">${bodyHtml}</div>`;
+}
+
+async function prerender(posts, thoughts, portfolio, gallery, config, imageManifest, pages) {
   const homeMarkup = renderHomePagePrerender(posts, thoughts, portfolio, gallery, config, imageManifest);
   const cacheFile = path.join(METADATA_DIR, "home-prerender.json");
   fs.writeFileSync(cacheFile, JSON.stringify({ html: homeMarkup }), "utf-8");
@@ -1909,6 +2030,18 @@ function prerender(posts, thoughts, portfolio, gallery, config, imageManifest) {
     path.join(WEB_DIR, "metadata", "home-prerender.json"),
   );
   console.log("  ✓ Prerendered homepage markup");
+
+  try {
+    const profileMarkup = await renderProfilePagePrerender(pages, imageManifest);
+    if (profileMarkup) {
+      const profileCacheFile = path.join(METADATA_DIR, "profile-prerender.json");
+      fs.writeFileSync(profileCacheFile, JSON.stringify({ html: profileMarkup }), "utf-8");
+      fs.copyFileSync(profileCacheFile, path.join(WEB_DIR, "metadata", "profile-prerender.json"));
+      console.log("  ✓ Prerendered profile markup");
+    }
+  } catch (err) {
+    console.log("  ⚠ Profile prerender failed:", err.message);
+  }
 }
 
 async function minifyCSS() {

@@ -3256,11 +3256,15 @@
   // ── Profile (Parallax Hero) ───────────────────────────
 
   async function renderProfile() {
-    showLoading();
+    const el = document.getElementById("page-content");
+    const isPrerendered = el && el.dataset.prerendered === "profile";
+    if (!isPrerendered) {
+      showLoading();
+    }
     const page = state.pages.find((p) => p.slug === "profile");
-    const path = page ? page.path : "content/pages/profile.md";
+    const filePath = page ? page.path : "content/pages/profile.md";
     try {
-      const raw = await loadMarkdown(path);
+      const raw = await loadMarkdown(filePath);
       const { frontmatter, body } = parseMarkdown(raw);
       const html = renderMd(body);
 
@@ -3312,30 +3316,38 @@
 
       const waveSvg = `<div class="hero-waves"><svg class="hero-wave hero-wave-back" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,45 C100,20 200,55 360,30 C480,12 560,50 720,35 C850,22 1000,55 1140,28 C1280,8 1380,42 1440,38 L1440,80 L0,80 Z"/></svg><svg class="hero-wave hero-wave-front" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,38 C80,52 180,15 320,42 C430,60 540,18 700,40 C820,55 960,12 1100,45 C1220,62 1340,22 1440,35 L1440,80 L0,80 Z"/></svg></div>`;
 
-      showContent(`
-        <div class="profile-hero" id="profile-hero">
-          <div class="profile-hero-bg" id="profile-hero-bg" data-src="${escapeHtml(coverUrl)}"></div>
-          <div class="profile-hero-skeleton"></div>
-          <div class="profile-hero-overlay"></div>
-          <div class="profile-hero-share">${shareButton(name)}</div>
-          <div class="profile-hero-content">
-            ${avatarUrl ? `<div class="profile-avatar-wrap is-loading"><img ${buildResponsiveImageAttrs(avatarUrl, {
-              alt: name,
-              className: "profile-avatar",
-              loading: "lazy",
-              sizes: "110px",
-            })}></div>` : ""}
-            <div class="profile-info">
-              <h1>${escapeHtml(name)}</h1>
-              ${role ? `<div class="profile-role">${escapeHtml(role)}</div>` : ""}
-              ${links.length ? `<div class="profile-links">${links.join("")}</div>` : ""}
+      if (isPrerendered) {
+        // Content already in DOM — clear flag and reset any transition styles
+        delete el.dataset.prerendered;
+        el.style.opacity = "";
+        el.style.transform = "";
+        el.style.transition = "";
+      } else {
+        showContent(`
+          <div class="profile-hero" id="profile-hero">
+            <div class="profile-hero-bg" id="profile-hero-bg" data-src="${escapeHtml(coverUrl)}"></div>
+            <div class="profile-hero-skeleton"></div>
+            <div class="profile-hero-overlay"></div>
+            <div class="profile-hero-share">${shareButton(name)}</div>
+            <div class="profile-hero-content">
+              ${avatarUrl ? `<div class="profile-avatar-wrap is-loading"><img ${buildResponsiveImageAttrs(avatarUrl, {
+                alt: name,
+                className: "profile-avatar",
+                loading: "eager",
+                sizes: "110px",
+              })}></div>` : ""}
+              <div class="profile-info">
+                <h1>${escapeHtml(name)}</h1>
+                ${role ? `<div class="profile-role">${escapeHtml(role)}</div>` : ""}
+                ${links.length ? `<div class="profile-links">${links.join("")}</div>` : ""}
+              </div>
             </div>
+            ${waveSvg}
           </div>
-          ${waveSvg}
-        </div>
-        ${metaHtml}
-        <div class="article-body">${html}</div>
-      `);
+          ${metaHtml}
+          <div class="article-body">${html}</div>
+        `);
+      }
       initParallax();
       const metaForShare = metaItems
         .slice(0, 3)
@@ -3346,7 +3358,7 @@
         );
       updatePageMeta({
         title: name !== "Profile" ? name : null,
-        description: role || "",
+        description: frontmatter.summary || frontmatter.description || frontmatter.bio || role || "",
         image: coverUrl || "",
         author: name !== "Profile" ? name : "",
       });
@@ -4626,6 +4638,7 @@
     const btn = document.querySelector(".share-btn");
     if (!btn) return;
     if (opts && opts.coverUrl) prefetchImage(opts.coverUrl);
+    if (opts && opts.avatarUrl) prefetchImage(opts.avatarUrl);
     btn.addEventListener("click", async () => {
       const url = window.location.href;
       const label = btn.querySelector("span");
@@ -5027,13 +5040,16 @@
     document.body.classList.remove("reading-mode");
     document.body.style.overflow = "";
 
-    // Skip loading spinner if home page content was pre-rendered into HTML —
+    // Skip loading spinner if page content was pre-rendered into HTML —
     // keep it visible to the user while data loads in the background.
     const pageContent = document.getElementById("page-content");
-    const isHomePrerendered = pageContent &&
-      pageContent.dataset.prerendered === "home" &&
-      (getCurrentRoutePath() === "/" || getCurrentRoutePath() === "");
-    if (!isHomePrerendered) {
+    const prerenderedTag = pageContent && pageContent.dataset.prerendered;
+    const currentPath = getCurrentRoutePath();
+    const currentParts = currentPath.split("/").filter(Boolean);
+    const isPrerendered =
+      (prerenderedTag === "home" && (currentPath === "/" || currentPath === "")) ||
+      (prerenderedTag === "profile" && currentParts[0] === "profile");
+    if (!isPrerendered) {
       showLoading();
     }
 
