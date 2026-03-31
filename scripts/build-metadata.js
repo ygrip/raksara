@@ -1115,6 +1115,7 @@ function extractCriticalCssSync() {
 
 function buildShellHtml(srcHtml, { baseHref, route, context }) {
   const siteConfig = context.siteConfig || {};
+  const siteUrl = context.siteUrl || "";
   const adsenseConfig = parseAdsenseConfig(siteConfig);
   const routeMeta = getRouteMeta(route, context);
   const palette = getAccentPalette(siteConfig);
@@ -2022,6 +2023,7 @@ async function renderProfilePagePrerender(pages, imageManifest) {
 }
 
 async function prerender(posts, thoughts, portfolio, gallery, config, imageManifest, pages) {
+  const SEO_INITIAL_COUNT = 12;
   const homeMarkup = renderHomePagePrerender(posts, thoughts, portfolio, gallery, config, imageManifest);
   const cacheFile = path.join(METADATA_DIR, "home-prerender.json");
   fs.writeFileSync(cacheFile, JSON.stringify({ html: homeMarkup }), "utf-8");
@@ -2030,6 +2032,22 @@ async function prerender(posts, thoughts, portfolio, gallery, config, imageManif
     path.join(WEB_DIR, "metadata", "home-prerender.json"),
   );
   console.log("  ✓ Prerendered homepage markup");
+
+  // Emit a slim home-bundle.json combining the three critical-path files so the
+  // home route can be bootstrapped with a single fetch instead of three separate ones.
+  try {
+    const homeBundle = {
+      config,
+      posts: posts.slice(0, SEO_INITIAL_COUNT),
+      homePrerender: { html: homeMarkup },
+    };
+    const bundleCacheFile = path.join(METADATA_DIR, "home-bundle.json");
+    fs.writeFileSync(bundleCacheFile, JSON.stringify(homeBundle), "utf-8");
+    fs.copyFileSync(bundleCacheFile, path.join(WEB_DIR, "metadata", "home-bundle.json"));
+    console.log("  ✓ Generated home-bundle.json");
+  } catch (err) {
+    console.log("  ⚠ home-bundle.json generation failed:", err.message);
+  }
 
   try {
     const profileMarkup = await renderProfilePagePrerender(pages, imageManifest);

@@ -182,6 +182,7 @@
     miniSearch: null,
     config: window.__RAKSARA_SITE_CONFIG__ || {},
     imageManifest: {},
+    imageManifestPromise: null,
     loaded: false,
   };
   const runtime = {
@@ -404,6 +405,17 @@
     }
   }
 
+  async function ensureImageManifest() {
+    if (state.imageManifestPromise) {
+      await state.imageManifestPromise;
+      return;
+    }
+    state.imageManifestPromise = loadJSON("metadata/image-manifest.json")
+      .then((manifest) => { state.imageManifest = manifest; })
+      .catch(() => {});
+    await state.imageManifestPromise;
+  }
+
   async function ensureMarkdownVendorLoaded() {
     if (typeof marked !== "undefined") return;
     await loadScriptOnce(toAssetHref("vendor-markdown.min.js"), "markdownPromise");
@@ -419,6 +431,12 @@
 
   async function ensureMiniSearchReady() {
     if (state.miniSearch) return;
+    // Start the search-index fetch on first demand (not at page load)
+    if (!state.searchIndexPromise) {
+      state.searchIndexPromise = loadJSON("metadata/search-index.json")
+        .then((idx) => { state.searchIndex = idx; })
+        .catch(() => {});
+    }
     // Wait for deferred background fetch of search index if in progress
     if (!state.searchIndex && state.searchIndexPromise) {
       await state.searchIndexPromise;
@@ -657,6 +675,25 @@
   async function loadData() {
     if (state.loaded) return;
     try {
+      // Fast path: try home-bundle.json first to seed config + homePrerender
+      // with a single request. Full data still loads in parallel below.
+      let bundleConfig = null;
+      let bundleHomePrerender = null;
+      try {
+        const bundle = await loadJSON("metadata/home-bundle.json");
+        if (bundle && bundle.config) {
+          bundleConfig = bundle.config;
+          bundleHomePrerender = bundle.homePrerender || {};
+          // Apply config immediately so accent/logo show without waiting for full load
+          Object.assign(state, { config: bundleConfig, homePrerender: bundleHomePrerender });
+          applyAccentColor(getConfiguredAccentColor(bundleConfig));
+          if (bundleConfig.logo) applyLogo("content/" + bundleConfig.logo);
+          if (bundleConfig.hero_title) applyLogoText(bundleConfig.hero_title);
+        }
+      } catch (_) {
+        // home-bundle.json not available — continue with normal load
+      }
+
       const [
         posts,
         portfolio,
@@ -668,7 +705,6 @@
         categories,
         blogDirs,
         config,
-        imageManifest,
         homePrerender,
       ] = await Promise.all([
         loadJSON("metadata/posts.json"),
@@ -680,10 +716,9 @@
         loadJSON("metadata/tags.json"),
         loadJSON("metadata/categories.json"),
         loadJSON("metadata/blog-dirs.json"),
-        // search-index.json loaded lazily below (non-blocking)
-        loadJSON("metadata/config.json").catch(() => (state.config || {})),
-        loadJSON("metadata/image-manifest.json").catch(() => ({})),
-        loadJSON("metadata/home-prerender.json").catch(() => ({})),
+        // search-index.json and image-manifest.json loaded lazily on demand
+        bundleConfig ? Promise.resolve(bundleConfig) : loadJSON("metadata/config.json").catch(() => (state.config || {})),
+        bundleHomePrerender ? Promise.resolve(bundleHomePrerender) : loadJSON("metadata/home-prerender.json").catch(() => ({})),
       ]);
       Object.assign(state, {
         posts,
@@ -696,17 +731,9 @@
         categories,
         blogDirs,
         config,
-        imageManifest,
         homePrerender,
         loaded: true,
       });
-      // Start background fetch of search index (non-blocking — loaded on demand)
-      if (!state.searchIndexPromise) {
-        state.searchIndexPromise = loadJSON("metadata/search-index.json")
-          .then((idx) => { state.searchIndex = idx; })
-          .catch(() => {});
-      }
-
       applyAccentColor(getConfiguredAccentColor(state.config));
       if (state.config.logo) applyLogo("content/" + state.config.logo);
       // Update sidebar title from config
@@ -2542,6 +2569,7 @@
       return;
     }
     try {
+      await ensureImageManifest();
       const raw = await loadMarkdown(post.path);
       const { frontmatter, body } = parseMarkdown(raw);
       const readTime = Math.max(
@@ -2897,6 +2925,7 @@
       return;
     }
     try {
+      await ensureImageManifest();
       const raw = await loadMarkdown(item.path);
       const { frontmatter, body } = parseMarkdown(raw);
       const readTime = Math.max(
@@ -2974,7 +3003,8 @@
 
   // ── Gallery ───────────────────────────────────────────
 
-  function renderGallery(autoOpenIndex) {
+  async function renderGallery(autoOpenIndex) {
+    await ensureImageManifest();
     const shareIconSvg =
       '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 8.5v5a1 1 0 001 1h6a1 1 0 001-1v-5M8 1v8.5M5 4l3-3 3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     const items = state.gallery

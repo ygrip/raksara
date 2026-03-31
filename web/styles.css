@@ -107,7 +107,7 @@
 :root {
     --sidebar-width: 260px;
     --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-mono: "JetBrains Mono", "Fira Code", monospace;
+    --font-mono: ui-monospace, "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", monospace;
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 16px;
@@ -388,9 +388,13 @@ body {
 
 /* END CRITICAL CSS */
 
-/* ── Search Overlay ──────────────────────────────────────── */
+/* ── Paginated List CLS Guard ───────────────────────────── */
 
-.search-overlay {
+#paginated-list:empty {
+    min-height: 300px;
+}
+
+/* ── Search Overlay {
     position: fixed;
     inset: 0;
     z-index: 9999;
@@ -1139,6 +1143,7 @@ body {
 .home-hero-aurora {
     position: absolute;
     inset: -40%;
+    contain: content;
     background:
         radial-gradient(
             ellipse 40% 35% at 20% 30%,
