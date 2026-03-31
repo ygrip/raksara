@@ -744,7 +744,12 @@
             homePrerender: bundle.homePrerender || {},
           });
           applyAccentColor(getConfiguredAccentColor(bundle.config));
-          if (bundle.config.logo) applyLogo("content/" + bundle.config.logo);
+          if (bundle.config.logo) {
+            const _logo = "content/" + bundle.config.logo;
+            (window.requestIdleCallback
+              ? (fn) => window.requestIdleCallback(fn, { timeout: 3000 })
+              : (fn) => setTimeout(fn, 200))(() => applyLogo(_logo));
+          }
           if (bundle.config.hero_title) applyLogoText(bundle.config.hero_title);
           bundleLoaded = true;
         }
@@ -758,7 +763,12 @@
         ]);
         Object.assign(state, { config: cfg, homePrerender: hp });
         applyAccentColor(getConfiguredAccentColor(state.config));
-        if (state.config.logo) applyLogo("content/" + state.config.logo);
+        if (state.config.logo) {
+          const _logo = "content/" + state.config.logo;
+          (window.requestIdleCallback
+            ? (fn) => window.requestIdleCallback(fn, { timeout: 3000 })
+            : (fn) => setTimeout(fn, 200))(() => applyLogo(_logo));
+        }
         if (state.config.hero_title) applyLogoText(state.config.hero_title);
       }
       state.loaded = true;
@@ -1998,10 +2008,19 @@
       pageEl.style.transform = "";
       pageEl.style.transition = "";
       updatePageMeta({ title: null, description: heroSubtitle });
-      initParallax();
-      initPortfolioCards();
+      // initLazyImages runs immediately: eager LCP image must be settled ASAP.
       initLazyImages();
-      initHeroTyping(heroTitle);
+      // Portfolio card clicks are interactive — attach soon after paint.
+      initPortfolioCards();
+      // Parallax and typing are pure visual effects — defer to after first interactive frame
+      // so they don't block user input on the main thread (TBT target: <150ms).
+      const scheduleVisual = window.requestIdleCallback
+        ? (fn) => window.requestIdleCallback(fn, { timeout: 1000 })
+        : (fn) => setTimeout(fn, 0);
+      scheduleVisual(() => {
+        initParallax();
+        initHeroTyping(heroTitle);
+      });
       return;
     }
 
@@ -2012,10 +2031,15 @@
         title: null,
         description: heroSubtitle,
       });
-      initParallax();
-      initPortfolioCards();
       initLazyImages();
-      initHeroTyping(heroTitle);
+      initPortfolioCards();
+      const scheduleVisual = window.requestIdleCallback
+        ? (fn) => window.requestIdleCallback(fn, { timeout: 1000 })
+        : (fn) => setTimeout(fn, 0);
+      scheduleVisual(() => {
+        initParallax();
+        initHeroTyping(heroTitle);
+      });
       return;
     }
 
@@ -2092,10 +2116,15 @@
       title: null,
       description: heroSubtitle,
     });
-    initParallax();
-    initPortfolioCards();
     initLazyImages();
-    initHeroTyping(heroTitle);
+    initPortfolioCards();
+    const scheduleVisual = window.requestIdleCallback
+      ? (fn) => window.requestIdleCallback(fn, { timeout: 1000 })
+      : (fn) => setTimeout(fn, 0);
+    scheduleVisual(() => {
+      initParallax();
+      initHeroTyping(heroTitle);
+    });
   }
 
   function renderHomeGalleryStack() {
@@ -5520,7 +5549,12 @@
   }
 
   function initTheme() {
-    if (state.config && state.config.logo) applyLogo("content/" + state.config.logo);
+    if (state.config && state.config.logo) {
+      const _logo = "content/" + state.config.logo;
+      (window.requestIdleCallback
+        ? (fn) => window.requestIdleCallback(fn, { timeout: 3000 })
+        : (fn) => setTimeout(fn, 200))(() => applyLogo(_logo));
+    }
     if (state.config && state.config.hero_title) applyLogoText(state.config.hero_title);
     const saved = localStorage.getItem("raksara-theme");
     const theme =
