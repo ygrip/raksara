@@ -78,6 +78,14 @@
     }
   }
 
+  async function ensureChartVendorLoaded() {
+    if (typeof window.Chart !== "undefined") return;
+    await loadScriptOnce(toAssetHref("vendor-chart.min.js"), "chartPromise");
+    if (typeof window.Chart === "undefined") {
+      throw new Error("Chart vendor loaded but Chart is unavailable");
+    }
+  }
+
   async function ensureMiniSearchReady() {
     if (state.miniSearch) return;
     // Start the search-index fetch on first demand (not at page load)

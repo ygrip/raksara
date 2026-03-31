@@ -83,6 +83,11 @@
     localStorage.setItem("raksara-theme", theme);
     syncThemeIcons(theme);
     applyAccentColor(getConfiguredAccentColor(state.config));
+    
+    // Update chart themes if charts are present
+    if (typeof window.updateChartThemes === 'function') {
+      window.updateChartThemes();
+    }
     syncGiscusTheme(theme);
     const hljsDark = document.getElementById("hljs-dark");
     const hljsLight = document.getElementById("hljs-light");

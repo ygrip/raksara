@@ -282,4 +282,5 @@
     txt: "plaintext",
     plain: "plaintext",
     log: "plaintext",
+    chart: "plaintext",
   };

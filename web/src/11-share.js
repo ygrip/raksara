@@ -1164,7 +1164,16 @@
         await ensureHighlightCoreLoaded();
         await Promise.all(Array.from(langs).map((l) => ensureHighlightLanguageLoaded(l)));
         if (highlightState.instance) {
-          codeNodes.forEach((el) => highlightState.instance.highlightElement(el));
+          codeNodes.forEach((el) => {
+            const langClass = Array.from(el.classList).find((c) => c.startsWith("language-"));
+            const rawLang = langClass ? langClass.slice("language-".length) : "plaintext";
+            const normalized = normalizeHighlightLanguage(rawLang);
+            if (!highlightState.instance.getLanguage(normalized)) {
+              if (langClass) el.classList.remove(langClass);
+              el.classList.add("language-plaintext");
+            }
+            highlightState.instance.highlightElement(el);
+          });
         }
       } catch {
         // ensureHighlightCoreLoaded already tries local then CDN; if both fail, leave code plain.
@@ -1180,6 +1189,8 @@
     });
     initLazyImages();
     initFileAttachments();
+    initProgressBars();
+    initCharts();
   }
 
   let _carouselImages = [];

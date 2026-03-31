@@ -87,7 +87,10 @@
   const panelStorage = [];
 
   function preprocessCustomPanels(md) {
-    panelStorage.length = 0;
+    // Only clear storage during top-level processing to avoid clearing during nested processing
+    if (typeof window._processingDepth === 'undefined' || window._processingDepth === 1) {
+      panelStorage.length = 0;
+    }
     return md.replace(/\<panel\s+type=["']?(info|note|warning|error|success)["']?\s*\>([\s\S]*?)\<\/panel\>/gi, (_match, type, inner) => {
       panelStorage.push({ type: type.toLowerCase(), content: inner.trim() });
       return `[[RAKSARA_PANEL:${panelStorage.length - 1}]]`;
@@ -118,7 +121,10 @@
   const containerStorage = [];
 
   function preprocessCustomContainers(md) {
-    containerStorage.length = 0;
+    // Only clear storage during top-level processing to avoid clearing during nested processing
+    if (typeof window._processingDepth === 'undefined' || window._processingDepth === 1) {
+      containerStorage.length = 0;
+    }
     return md.replace(/\<container\s*\>([\s\S]*?)\<\/container\>/gi, (_match, inner) => {
       containerStorage.push(inner.trim());
       return `[[RAKSARA_CONTAINER:${containerStorage.length - 1}]]`;
@@ -140,7 +146,10 @@
   const chipStorage = [];
 
   function preprocessCustomChips(md) {
-    chipStorage.length = 0;
+    // Only clear storage during top-level processing to avoid clearing during nested processing
+    if (typeof window._processingDepth === 'undefined' || window._processingDepth === 1) {
+      chipStorage.length = 0;
+    }
     return md.replace(/\<chip((?:\s+\w+(?:=(?:"[^"]*"|'[^']*'|\S+))?)*)\s*\>([\s\S]*?)\<\/chip\>/gi, (_match, attrsStr, inner) => {
       const attrs = parseChipAttributes(attrsStr);
       chipStorage.push({ attrs, content: inner.trim() });
@@ -201,7 +210,10 @@
   const componentStorage = [];
 
   function preprocessCustomComponents(md) {
-    componentStorage.length = 0;
+    // Only clear storage during top-level processing to avoid clearing during nested processing
+    if (typeof window._processingDepth === 'undefined' || window._processingDepth === 1) {
+      componentStorage.length = 0;
+    }
     return md.replace(/::component\s*\(\s*([^)]+?)\s*\)/g, (match, pathArg) => {
       componentStorage.push(pathArg.trim());
       return `[[RAKSARA_COMPONENT:${componentStorage.length - 1}]]`;
@@ -441,4 +453,420 @@
         });
       });
     }
+  }
+
+  // ── Custom Element: THOUGHT ───────────────────────────────
+
+  const thoughtStorage = [];
+
+  function preprocessCustomThoughts(md) {
+    // Only clear storage during top-level processing to avoid clearing during nested processing
+    if (typeof window._processingDepth === 'undefined' || window._processingDepth === 1) {
+      thoughtStorage.length = 0;
+    }
+    return md.replace(/<thought((?:\s+\w+(?:=(?:"[^"]*"|'[^']*'|\S+))?)*)\s*>([\s\S]*?)<\/thought>/gi, (_match, attrsStr, inner) => {
+      const attrs = parseThoughtAttrs(attrsStr);
+      thoughtStorage.push({ attrs, content: inner.trim() });
+      return `[[RAKSARA_THOUGHT:${thoughtStorage.length - 1}]]`;
+    });
+  }
+
+  function parseThoughtAttrs(str) {
+    const attrs = { author: "", logo: "", align: "right" };
+    const matches = str.matchAll(/(\w+)(?:=(?:"([^"]*)"|'([^']*)'|(\S+)))?/g);
+    for (const m of matches) {
+      const key = m[1].toLowerCase();
+      const value = m[2] !== undefined ? m[2] : (m[3] !== undefined ? m[3] : (m[4] !== undefined ? m[4] : ""));
+      if (key === "author") attrs.author = value;
+      if (key === "logo") attrs.logo = value;
+      if (key === "align") attrs.align = value === "left" ? "left" : "right";
+    }
+    return attrs;
+  }
+
+  function injectThoughts(html) {
+    if (thoughtStorage.length === 0) return html;
+    return html.replace(/(?:<p>)?\[\[RAKSARA_THOUGHT:(\d+)\]\](?:<\/p>)?/g, (match, indexStr) => {
+      const index = parseInt(indexStr, 10);
+      if (index < 0 || index >= thoughtStorage.length) return match;
+      const { attrs, content } = thoughtStorage[index];
+      const isLeft = attrs.align === "left";
+      const bodyHtml = marked.parse(restoreRenderCodeBlocks(content));
+      const logoHtml = attrs.logo
+        ? `<img class="thought-bubble-logo" src="${escapeHtml(resolvePath(attrs.logo))}" alt="${escapeHtml(attrs.author)}" width="24" height="24">`
+        : "";
+      const authorHtml = attrs.author
+        ? `<div class="thought-bubble-attribution">${logoHtml}<span class="thought-bubble-author">${escapeHtml(attrs.author)}</span></div>`
+        : "";
+      return `<div class="thought-bubble thought-bubble-${isLeft ? "left" : "right"}">
+        <span class="thought-bubble-quote">\u201C</span>
+        <div class="thought-bubble-body">${bodyHtml}</div>
+        ${authorHtml}
+      </div>`;
+    });
+  }
+
+  // ── Custom Element: PROGRESS ──────────────────────────────
+
+  const progressStorage = [];
+
+  const _PROGRESS_ICONS = {
+    fire: "🔥", star: "⭐", check: "✓", flag: "🚩", bolt: "⚡",
+    heart: "❤️", trophy: "🏆", target: "🎯", pin: "📌", lock: "🔒",
+    rocket: "🚀", gem: "💎", crown: "👑", shield: "🛡️", warning: "⚠️",
+  };
+
+  function preprocessCustomProgress(md) {
+    // Only clear storage during top-level processing to avoid clearing during nested grid processing
+    if (typeof window._processingDepth === 'undefined' || window._processingDepth === 1) {
+      progressStorage.length = 0;
+    }
+    const toToken = (attrsStr, inner = "") => {
+      const attrs = parseProgressAttrs(attrsStr);
+      const bars = [];
+      const barRe = /<bar((?:\s+[\w-]+(?:=(?:"[^"]*"|'[^']*'|\S+))?)*)\s*>([\s\S]*?)<\/bar>/gi;
+      let bm;
+      while ((bm = barRe.exec(inner)) !== null) {
+        const ba = parseProgressAttrs(bm[1]);
+        bars.push({ at: parseInt(ba.at, 10) || 0, icon: ba.icon || "", text: bm[2].trim() });
+      }
+      progressStorage.push({ attrs, bars });
+      // Keep progress tokens block-level to avoid invalid <p><div> nesting
+      // when authors place <rk-progress> directly after inline markdown text.
+      return `\n\n[[RAKSARA_PROGRESS:${progressStorage.length - 1}]]\n\n`;
+    };
+
+    // Paired form: <rk-progress ...> ... </rk-progress>
+    let out = md.replace(/<rk-progress((?:\s+[\w-]+(?:=(?:"[^"]*"|'[^']*'|\S+))?)*)\s*>([\s\S]*?)<\/rk-progress>/gi, (_match, attrsStr, inner) => {
+      return toToken(attrsStr, inner);
+    });
+
+    // Self-closing form: <rk-progress ... />
+    out = out.replace(/<rk-progress((?:\s+[\w-]+(?:=(?:"[^"]*"|'[^']*'|\S+))?)*)\s*\/\s*>/gi, (_match, attrsStr) => {
+      return toToken(attrsStr, "");
+    });
+
+    return out;
+  }
+
+  function parseProgressAttrs(str) {
+    const attrs = {};
+    const matches = str.matchAll(/([\w-]+)(?:=(?:"([^"]*)"|'([^']*)'|(\S+)))?/g);
+    for (const m of matches) {
+      const key = m[1].toLowerCase();
+      const value = m[2] !== undefined ? m[2] : (m[3] !== undefined ? m[3] : (m[4] !== undefined ? m[4] : "true"));
+      attrs[key] = value;
+    }
+    return attrs;
+  }
+
+  function injectProgress(html) {
+    if (progressStorage.length === 0) return html;
+    const replaceProgressToken = (match, indexStr) => {
+      const index = parseInt(indexStr, 10);
+      if (index < 0 || index >= progressStorage.length) return match;
+      const { attrs, bars } = progressStorage[index];
+      const total = Math.max(1, parseInt(attrs.total, 10) || 100);
+      const current = Math.min(total, Math.max(0, parseInt(attrs.current, 10) || 0));
+      const pct = (current / total) * 100;
+      const color = attrs.color ? buildProgressColor(attrs.color) : "var(--accent)";
+      const borderStyle = attrs.border ? ` border-color: ${escapeHtml(attrs.border)};` : "";
+      let barsHtml = "";
+      for (const bar of bars) {
+        const barPct = Math.min(100, Math.max(0, (bar.at / total) * 100));
+        const iconChar = _PROGRESS_ICONS[bar.icon] || (bar.icon ? escapeHtml(bar.icon) : "");
+        const iconHtml = iconChar
+          ? `<span class="rk-bar-icon">${iconChar}</span>`
+          : `<span class="rk-bar-dot" style="background:${color}"></span>`;
+        const tooltipHtml = bar.text ? `<div class="rk-bar-tooltip">${escapeHtml(bar.text)}</div>` : "";
+        barsHtml += `<div class="rk-bar" style="left:${barPct.toFixed(2)}%">${iconHtml}${tooltipHtml}</div>`;
+      }
+      return `<div class="rk-progress-wrap">
+        <div class="rk-progress" style="${borderStyle}" data-pct="${pct.toFixed(2)}">
+          <div class="rk-progress-track">
+            <div class="rk-progress-fill" style="--rk-prog-color:${color}; --rk-prog-target:${pct.toFixed(2)}%"></div>
+            ${barsHtml}
+          </div>
+        </div>
+        <div class="rk-progress-label"><span class="rk-progress-current">${current}</span><span class="rk-progress-sep">/</span><span class="rk-progress-total">${total}</span></div>
+      </div>`;
+    };
+
+    // Replace full paragraph-wrapped tokens first, then bare tokens.
+    // This avoids partial replacements that can leave broken paragraph HTML.
+    const withParagraphTokens = html.replace(/<p>\s*\[\[RAKSARA_PROGRESS:(\d+)\]\]\s*<\/p>/g, replaceProgressToken);
+    return withParagraphTokens.replace(/\[\[RAKSARA_PROGRESS:(\d+)\]\]/g, replaceProgressToken);
+  }
+
+  function buildProgressColor(name) {
+    const map = {
+      red: "#ef4444", purple: "var(--accent)", green: "#22c55e",
+      blue: "#3b82f6", white: "#ffffff", yellow: "#eab308",
+      orange: "#f97316",
+    };
+    return map[name.toLowerCase()] || escapeHtml(name);
+  }
+
+  function initProgressBars() {
+    const fills = document.querySelectorAll(".rk-progress-fill:not([data-animated])");
+    if (!fills.length) return;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const fill = entry.target;
+        fill.dataset.animated = "1";
+        observer.unobserve(fill);
+        requestAnimationFrame(() => {
+          fill.classList.add("rk-progress-animating");
+        });
+      });
+    }, { threshold: 0.3 });
+    fills.forEach((fill) => observer.observe(fill));
+  }
+
+  // ── Custom Element: GRID ──────────────────────────────────
+
+  const gridStorage = [];
+
+  function preprocessCustomGrid(md) {
+    // Only clear storage during top-level processing to avoid clearing during nested processing
+    if (typeof window._processingDepth === 'undefined' || window._processingDepth === 1) {
+      gridStorage.length = 0;
+    }
+    return md.replace(/<grid((?:\s+[\w-]+(?:=(?:"[^"]*"|'[^']*'|\S+))?)*)\s*>([\s\S]*?)<\/grid>/gi, (_match, attrsStr, inner) => {
+      const attrs = parseProgressAttrs(attrsStr); // reuse generic attr parser
+      const col = Math.min(4, Math.max(2, parseInt(attrs.column || attrs.col || attrs.cols, 10) || 3));
+      gridStorage.push({ col, content: inner.trim() });
+      // Force grid placeholders to block-level so injection is stable in markdown paragraphs.
+      return `\n\n[[RAKSARA_GRID:${gridStorage.length - 1}]]\n\n`;
+    });
+  }
+
+  function injectGrid(html) {
+    if (gridStorage.length === 0) return html;
+    const replaceGridToken = (match, indexStr) => {
+      const index = parseInt(indexStr, 10);
+      if (index < 0 || index >= gridStorage.length) return match;
+      const { col, content } = gridStorage[index];
+      const rawInner = marked.parse(restoreRenderCodeBlocks(content));
+      // Run all injectors on the inner HTML so nested components render correctly.
+      // Preprocessors (progress, thoughts, chips, etc.) already ran on the full text,
+      // replacing tags with [[RAKSARA_*:N]] tokens — those tokens land inside
+      // gridStorage.content and would be lost unless we inject them here too.
+      const inner = injectProgress(injectThoughts(injectCustomComponents(injectChips(injectContainers(injectPanels(rawInner))))));
+      return `<div class="rk-grid rk-grid-cols-${col}">${inner}</div>`;
+    };
+
+    const withParagraphTokens = html.replace(/<p>\s*\[\[RAKSARA_GRID:(\d+)\]\]\s*<\/p>/g, replaceGridToken);
+    return withParagraphTokens.replace(/\[\[RAKSARA_GRID:(\d+)\]\]/g, replaceGridToken);
+  }
+
+  // ── Custom Element: CHART ─────────────────────────────────
+
+  // chartStorage is populated by renderer.code in 04-markdown.js when lang === "chart"
+  const chartStorage = [];
+  
+  // Global chart registry for theme updates
+  const chartInstances = new Map();
+
+  function _isPlainObject(value) {
+    return !!value && typeof value === "object" && !Array.isArray(value);
+  }
+
+  function _deepMerge(base, override) {
+    if (!_isPlainObject(base)) return _isPlainObject(override) ? { ...override } : override;
+    const out = { ...base };
+    if (!_isPlainObject(override)) return out;
+    for (const key of Object.keys(override)) {
+      const a = out[key];
+      const b = override[key];
+      out[key] = _isPlainObject(a) && _isPlainObject(b) ? _deepMerge(a, b) : b;
+    }
+    return out;
+  }
+
+  function _readCssVar(styles, name, fallback) {
+    const v = styles.getPropertyValue(name).trim();
+    return v || fallback;
+  }
+
+  function _getChartThemeDefaults() {
+    const root = document.documentElement;
+    const styles = getComputedStyle(root);
+    const theme = root.getAttribute("data-theme") || "dark";
+    const isDark = theme !== "light";
+
+    const textPrimary = _readCssVar(styles, "--text-primary", isDark ? "#f0f0f5" : "#1a1a2e");
+    const textSecondary = _readCssVar(styles, "--text-secondary", isDark ? "#9898aa" : "#555566");
+    const borderColor = _readCssVar(styles, "--border-color", isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.14)");
+    const bgCard = _readCssVar(styles, "--bg-card", isDark ? "rgba(20,20,32,0.55)" : "rgba(255,255,255,0.6)");
+
+    const gridColor = isDark ? "rgba(255,255,255,0.18)" : "rgba(31,41,55,0.22)";
+    const angleLineColor = isDark ? "rgba(255,255,255,0.16)" : "rgba(31,41,55,0.2)";
+    const tooltipBg = isDark ? "rgba(10,10,18,0.92)" : "rgba(255,255,255,0.97)";
+    const lineFill = isDark ? "rgba(34,197,94,0.22)" : "rgba(34,197,94,0.14)";
+
+    return {
+      responsive: true,
+      maintainAspectRatio: true,
+      animation: { duration: 900, easing: "easeInOutQuart" },
+      color: textSecondary,
+      layout: { padding: 4 },
+      plugins: {
+        legend: {
+          position: "top",
+          labels: {
+            color: textSecondary,
+            usePointStyle: true,
+            boxWidth: 10,
+            boxHeight: 10,
+            padding: 14,
+          },
+        },
+        title: {
+          color: textPrimary,
+        },
+        tooltip: {
+          backgroundColor: tooltipBg,
+          titleColor: textPrimary,
+          bodyColor: textSecondary,
+          borderColor,
+          borderWidth: 1,
+        },
+      },
+      scales: {
+        r: {
+          angleLines: { color: angleLineColor, lineWidth: 1 },
+          grid: { color: gridColor, lineWidth: 1 },
+          pointLabels: { color: textSecondary },
+          ticks: {
+            color: textSecondary,
+            showLabelBackdrop: false,
+          },
+        },
+      },
+      elements: {
+        point: {
+          radius: 3,
+          hoverRadius: 5,
+        },
+        arc: {
+          borderWidth: 2,
+          borderColor: bgCard,
+        },
+      },
+    };
+  }
+
+  async function initCharts() {
+    // Find containers with either data-chart-idx or data-chart-config
+    const containers = document.querySelectorAll(".rk-chart-container[data-chart-idx], .rk-chart-container[data-chart-config]:not([data-chart-idx])");
+    if (!containers.length) return;
+    try {
+      await ensureChartVendorLoaded();
+    } catch {
+      containers.forEach((el) => { el.style.display = "none"; });
+      return;
+    }
+    await Promise.all(Array.from(containers).map(async (el) => {
+      const idx = parseInt(el.dataset.chartIdx, 10);
+      let raw = chartStorage[idx];
+      // Always try to fall back to embedded config if storage is cleared
+      if (raw === undefined) {
+        const encoded = el.getAttribute("data-chart-config") || "";
+        if (encoded) {
+          try {
+            raw = decodeURIComponent(encoded);
+          } catch {
+            raw = undefined;
+          }
+        }
+      }
+      if (raw === undefined) { el.style.display = "none"; return; }
+      let config;
+      try {
+        // Author-written content is trusted; this is equivalent to any template engine eval.
+        // eslint-disable-next-line no-new-func
+        config = new Function('"use strict"; return (' + raw + ");")();
+      } catch {
+        el.style.display = "none";
+        return;
+      }
+      // If data field is a string path → fetch the JSON file
+      if (config && typeof config.data === "string") {
+        const dataPath = config.data;
+        try {
+          const url = /^https?:\/\//.test(dataPath) ? dataPath : resolvePath(dataPath);
+          const res = await fetch(url);
+          if (!res.ok) throw new Error("fetch failed");
+          config.data = await res.json();
+        } catch {
+          el.style.display = "none";
+          return;
+        }
+      }
+      if (!config || !config.type || !config.data) { el.style.display = "none"; return; }
+      try {
+        el.removeAttribute("data-chart-idx");
+        el.innerHTML = '<div class="rk-chart-inner"><canvas></canvas></div>';
+        const canvas = el.querySelector("canvas");
+        const baseOptions = _getChartThemeDefaults();
+        const isLineLike = config.type === "line" || config.type === "radar";
+        if (isLineLike) {
+          baseOptions.elements = _deepMerge(baseOptions.elements || {}, {
+            line: {
+              borderWidth: 2,
+              tension: 0,
+            },
+          });
+        }
+        const merged = {
+          ...config,
+          options: _deepMerge(baseOptions, config.options || {}),
+        };
+        const chartInstance = new window.Chart(canvas, merged);
+        
+        // Register chart instance for theme updates
+        const chartId = `chart_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        chartInstances.set(chartId, { instance: chartInstance, originalConfig: config });
+        el.dataset.chartId = chartId;
+      } catch {
+        el.style.display = "none";
+      }
+    }));
+  }
+  
+  // Update all chart themes when theme changes
+  window.updateChartThemes = function updateChartThemes() {
+    if (!window.Chart || chartInstances.size === 0) return;
+    
+    const newThemeDefaults = _getChartThemeDefaults();
+    
+    chartInstances.forEach(({ instance, originalConfig }, chartId) => {
+      try {
+        const isLineLike = originalConfig.type === "line" || originalConfig.type === "radar";
+        let baseOptions = { ...newThemeDefaults };
+        
+        if (isLineLike) {
+          baseOptions.elements = _deepMerge(baseOptions.elements || {}, {
+            line: {
+              borderWidth: 2,
+              tension: 0,
+            },
+          });
+        }
+        
+        const newOptions = _deepMerge(baseOptions, originalConfig.options || {});
+        
+        // Update chart options
+        Object.assign(instance.options, newOptions);
+        
+        // Force chart update
+        instance.update('none'); // 'none' = no animation for smooth theme transitions
+      } catch (error) {
+        console.warn(`Failed to update chart theme for ${chartId}:`, error);
+        // Remove broken chart from registry
+        chartInstances.delete(chartId);
+      }
+    });
   }

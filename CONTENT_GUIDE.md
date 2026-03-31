@@ -766,3 +766,114 @@ sheet instead.
 | Disable comments on one post | Frontmatter → `comments_enabled: false` |
 | Link to another post | `[text](/blog/slug)` |
 | Link to a heading | `[text](/blog/slug#heading-id)` |
+
+---
+
+## 10. Custom Components
+
+### Thought Bubble — `<thought>`
+
+Renders a styled quote bubble, suitable for dialogue or attributed quotes.
+Consecutive `<thought>` blocks from different authors create a chat-like layout.
+
+```html
+<thought author="Yunaz" logo="/content/assets/images/logo.png" align="right">
+Any **markdown** or text can go here.
+</thought>
+```
+
+| Attribute | Default | Description |
+|---|---|---|
+| `author` | — | Name shown in the attribution line |
+| `logo` | — | Optional image URL for the author avatar |
+| `align` | `right` | `right` (attribution bottom-right, quote top-left) or `left` (flipped) |
+
+### Progress Bar — `<rk-progress>`
+
+Animated progress bar counting from 0 to the target value on scroll-into-view.
+
+```html
+<!-- Simple -->
+<rk-progress total=100 current=72 color="green"></rk-progress>
+
+<!-- With milestones -->
+<rk-progress total=100 current=100 color="purple">
+  <bar at=50 icon="flag">Halfway there</bar>
+  <bar at=100 icon="fire">Done!</bar>
+</rk-progress>
+```
+
+| Attribute | Default | Description |
+|---|---|---|
+| `total` | `100` | Maximum integer value |
+| `current` | `0` | Current integer value (clamped to `total`) |
+| `color` | accent | `red` `purple` `green` `blue` `white` `yellow` `orange` or any CSS color |
+| `border` | — | Optional border color for the bar wrapper |
+
+`<bar>` attributes:
+
+| Attribute | Default | Description |
+|---|---|---|
+| `at` | — | Position on the scale (same units as `total`) |
+| `icon` | — | Named icon: `fire` `star` `check` `flag` `bolt` `heart` `trophy` `target` `pin` `lock` `rocket` `gem` `crown` `shield` `warning`, or any emoji |
+
+Hovering a `<bar>` shows its tooltip text.
+
+### Grid — `<grid>`
+
+A CSS grid wrapper that evenly distributes any block content into columns.
+
+```html
+<grid column=3>
+![Image 1](/content/assets/images/a.jpg)
+![Image 2](/content/assets/images/b.jpg)
+![Image 3](/content/assets/images/c.jpg)
+</grid>
+```
+
+| Attribute | Default | Description |
+|---|---|---|
+| `column` | `3` | Number of columns: `2`, `3`, or `4` |
+
+Content collapses to 2 columns on tablet and 1 column on mobile automatically.
+
+### Chart — ` ```chart ` block
+
+Renders an interactive Chart.js chart. Use a fenced code block with the `chart` language tag.
+
+````markdown
+```chart
+{
+  type: 'bar',
+  data: {
+    labels: ['Jan', 'Feb', 'Mar', 'Apr'],
+    datasets: [{
+      label: 'Sales',
+      data: [120, 190, 80, 170],
+      backgroundColor: ['#6366f1','#8b5cf6','#a78bfa','#c4b5fd']
+    }]
+  },
+  options: {
+    plugins: { title: { display: true, text: 'Monthly Sales' } }
+  }
+}
+```
+````
+
+The config is a native **Chart.js** configuration object. All chart types are supported: `bar`, `line`, `area`, `pie`, `doughnut`, `radar`, `polarArea`, `bubble`, `scatter`.
+
+**Loading data from a JSON file:**
+
+Set `data` to a relative path to a JSON file containing a valid Chart.js `data` object (`{ labels, datasets }`):
+
+````markdown
+```chart
+{
+  type: 'line',
+  data: 'content/assets/files/chart-data.json',
+  options: { responsive: true }
+}
+```
+````
+
+If the file is not found or the config is invalid, the chart is silently hidden. Chart.js is loaded on-demand — only when a page actually contains a chart block.

@@ -105,7 +105,11 @@
     return href;
   }
 
+  // Processing depth counter to prevent storage clearing during nested processing
+  window._processingDepth = window._processingDepth || 0;
+  
   function renderMd(md, opts = {}) {
+    window._processingDepth++;
     const renderer = new marked.Renderer();
     renderer.image = function (href, title, text) {
       const resolved = resolvePath(typeof href === "object" ? href.href : href);
@@ -143,7 +147,13 @@
         typeof codeOrToken === "object"
           ? codeOrToken.lang || ""
           : infostring || "";
-      const lang = rawLang ? String(rawLang).trim().split(/\s+/)[0] : "";
+        const lang = rawLang ? String(rawLang).trim().split(/\s+/)[0].toLowerCase() : "";
+        if (lang === "chart") {
+          const configText = rawCode.trim();
+          chartStorage.push(configText);
+          const encodedConfig = encodeURIComponent(configText);
+          return `<div class="rk-chart-container" data-chart-idx="${chartStorage.length - 1}" data-chart-config="${escapeHtml(encodedConfig)}"></div>\n`;
+      }
       const classAttr = lang ? ` class="language-${escapeHtml(lang)}"` : "";
       return `<pre><code${classAttr}>${escapeHtml(rawCode)}</code></pre>\n`;
     };
@@ -156,7 +166,11 @@
       gfm: true,
     });
     // Protect fenced code blocks and inline code from custom preprocessors
-    renderCodeBlocks.length = 0;
+    // Reset chart storage only for top-level renderMd call to prevent clearing during nested processing
+    if (window._processingDepth === 1) {
+      chartStorage.length = 0;
+      renderCodeBlocks.length = 0;
+    }
     let protected_md = md
       .replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?\n\1[ \t]*$/gm, (m) => {
         renderCodeBlocks.push(m);
@@ -166,9 +180,31 @@
         renderCodeBlocks.push(m);
         return `\x02RAKSARA_CB_${renderCodeBlocks.length - 1}\x03`;
       });
-    const preprocessed = restoreRenderCodeBlocks(preprocessCustomComponents(preprocessCustomChips(preprocessCustomContainers(preprocessCustomPanels(preprocessChapters(preprocessToc(preprocessFileAttachments(protected_md))))))));
+    const preprocessed = restoreRenderCodeBlocks(
+      preprocessCustomGrid(
+        preprocessCustomProgress(
+          preprocessCustomThoughts(
+            preprocessCustomComponents(
+              preprocessCustomChips(
+                preprocessCustomContainers(
+                  preprocessCustomPanels(
+                    preprocessChapters(
+                      preprocessToc(
+                        preprocessFileAttachments(protected_md)
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    );
     const rawHtml = marked.parse(preprocessed);
-    return injectCustomComponents(injectChips(injectContainers(injectPanels(injectToc(rawHtml)))));
+    const result = injectGrid(injectProgress(injectThoughts(injectCustomComponents(injectChips(injectContainers(injectPanels(injectToc(rawHtml))))))));
+    window._processingDepth--;
+    return result;
   }
 
   // ── TOC Custom Component ──────────────────────────────

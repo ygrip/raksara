@@ -1000,14 +1000,20 @@
   async function renderProfile() {
     const el = document.getElementById("page-content");
     const isPrerendered = el && el.dataset.prerendered === "profile";
-    if (!isPrerendered) {
+    
+    // Check if we already have chart containers or progress elements (indicates prerendered content)
+    const hasPrerenderedChart = document.querySelector(".rk-chart-container[data-chart-config]");
+    const hasPrerenderedProgress = document.querySelector(".rk-progress-wrap");
+    const actuallyPrerendered = isPrerendered || hasPrerenderedChart || hasPrerenderedProgress;
+    
+    if (!actuallyPrerendered) {
       showLoading();
     }
 
     // When prerendered we only need frontmatter for metadata/share — skip pages
     // section fetch and use the default path to avoid a network round-trip.
     let filePath = "content/pages/profile.md";
-    if (!isPrerendered) {
+    if (!actuallyPrerendered) {
       await ensureSection("pages");
       const page = state.pages.find((p) => p.slug === "profile");
       filePath = page ? page.path : filePath;
@@ -1043,12 +1049,14 @@
         ? frontmatter.metadata
         : [];
 
-      if (isPrerendered) {
+      if (actuallyPrerendered) {
         // Content already in DOM — clear flag and reset any transition styles.
         // renderMd() is intentionally skipped: the prerendered body HTML is
         // already in the DOM and vendor-markdown.min.js is not loaded yet,
         // so calling it here would block the main thread for no gain.
-        delete el.dataset.prerendered;
+        if (el.dataset.prerendered) {
+          delete el.dataset.prerendered;
+        }
         el.style.opacity = "";
         el.style.transform = "";
         el.style.transition = "";

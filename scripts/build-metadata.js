@@ -1933,6 +1933,90 @@ async function generateGalleryCover(galleryItems) {
   }
 }
 
+// Node.js-compatible custom component processing for prerendering
+function preprocessChartsForPrerender(md) {
+  return md.replace(/^```chart\n([\s\S]*?)\n```/gm, (match, configText) => {
+    const encodedConfig = encodeURIComponent(configText.trim());
+    return `<div class="rk-chart-container" data-chart-config="${escapeHtml(encodedConfig)}"></div>`;
+  });
+}
+
+function preprocessProgressForPrerender(md) {
+  return md.replace(/<rk-progress((?:\s+[\w-]+(?:=(?:"[^"]*"|'[^']*'|\S+))?)*)\s*\/?>/g, (match, attrsStr) => {
+    const attrs = {};
+    const matches = attrsStr.matchAll(/([\w-]+)(?:=(?:"([^"]*)"|'([^']*)'|(\S+)))?/g);
+    for (const m of matches) {
+      const key = m[1].toLowerCase();
+      const value = m[2] !== undefined ? m[2] : (m[3] !== undefined ? m[3] : (m[4] !== undefined ? m[4] : "true"));
+      attrs[key] = value;
+    }
+    const total = Math.max(1, parseInt(attrs.total, 10) || 100);
+    const current = Math.min(total, Math.max(0, parseInt(attrs.current, 10) || 0));
+    const pct = (current / total) * 100;
+    return `<div class="rk-progress-wrap">
+      <div class="rk-progress" data-pct="${pct.toFixed(2)}">
+        <div class="rk-progress-track">
+          <div class="rk-progress-fill" style="--rk-prog-color:var(--accent); --rk-prog-target:${pct.toFixed(2)}%"></div>
+        </div>
+      </div>
+      <div class="rk-progress-label"><span class="rk-progress-current">${current}</span><span class="rk-progress-sep">/</span><span class="rk-progress-total">${total}</span></div>
+    </div>`;
+  });
+}
+
+// Store grid info temporarily during preprocessing
+const gridStoragePrerender = [];
+
+function preprocessGridForPrerender(md) {
+  gridStoragePrerender.length = 0;
+  return md.replace(/<grid((?:\s+[\w-]+(?:=(?:"[^"]*"|'[^']*'|\S+))?)*)\s*>([\s\S]*?)<\/grid>/gi, (match, attrsStr, inner) => {
+    const attrs = {};
+    const matches = attrsStr.matchAll(/([\w-]+)(?:=(?:"([^"]*)"|'([^']*)'|(\S+)))?/g);
+    for (const m of matches) {
+      const key = m[1].toLowerCase();
+      const value = m[2] !== undefined ? m[2] : (m[3] !== undefined ? m[3] : (m[4] !== undefined ? m[4] : "true"));
+      attrs[key] = value;
+    }
+    const col = Math.min(4, Math.max(2, parseInt(attrs.column || attrs.col || attrs.cols, 10) || 3));
+    // Store the inner content; it will be parsed by marked later
+    gridStoragePrerender.push({ col, inner: inner.trim() });
+    return `\n\n[[RAKSARA_GRID:${gridStoragePrerender.length - 1}]]\n\n`;
+  });
+}
+
+async function injectGridPrerender(html, marked) {
+  if (gridStoragePrerender.length === 0) return html;
+  for (let i = 0; i < gridStoragePrerender.length; i++) {
+    const { col, inner } = gridStoragePrerender[i];
+    // Process progress bars in the inner content
+    const withProgress = preprocessProgressForPrerender(inner);
+    // Split by empty lines to get grid items, then wrap each in a grid-item div
+    const items = withProgress.split(/\n\s*\n+/).filter(item => item.trim());
+    const gridItems = items.map(item => {
+      // Parse each item individually to handle markdown in labels
+      const parsedItem = marked.parse(item.trim());
+      // Remove the outer <p> tags if marked wrapped it
+      return parsedItem.replace(/^<p>(.*)<\/p>$/s, '$1');
+    }).join('');
+    const gridHtml = `<div class="rk-grid rk-grid-cols-${col}">${gridItems}</div>`;
+    html = html.replace(`[[RAKSARA_GRID:${i}]]`, gridHtml);
+  }
+  return html;
+}
+
+async function renderCustomMarkdownForPrerender(md) {
+  // Apply preprocessors in the same order as the browser version
+  let processed = md;
+  processed = preprocessChartsForPrerender(processed);
+  processed = preprocessGridForPrerender(processed);
+  // Parse with marked
+  const { marked } = await import('marked');
+  let parsed = marked.parse(processed);
+  // Now inject grids with proper markdown parsing of inner content
+  parsed = await injectGridPrerender(parsed, marked);
+  return parsed;
+}
+
 async function renderProfilePagePrerender(pages, imageManifest) {
   const profilePage = (pages || []).find((p) => p.slug === "profile");
   if (!profilePage || !profilePage.path) return null;
@@ -1942,8 +2026,6 @@ async function renderProfilePagePrerender(pages, imageManifest) {
 
   const raw = fs.readFileSync(profilePath, "utf-8");
   const { data: frontmatter, content: body } = matter(raw);
-
-  const { marked } = await import("marked");
 
   const localResolvePath = (p) => {
     if (!p) return "";
@@ -2023,7 +2105,7 @@ async function renderProfilePagePrerender(pages, imageManifest) {
       )}></div>`
     : "";
 
-  const bodyHtml = marked.parse(body || "");
+  const bodyHtml = await renderCustomMarkdownForPrerender(body || "");
 
   return `<div class="profile-hero" id="profile-hero">
       <div class="profile-hero-bg" id="profile-hero-bg" data-src="${escapeHtml(coverUrl)}"${heroBgStyle}></div>
@@ -2183,6 +2265,22 @@ async function bundleVendorJS() {
         console.log(`  ✓ Highlight vendor bundle: ${(highlightSize/1024).toFixed(1)} KB`);
       } catch (err) {
         console.warn("  ⚠ Highlight vendor bundle skipped:", err.message);
+      }
+    }
+
+    // Bundle Chart.js — loaded on demand when a chart code block is encountered
+    const chartInput = path.join(REPO_ROOT, "scripts", "vendor-chart-entry.js");
+    const chartOutput = path.join(WEB_DIR, "vendor-chart.min.js");
+    if (fs.existsSync(chartInput)) {
+      try {
+        const chartSize = await bundleBrowserVendor({
+          inputPath: chartInput,
+          outputPath: chartOutput,
+          name: "RaksaraChartVendor",
+        });
+        console.log(`  ✓ Chart vendor bundle: ${(chartSize/1024).toFixed(1)} KB`);
+      } catch (err) {
+        console.warn("  ⚠ Chart vendor bundle skipped:", err.message);
       }
     }
   } catch (err) {
