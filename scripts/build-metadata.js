@@ -2169,9 +2169,42 @@ async function bundleVendorJS() {
 }
 
 async function minifyJS() {
+  const SHARED_API = [
+    "state", "showContent", "showLoading",
+    "loadMarkdown", "parseMarkdown", "renderMd", "ensureMarkdownVendorLoaded",
+    "ensureImageManifest", "ensureSection",
+    "buildResponsiveImageAttrs", "buildDetailImageAttrs", "getImageManifestEntry",
+    "updatePageMeta", "navigateTo",
+    "shareButton", "initShareButton", "renderStatusChip",
+    "initArticleImages", "initSortableTables", "initParallax", "initLazyImages",
+    "escapeHtml", "formatDate", "resolvePath", "toPublicAssetHref", "humanize",
+    "getAbsolutePageUrl", "resolveContentLink", "normalizeLegacyRouteLinks", "blogBreadcrumbs",
+  ];
+
+  const STUBS = `
+  // Page detail renderers are in the lazily-loaded app-pages bundle.
+  async function renderBlogPost(slug) { await ensurePagesBundleLoaded(); return window.__R__._pages.renderBlogPost(slug); }
+  async function renderPortfolioItem(slug) { await ensurePagesBundleLoaded(); return window.__R__._pages.renderPortfolioItem(slug); }
+  async function renderProfile() { await ensurePagesBundleLoaded(); return window.__R__._pages.renderProfile(); }
+  async function renderPage(slug) { await ensurePagesBundleLoaded(); return window.__R__._pages.renderPage(slug); }
+`;
+
+  const PAGES_PREAMBLE = `// Raksara pages detail bundle — lazily loaded after home render.
+(function () {
+  "use strict";
+  var R = window.__R__;
+  if (!R) return;
+${SHARED_API.map(n => `  var ${n} = R.${n};`).join("\n")}
+`;
+  const PAGES_FOOTER = `
+  R._pages = { renderBlogPost, renderPortfolioItem, renderProfile, renderPage };
+})();
+`;
+
   try {
     const jsPath = path.join(WEB_DIR, "app.js");
     const minJsPath = path.join(WEB_DIR, "app.min.js");
+    const pagesMinPath = path.join(WEB_DIR, "app-pages.min.js");
 
     if (!fs.existsSync(jsPath)) {
       console.log("  ⚠ app.js not found, skipping JS minification");
@@ -2179,29 +2212,54 @@ async function minifyJS() {
     }
 
     const js = fs.readFileSync(jsPath, "utf-8");
-    const result = await terser.minify(js, {
-      compress: {
-        passes: 2,
-      },
-      mangle: true,
-      format: {
-        comments: false,
-      },
-    });
 
-    if (!result.code) {
-      throw new Error("Terser produced empty output");
+    // Extract pages bundle regions and replace with stubs
+    const regionAMatch = js.match(/\/\/ __PAGES_REGION_A_START__([\s\S]*?)\/\/ __PAGES_REGION_A_END__/);
+    const regionBMatch = js.match(/\/\/ __PAGES_REGION_B_START__([\s\S]*?)\/\/ __PAGES_REGION_B_END__/);
+
+    let coreJs = js;
+    let pagesCode = "";
+
+    if (regionAMatch && regionBMatch) {
+      pagesCode = regionAMatch[1] + "\n" + regionBMatch[1];
+      // Replace region A with stubs
+      coreJs = coreJs.replace(
+        /\/\/ __PAGES_REGION_A_START__[\s\S]*?\/\/ __PAGES_REGION_A_END__/,
+        STUBS
+      );
+      // Replace region B with empty (renderPage stub already in region A replacement)
+      coreJs = coreJs.replace(
+        /\/\/ __PAGES_REGION_B_START__[\s\S]*?\/\/ __PAGES_REGION_B_END__/,
+        ""
+      );
     }
 
-    const minified = result.code;
+    // Compile core bundle
+    const result = await terser.minify(coreJs, {
+      compress: { passes: 2 },
+      mangle: true,
+      format: { comments: false },
+    });
 
-    fs.writeFileSync(minJsPath, minified, "utf-8");
+    if (!result.code) throw new Error("Terser produced empty output for core JS");
 
-    const originalSize = js.length;
-    const minifiedSize = minified.length;
-    const savings = ((1 - minifiedSize / originalSize) * 100).toFixed(1);
+    fs.writeFileSync(minJsPath, result.code, "utf-8");
+    const coreSavings = ((1 - result.code.length / js.length) * 100).toFixed(1);
+    console.log(`  ✓ JS minified: ${(js.length/1024).toFixed(1)} KB → ${(result.code.length/1024).toFixed(1)} KB (${coreSavings}% savings)`);
 
-    console.log(`  ✓ JS minified: ${(originalSize/1024).toFixed(1)} KB → ${(minifiedSize/1024).toFixed(1)} KB (${savings}% savings)`);
+    // Compile pages bundle (only when regions were found)
+    if (pagesCode) {
+      const pagesSource = PAGES_PREAMBLE + pagesCode + PAGES_FOOTER;
+      const pagesResult = await terser.minify(pagesSource, {
+        compress: { passes: 2 },
+        mangle: true,
+        format: { comments: false },
+      });
+      if (pagesResult.code) {
+        fs.writeFileSync(pagesMinPath, pagesResult.code, "utf-8");
+        console.log(`  ✓ Pages bundle: ${(pagesResult.code.length/1024).toFixed(1)} KB`);
+      }
+    }
   } catch (err) {
     console.error("  ✗ JS minification failed:", err.message);
   }

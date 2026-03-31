@@ -197,6 +197,8 @@
     markdownPromise: null,
     searchPromise: null,
   };
+  // Per-section lazy-load promises: keyed by section name, resolved when data is in state
+  const _sectionPromises = {};
   const adsenseState = {
     scriptPromise: null,
     bootstrapped: false,
@@ -416,9 +418,53 @@
     await state.imageManifestPromise;
   }
 
+  // Lazy-load a single data section on first demand; subsequent calls await the same promise.
+  async function ensureSection(section) {
+    if (_sectionPromises[section]) {
+      await _sectionPromises[section];
+      return;
+    }
+    const urls = {
+      posts: "metadata/posts.json",
+      portfolio: "metadata/portfolio.json",
+      gallery: "metadata/gallery.json",
+      thoughts: "metadata/thoughts.json",
+      pages: "metadata/pages.json",
+      docs: "metadata/docs.json",
+      tags: "metadata/tags.json",
+      categories: "metadata/categories.json",
+      blogDirs: "metadata/blog-dirs.json",
+    };
+    const url = urls[section];
+    if (!url) return;
+    _sectionPromises[section] = loadJSON(url)
+      .then((data) => { state[section] = data; })
+      .catch(() => {});
+    await _sectionPromises[section];
+  }
+
+  // Background-prefetch all sections during idle time after first render.
+  function prefetchAllSections() {
+    const schedule = window.requestIdleCallback
+      ? (fn) => window.requestIdleCallback(fn, { timeout: 2000 })
+      : (fn) => setTimeout(fn, 500);
+    schedule(() => {
+      ["posts", "portfolio", "gallery", "thoughts", "pages", "docs", "tags", "categories", "blogDirs"]
+        .forEach((s) => ensureSection(s));
+      // Also warm up the pages detail bundle
+      ensurePagesBundleLoaded();
+    });
+  }
+
   async function ensureMarkdownVendorLoaded() {
     if (typeof marked !== "undefined") return;
     await loadScriptOnce(toAssetHref("vendor-markdown.min.js"), "markdownPromise");
+  }
+
+  // Load the pages detail bundle lazily on first navigation to a detail page.
+  async function ensurePagesBundleLoaded() {
+    if (window.__R__ && window.__R__._pages) return;
+    await loadScriptOnce(toAssetHref("app-pages.min.js"), "pagesBundle");
   }
 
   async function ensureSearchVendorLoaded() {
@@ -675,71 +721,35 @@
   async function loadData() {
     if (state.loaded) return;
     try {
-      // Fast path: try home-bundle.json first to seed config + homePrerender
-      // with a single request. Full data still loads in parallel below.
-      let bundleConfig = null;
-      let bundleHomePrerender = null;
+      // Startup: load ONLY the home bundle (~24 KB) — config + homePrerender.
+      // All other sections (posts, portfolio, etc.) are fetched lazily per-route.
+      let bundleLoaded = false;
       try {
         const bundle = await loadJSON("metadata/home-bundle.json");
         if (bundle && bundle.config) {
-          bundleConfig = bundle.config;
-          bundleHomePrerender = bundle.homePrerender || {};
-          // Apply config immediately so accent/logo show without waiting for full load
-          Object.assign(state, { config: bundleConfig, homePrerender: bundleHomePrerender });
-          applyAccentColor(getConfiguredAccentColor(bundleConfig));
-          if (bundleConfig.logo) applyLogo("content/" + bundleConfig.logo);
-          if (bundleConfig.hero_title) applyLogoText(bundleConfig.hero_title);
+          Object.assign(state, {
+            config: bundle.config,
+            homePrerender: bundle.homePrerender || {},
+          });
+          applyAccentColor(getConfiguredAccentColor(bundle.config));
+          if (bundle.config.logo) applyLogo("content/" + bundle.config.logo);
+          if (bundle.config.hero_title) applyLogoText(bundle.config.hero_title);
+          bundleLoaded = true;
         }
       } catch (_) {
-        // home-bundle.json not available — continue with normal load
+        // home-bundle.json not available — fall back to individual files
       }
-
-      const [
-        posts,
-        portfolio,
-        gallery,
-        thoughts,
-        pages,
-        docs,
-        tags,
-        categories,
-        blogDirs,
-        config,
-        homePrerender,
-      ] = await Promise.all([
-        loadJSON("metadata/posts.json"),
-        loadJSON("metadata/portfolio.json"),
-        loadJSON("metadata/gallery.json"),
-        loadJSON("metadata/thoughts.json"),
-        loadJSON("metadata/pages.json"),
-        loadJSON("metadata/docs.json").catch(() => []),
-        loadJSON("metadata/tags.json"),
-        loadJSON("metadata/categories.json"),
-        loadJSON("metadata/blog-dirs.json"),
-        // search-index.json and image-manifest.json loaded lazily on demand
-        bundleConfig ? Promise.resolve(bundleConfig) : loadJSON("metadata/config.json").catch(() => (state.config || {})),
-        bundleHomePrerender ? Promise.resolve(bundleHomePrerender) : loadJSON("metadata/home-prerender.json").catch(() => ({})),
-      ]);
-      Object.assign(state, {
-        posts,
-        portfolio,
-        gallery,
-        thoughts,
-        pages,
-        docs,
-        tags,
-        categories,
-        blogDirs,
-        config,
-        homePrerender,
-        loaded: true,
-      });
-      applyAccentColor(getConfiguredAccentColor(state.config));
-      if (state.config.logo) applyLogo("content/" + state.config.logo);
-      // Update sidebar title from config
-      if (state.config.hero_title) {
-        applyLogoText(state.config.hero_title || "Raksara");
+      if (!bundleLoaded) {
+        const [cfg, hp] = await Promise.all([
+          loadJSON("metadata/config.json").catch(() => ({})),
+          loadJSON("metadata/home-prerender.json").catch(() => ({})),
+        ]);
+        Object.assign(state, { config: cfg, homePrerender: hp });
+        applyAccentColor(getConfiguredAccentColor(state.config));
+        if (state.config.logo) applyLogo("content/" + state.config.logo);
+        if (state.config.hero_title) applyLogoText(state.config.hero_title);
       }
+      state.loaded = true;
     } catch (err) {
       console.error("Error loading data:", err);
       showContent(
@@ -1345,6 +1355,7 @@
       fetchPriority = "auto",
       sizes = "100vw",
       decoding = "async",
+      maxSrcsetWidth = Infinity,
     } = options;
 
     const attrs = [`src="${escapeHtml(toPublicAssetHref(resolved))}"`, `alt="${escapeHtml(alt)}"`];
@@ -1361,7 +1372,7 @@
     if (manifestEntry) {
       const variants = Array.isArray(manifestEntry.variants)
         ? manifestEntry.variants
-            .filter((variant) => variant && variant.path && variant.width)
+            .filter((variant) => variant && variant.path && variant.width && variant.width <= maxSrcsetWidth)
             .sort((left, right) => left.width - right.width)
         : [];
       const srcset = variants.map(
@@ -1369,7 +1380,9 @@
       );
 
       if (manifestEntry.width) {
-        srcset.push(`${escapeHtml(toPublicAssetHref(resolved))} ${manifestEntry.width}w`);
+        if (manifestEntry.width <= maxSrcsetWidth) {
+          srcset.push(`${escapeHtml(toPublicAssetHref(resolved))} ${manifestEntry.width}w`);
+        }
         attrs.push(`width="${manifestEntry.width}"`);
       }
       if (manifestEntry.height) {
@@ -1958,7 +1971,7 @@
     _typingTimer = setTimeout(typeNext, 400);
   }
 
-  function renderHome() {
+  async function renderHome() {
     const heroTitle = (state.config && state.config.hero_title) || "Raksara";
     const heroSubtitle =
       (state.config && state.config.hero_subtitle) ||
@@ -1995,6 +2008,12 @@
     }
 
     // Fallback to dynamic rendering
+    await Promise.all([
+      ensureSection("posts"),
+      ensureSection("portfolio"),
+      ensureSection("thoughts"),
+      ensureSection("gallery"),
+    ]);
     const recentPosts = state.posts.slice(0, 3);
     const recentThoughts = state.thoughts.slice(0, 2);
 
@@ -2178,6 +2197,7 @@
           loading: imageLoading,
           fetchPriority,
           sizes: "(max-width: 480px) 100px, (max-width: 640px) 120px, 180px",
+          maxSrcsetWidth: 480,
         })}></div>`
       : "";
     return `
@@ -2196,7 +2216,8 @@
       </a>`;
   }
 
-  function renderBlogDir(dirPath) {
+  async function renderBlogDir(dirPath) {
+    await Promise.all([ensureSection("blogDirs"), ensureSection("posts")]);
     const dir = state.blogDirs[dirPath];
     if (!dir) {
       showContent('<div class="empty-state"><h3>Directory not found</h3></div>');
@@ -2308,6 +2329,7 @@
     });
   }
 
+  // __PAGES_REGION_A_START__
   // ── Content Type System ───────────────────────────────
 
   const contentLayouts = {
@@ -2563,6 +2585,7 @@
 
   async function renderBlogPost(slug) {
     showLoading();
+    await ensureSection("posts");
     const post = state.posts.find((p) => p.slug === slug);
     if (!post) {
       showContent('<div class="empty-state"><h3>Post not found</h3></div>');
@@ -2807,7 +2830,8 @@
       </div>`;
   }
 
-  function renderPortfolioList() {
+  async function renderPortfolioList() {
+    await ensureSection("portfolio");
     const allItems = [...state.portfolio];
     let currentSort = "latest";
     let currentQuery = "";
@@ -2919,6 +2943,7 @@
 
   async function renderPortfolioItem(slug) {
     showLoading();
+    await ensureSection("portfolio");
     const item = state.portfolio.find((p) => p.slug === slug);
     if (!item) {
       showContent('<div class="empty-state"><h3>Project not found</h3></div>');
@@ -3004,7 +3029,7 @@
   // ── Gallery ───────────────────────────────────────────
 
   async function renderGallery(autoOpenIndex) {
-    await ensureImageManifest();
+    await Promise.all([ensureSection("gallery"), ensureImageManifest()]);
     const shareIconSvg =
       '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 8.5v5a1 1 0 001 1h6a1 1 0 001-1v-5M8 1v8.5M5 4l3-3 3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     const items = state.gallery
@@ -3135,7 +3160,8 @@
       </div>`;
   }
 
-  function renderThoughts() {
+  async function renderThoughts() {
+    await ensureSection("thoughts");
     const allItems = getSortedItems(state.thoughts, "latest");
 
     initPagination("thoughts", allItems, renderThoughtCard);
@@ -3191,6 +3217,7 @@
           alt: item.title || "",
           loading: "lazy",
           sizes: "(max-width: 480px) 100px, (max-width: 640px) 120px, 180px",
+          maxSrcsetWidth: 480,
         })}></div>`
       : "";
     return `
@@ -3209,7 +3236,8 @@
 
   // ── Tags & Categories ─────────────────────────────────
 
-  function renderTags() {
+  async function renderTags() {
+    await ensureSection("tags");
     updatePageMeta({ title: "Tags", robots: "noindex, nofollow" });
     const sorted = Object.entries(state.tags).sort((a, b) => b[1] - a[1]);
     const tagsHtml = sorted
@@ -3223,7 +3251,14 @@
     );
   }
 
-  function renderTagPosts(tag) {
+  async function renderTagPosts(tag) {
+    await Promise.all([
+      ensureSection("posts"),
+      ensureSection("portfolio"),
+      ensureSection("gallery"),
+      ensureSection("thoughts"),
+      ensureSection("tags"),
+    ]);
     updatePageMeta({
       title: `Tag: ${tag}`,
       keywords: [tag],
@@ -3246,7 +3281,8 @@
     initLazyImages();
   }
 
-  function renderCategories() {
+  async function renderCategories() {
+    await ensureSection("categories");
     updatePageMeta({ title: "Categories", robots: "noindex, nofollow" });
     const sorted = Object.entries(state.categories).sort((a, b) => b[1] - a[1]);
     const html = sorted
@@ -3260,7 +3296,14 @@
     );
   }
 
-  function renderCategoryPosts(category) {
+  async function renderCategoryPosts(category) {
+    await Promise.all([
+      ensureSection("posts"),
+      ensureSection("portfolio"),
+      ensureSection("gallery"),
+      ensureSection("thoughts"),
+      ensureSection("categories"),
+    ]);
     updatePageMeta({
       title: `Category: ${category}`,
       keywords: [category],
@@ -3291,6 +3334,7 @@
     if (!isPrerendered) {
       showLoading();
     }
+    await ensureSection("pages");
     const page = state.pages.find((p) => p.slug === "profile");
     const filePath = page ? page.path : "content/pages/profile.md";
     try {
@@ -3452,6 +3496,8 @@
     }
   }
 
+  // __PAGES_REGION_A_END__
+
   let _parallaxCleanup = null;
 
   function initParallax() {
@@ -3526,11 +3572,12 @@
     requestAnimationFrame(onScroll);
   }
 
+  // __PAGES_REGION_B_START__
   // ── Generic Page ──────────────────────────────────────
 
   async function renderPage(slug) {
     showLoading();
-    
+    await Promise.all([ensureSection("pages"), ensureSection("docs")]);
     // Handle doc pages
     if (slug.startsWith("doc/")) {
       const docName = slug.substring(4);
@@ -3707,6 +3754,8 @@
     const year = new Date().getFullYear();
     return `<div class="content-footer">&copy; ${year} ${escapeHtml(author)}</div>`;
   }
+
+  // __PAGES_REGION_B_END__
 
   // ── Share ───────────────────────────────────────────────
 
@@ -5115,30 +5164,33 @@
       await ensureMarkdownVendorLoaded();
     }
 
-    if (route === "/" || route === "") renderHome();
+    if (route === "/" || route === "") await renderHome();
     else if (parts[0] === "blog" && parts[1] === "post" && parts.length > 2)
       await renderBlogPost(parts.slice(2).join("/"));
     else if (parts[0] === "blog" && parts[1] === "dir" && parts.length > 2)
-      renderBlogDir(parts.slice(2).join("/"));
-    else if (parts[0] === "blog") renderBlogDir("");
+      await renderBlogDir(parts.slice(2).join("/"));
+    else if (parts[0] === "blog") await renderBlogDir("");
     else if (parts[0] === "portfolio" && parts[1])
       await renderPortfolioItem(parts[1]);
-    else if (parts[0] === "portfolio") renderPortfolioList();
+    else if (parts[0] === "portfolio") await renderPortfolioList();
     else if (parts[0] === "gallery" && parts[1])
-      renderGallery(parseInt(parts[1]));
-    else if (parts[0] === "gallery") renderGallery();
-    else if (parts[0] === "thoughts") renderThoughts();
-    else if (parts[0] === "tags") renderTags();
+      await renderGallery(parseInt(parts[1]));
+    else if (parts[0] === "gallery") await renderGallery();
+    else if (parts[0] === "thoughts") await renderThoughts();
+    else if (parts[0] === "tags") await renderTags();
     else if (parts[0] === "tag" && parts[1])
-      renderTagPosts(decodeURIComponent(parts[1]));
-    else if (parts[0] === "categories") renderCategories();
+      await renderTagPosts(decodeURIComponent(parts[1]));
+    else if (parts[0] === "categories") await renderCategories();
     else if (parts[0] === "category" && parts[1])
-      renderCategoryPosts(decodeURIComponent(parts[1]));
+      await renderCategoryPosts(decodeURIComponent(parts[1]));
     else if (parts[0] === "profile") await renderProfile();
     else if (parts[0] === "about") await renderPage("about");
     else if (parts[0] === "doc" && parts[1])
       await renderPage(`doc/${parts[1]}`);
     else await renderPage(parts[0]);
+
+    // Background-prefetch all remaining sections during idle time
+    prefetchAllSections();
 
     // Defer AdSense script work until there is clear user intent or slot visibility.
     scheduleAdsenseBootstrap();
@@ -5566,6 +5618,40 @@
     initMobileSidebar();
     handleRoute();
   }
+
+  // ── Public API for lazy-loaded page bundles ───────────
+  window.__R__ = {
+    state,
+    showContent,
+    showLoading,
+    loadMarkdown,
+    parseMarkdown,
+    renderMd,
+    ensureMarkdownVendorLoaded,
+    ensureImageManifest,
+    ensureSection,
+    buildResponsiveImageAttrs,
+    buildDetailImageAttrs,
+    getImageManifestEntry,
+    updatePageMeta,
+    navigateTo,
+    shareButton,
+    initShareButton,
+    renderStatusChip,
+    initArticleImages,
+    initSortableTables,
+    initParallax,
+    initLazyImages,
+    escapeHtml,
+    formatDate,
+    resolvePath,
+    toPublicAssetHref,
+    humanize,
+    getAbsolutePageUrl,
+    resolveContentLink,
+    normalizeLegacyRouteLinks,
+    blogBreadcrumbs,
+  };
 
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", init);
