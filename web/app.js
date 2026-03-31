@@ -3431,13 +3431,18 @@
     if (!isPrerendered) {
       showLoading();
     }
-    await ensureSection("pages");
-    const page = state.pages.find((p) => p.slug === "profile");
-    const filePath = page ? page.path : "content/pages/profile.md";
+
+    // When prerendered we only need frontmatter for metadata/share — skip pages
+    // section fetch and use the default path to avoid a network round-trip.
+    let filePath = "content/pages/profile.md";
+    if (!isPrerendered) {
+      await ensureSection("pages");
+      const page = state.pages.find((p) => p.slug === "profile");
+      filePath = page ? page.path : filePath;
+    }
     try {
       const raw = await loadMarkdown(filePath);
       const { frontmatter, body } = parseMarkdown(raw);
-      const html = renderMd(body);
 
       const coverUrl =
         resolvePath(frontmatter.cover) ||
@@ -3465,35 +3470,41 @@
       const metaItems = Array.isArray(frontmatter.metadata)
         ? frontmatter.metadata
         : [];
-      let metaHtml = "";
-      if (metaItems.length) {
-        metaHtml =
-          '<div class="profile-metadata">' +
-          metaItems
-            .map((m) => {
-              if (typeof m === "string")
-                return `<span class="profile-meta-chip">${escapeHtml(m)}</span>`;
-              const label = m.label || "";
-              const value = m.value || "";
-              const url = m.url || "";
-              const display = value || label;
-              if (url)
-                return `<a href="${escapeHtml(url)}" class="profile-meta-chip has-link" target="_blank" rel="noopener">${label ? `<span class="meta-label">${escapeHtml(label)}</span>` : ""}${escapeHtml(display !== label ? display : "")}</a>`;
-              return `<span class="profile-meta-chip">${label ? `<span class="meta-label">${escapeHtml(label)}</span>` : ""}${escapeHtml(display !== label ? display : "")}</span>`;
-            })
-            .join("") +
-          "</div>";
-      }
-
-      const waveSvg = `<div class="hero-waves"><svg class="hero-wave hero-wave-back" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,45 C100,20 200,55 360,30 C480,12 560,50 720,35 C850,22 1000,55 1140,28 C1280,8 1380,42 1440,38 L1440,80 L0,80 Z"/></svg><svg class="hero-wave hero-wave-front" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,38 C80,52 180,15 320,42 C430,60 540,18 700,40 C820,55 960,12 1100,45 C1220,62 1340,22 1440,35 L1440,80 L0,80 Z"/></svg></div>`;
 
       if (isPrerendered) {
-        // Content already in DOM — clear flag and reset any transition styles
+        // Content already in DOM — clear flag and reset any transition styles.
+        // renderMd() is intentionally skipped: the prerendered body HTML is
+        // already in the DOM and vendor-markdown.min.js is not loaded yet,
+        // so calling it here would block the main thread for no gain.
         delete el.dataset.prerendered;
         el.style.opacity = "";
         el.style.transform = "";
         el.style.transition = "";
       } else {
+        const html = renderMd(body);
+
+        let metaHtml = "";
+        if (metaItems.length) {
+          metaHtml =
+            '<div class="profile-metadata">' +
+            metaItems
+              .map((m) => {
+                if (typeof m === "string")
+                  return `<span class="profile-meta-chip">${escapeHtml(m)}</span>`;
+                const label = m.label || "";
+                const value = m.value || "";
+                const url = m.url || "";
+                const display = value || label;
+                if (url)
+                  return `<a href="${escapeHtml(url)}" class="profile-meta-chip has-link" target="_blank" rel="noopener">${label ? `<span class="meta-label">${escapeHtml(label)}</span>` : ""}${escapeHtml(display !== label ? display : "")}</a>`;
+                return `<span class="profile-meta-chip">${label ? `<span class="meta-label">${escapeHtml(label)}</span>` : ""}${escapeHtml(display !== label ? display : "")}</span>`;
+              })
+              .join("") +
+            "</div>";
+        }
+
+        const waveSvg = `<div class="hero-waves"><svg class="hero-wave hero-wave-back" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,45 C100,20 200,55 360,30 C480,12 560,50 720,35 C850,22 1000,55 1140,28 C1280,8 1380,42 1440,38 L1440,80 L0,80 Z"/></svg><svg class="hero-wave hero-wave-front" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,38 C80,52 180,15 320,42 C430,60 540,18 700,40 C820,55 960,12 1100,45 C1220,62 1340,22 1440,35 L1440,80 L0,80 Z"/></svg></div>`;
+
         showContent(`
           <div class="profile-hero" id="profile-hero">
             <div class="profile-hero-bg" id="profile-hero-bg" data-src="${escapeHtml(coverUrl)}"></div>
@@ -5239,7 +5250,7 @@
     const needsMarkdown =
       (parts[0] === "blog" && parts[1] === "post" && parts.length > 2) ||
       (parts[0] === "portfolio" && !!parts[1]) ||
-      parts[0] === "profile" ||
+      (parts[0] === "profile" && !isPrerendered) ||
       parts[0] === "about" ||
       parts[0] === "doc" ||
       (parts.length === 1 &&

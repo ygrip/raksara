@@ -454,6 +454,50 @@ body {
     .home-hero-title { font-size: 38px; }
 }
 
+/* ── Profile hero (critical: prevents CLS when styles.min.css loads) ──────── */
+/* Without this, .profile-hero renders as a default block and the avatar img
+   renders at its 1150×1280 intrinsic size, both causing massive layout shifts
+   when styles.min.css loads ~400ms later. */
+.profile-hero {
+    position: relative;
+    width: calc(100vw - var(--sidebar-width));
+    margin-left: calc(-50vw + 50% + var(--sidebar-width) / 2);
+    margin-right: calc(-50vw + 50% - var(--sidebar-width) / 2);
+    margin-top: -52px;
+    height: 420px;
+    overflow: hidden;
+}
+.profile-hero-bg,
+.profile-hero-skeleton,
+.profile-hero-overlay {
+    position: absolute;
+    inset: 0;
+}
+.profile-hero-share,
+.profile-hero-content {
+    position: absolute;
+}
+.profile-avatar-wrap {
+    position: relative;
+    flex-shrink: 0;
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+}
+.profile-avatar {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+@media (max-width: 768px) {
+    .profile-hero {
+        width: 100vw;
+        margin-left: calc(-50vw + 50%);
+        margin-right: calc(-50vw + 50%);
+    }
+}
+
 /* END CRITICAL CSS */
 
 /* ── Paginated List CLS Guard ───────────────────────────── */
@@ -2323,7 +2367,7 @@ body {
     inset: -24px;
     background-size: cover;
     filter: blur(22px) saturate(1.05);
-    transform: scale(1.12);
+    transform: scale(0.9);
     opacity: 0.9;
     -webkit-mask-image: linear-gradient(
         to right,
