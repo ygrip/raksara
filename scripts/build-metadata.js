@@ -1221,9 +1221,10 @@ function buildShellHtml(srcHtml, { baseHref, route, context }) {
     }
 
     // Preload the cover image so the browser fetches it as early as possible (LCP)
+    // Use a relative href so the preload warms the same-origin cache used by CSS/JS
     const profilePage = (context.pages || []).find((p) => p.slug === "profile");
     if (profilePage && profilePage.cover) {
-      const coverHref = resolveSiteAssetUrl(siteUrl, profilePage.cover);
+      const coverHref = normalizeConfigAssetPath(profilePage.cover);
       if (coverHref) {
         html = html.replace("</head>", `<link rel="preload" as="image" href="${coverHref}" fetchpriority="high"/></head>`);
       }
@@ -1952,6 +1953,27 @@ async function renderProfilePagePrerender(pages, imageManifest) {
 
   const coverUrl = localResolvePath(frontmatter.cover) || "";
   const avatarUrl = localResolvePath(frontmatter.avatar) || "";
+
+  // Generate a tiny LQIP for the hero background blur layer.
+  // The CSS ::before uses filter:blur(22px), so a 28×16px thumbnail at low
+  // quality is visually identical to the full image and costs ~400 bytes.
+  // This replaces the full 94 KiB aurora-bg download for that layer entirely.
+  let heroBgStyle = "";
+  if (coverUrl) {
+    const imgPath = path.join(WEB_DIR, coverUrl);
+    if (fs.existsSync(imgPath)) {
+      try {
+        const lqipBuf = await sharp(imgPath)
+          .resize(28, 16, { fit: "cover" })
+          .webp({ quality: 25 })
+          .toBuffer();
+        const lqipDataUrl = `data:image/webp;base64,${lqipBuf.toString("base64")}`;
+        heroBgStyle = ` style="--profile-hero-image-blur: url('${lqipDataUrl}')"`;
+      } catch {
+        // Skip LQIP if sharp fails — CSS fallback to var(--profile-hero-image)
+      }
+    }
+  }
   const name = frontmatter.title || "Profile";
   const role = frontmatter.role || "";
 
@@ -2004,7 +2026,7 @@ async function renderProfilePagePrerender(pages, imageManifest) {
   const bodyHtml = marked.parse(body || "");
 
   return `<div class="profile-hero" id="profile-hero">
-      <div class="profile-hero-bg" id="profile-hero-bg" data-src="${escapeHtml(coverUrl)}"></div>
+      <div class="profile-hero-bg" id="profile-hero-bg" data-src="${escapeHtml(coverUrl)}"${heroBgStyle}></div>
       <div class="profile-hero-skeleton"></div>
       <div class="profile-hero-overlay"></div>
       <div class="profile-hero-share">${shareButtonHtml}</div>
@@ -2282,15 +2304,54 @@ ${SHARED_API.map((name) => `  var ${name} = C.${name};`).join("\n")}
 
   try {
     const jsPath = path.join(WEB_DIR, "app.js");
+    const srcDir = path.join(WEB_DIR, "src");
     const minJsPath = path.join(WEB_DIR, "app.min.js");
     const routesMinPath = path.join(WEB_DIR, "app-routes.min.js");
 
-    if (!fs.existsSync(jsPath)) {
-      console.log("  ⚠ app.js not found, skipping JS minification");
-      return;
+    // Prefer web/src/*.js fragments over the legacy monolithic web/app.js.
+    // The IIFE open is prepended here; the IIFE close lives at the end of
+    // 14-ui.js and is preserved during concatenation.
+    //
+    // Order is explicit — do NOT rely on alphabetical sorting.
+    // To add a new fragment: add its filename to this array at the right position.
+    const SRC_FILE_ORDER = [
+      "01-state.js",
+      "02-utils.js",
+      "03-data.js",
+      "04-markdown.js",
+      "05-render-helpers.js",
+      "06-content-components.js",
+      "07-home.js",
+      "08-blog.js",
+      "09-detail-pages.js",
+      "10-page.js",
+      "11-share.js",
+      "12-router.js",
+      "13-search.js",
+      "14-ui.js",
+    ];
+
+    let js;
+    if (fs.existsSync(srcDir)) {
+      const available = SRC_FILE_ORDER.filter((f) =>
+        fs.existsSync(path.join(srcDir, f)),
+      );
+      if (available.length > 0) {
+        const fragments = available.map((f) =>
+          fs.readFileSync(path.join(srcDir, f), "utf-8"),
+        );
+        js = `(function () {\n  "use strict";\n\n${fragments.join("\n")}`;
+        console.log(`  ✓ Concatenated ${available.length} source fragments from web/src/`);
+      }
     }
 
-    const js = fs.readFileSync(jsPath, "utf-8");
+    if (!js) {
+      if (!fs.existsSync(jsPath)) {
+        console.log("  ⚠ app.js not found and web/src/ is empty, skipping JS minification");
+        return;
+      }
+      js = fs.readFileSync(jsPath, "utf-8");
+    }
     const regionAMatch = js.match(/\/\/ __PAGES_REGION_A_START__([\s\S]*?)\/\/ __PAGES_REGION_A_END__/);
     const regionBMatch = js.match(/\/\/ __PAGES_REGION_B_START__([\s\S]*?)\/\/ __PAGES_REGION_B_END__/);
 

@@ -2358,12 +2358,14 @@ body {
     content: "";
     position: absolute;
     inset: 0;
-    background-image: var(--profile-hero-image);
     background-position: center;
     background-repeat: no-repeat;
 }
 
 .profile-hero-bg::before {
+    /* Uses a dedicated LQIP variable — injected as inline style at build time.
+       Falls back to the full --profile-hero-image only if LQIP is absent. */
+    background-image: var(--profile-hero-image-blur, var(--profile-hero-image));
     inset: -24px;
     background-size: cover;
     filter: blur(22px) saturate(1.05);
@@ -2390,6 +2392,7 @@ body {
 }
 
 .profile-hero-bg::after {
+    background-image: var(--profile-hero-image);
     background-size: var(--profile-hero-focus-width) auto;
 }
 

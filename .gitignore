@@ -16,6 +16,7 @@ web/*
 !web/app.js
 !web/index.html
 !web/styles.css
+!web/src/
 
 # Project plan (internal)
 plan/
