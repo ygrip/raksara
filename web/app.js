@@ -451,12 +451,32 @@
     schedule(() => {
       ["posts", "portfolio", "gallery", "thoughts", "pages", "docs", "tags", "categories", "blogDirs"]
         .forEach((s) => ensureSection(s));
+      // Warm up routes chunk during idle to reduce first navigation latency.
+      ensureRoutesBundleLoaded();
     });
   }
 
   async function ensureMarkdownVendorLoaded() {
     if (typeof marked !== "undefined") return;
     await loadScriptOnce(toAssetHref("vendor-markdown.min.js"), "markdownPromise");
+  }
+
+  async function ensureRoutesBundleLoaded() {
+    if (window.__RAKSARA_ROUTES__) return;
+    const coreScript = document.querySelector('script[src*="app.min.js"]');
+    let version = "";
+    if (coreScript && coreScript.src) {
+      try {
+        const parsed = new URL(coreScript.src, window.location.href);
+        version = parsed.searchParams.get("v") || "";
+      } catch (_) {
+        version = "";
+      }
+    }
+    const routesPath = version
+      ? `app-routes.min.js?v=${encodeURIComponent(version)}`
+      : "app-routes.min.js";
+    await loadScriptOnce(toAssetHref(routesPath), "routesBundlePromise");
   }
 
   async function ensureSearchVendorLoaded() {
@@ -5610,6 +5630,52 @@
     initMobileSidebar();
     handleRoute();
   }
+
+  // Stable contract consumed by lazily loaded route chunk.
+  window.__RAKSARA_CORE__ = {
+    state,
+    runtime,
+    SEO_INITIAL_COUNT,
+    getPaginationState: () => _paginationState,
+    showContent,
+    showLoading,
+    loadMarkdown,
+    parseMarkdown,
+    renderMd,
+    ensureSection,
+    ensureImageManifest,
+    ensureMarkdownVendorLoaded,
+    ensureRoutesBundleLoaded,
+    buildResponsiveImageAttrs,
+    buildDetailImageAttrs,
+    getImageManifestEntry,
+    getGalleryImages,
+    updatePageMeta,
+    navigateTo,
+    shareButton,
+    initShareButton,
+    renderStatusChip,
+    initArticleImages,
+    initSortableTables,
+    initParallax,
+    initLazyImages,
+    escapeHtml,
+    formatDate,
+    resolvePath,
+    toPublicAssetHref,
+    humanize,
+    getAbsolutePageUrl,
+    resolveContentLink,
+    normalizeLegacyRouteLinks,
+    blogBreadcrumbs,
+    getSortedItems,
+    initPagination,
+    computeItemsPerPage,
+    setupPaginationSentinel,
+    dirControlsHtml,
+    initDirControls,
+    loadJSON,
+  };
 
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", init);

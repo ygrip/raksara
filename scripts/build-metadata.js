@@ -2169,9 +2169,121 @@ async function bundleVendorJS() {
 }
 
 async function minifyJS() {
+  const SHARED_API = [
+    "state",
+    "runtime",
+    "SEO_INITIAL_COUNT",
+    "getPaginationState",
+    "showContent",
+    "showLoading",
+    "loadMarkdown",
+    "parseMarkdown",
+    "renderMd",
+    "ensureSection",
+    "ensureImageManifest",
+    "ensureMarkdownVendorLoaded",
+    "ensureRoutesBundleLoaded",
+    "buildResponsiveImageAttrs",
+    "buildDetailImageAttrs",
+    "getImageManifestEntry",
+    "getGalleryImages",
+    "updatePageMeta",
+    "navigateTo",
+    "shareButton",
+    "initShareButton",
+    "renderStatusChip",
+    "initArticleImages",
+    "initSortableTables",
+    "initParallax",
+    "initLazyImages",
+    "escapeHtml",
+    "formatDate",
+    "resolvePath",
+    "toPublicAssetHref",
+    "humanize",
+    "getAbsolutePageUrl",
+    "resolveContentLink",
+    "normalizeLegacyRouteLinks",
+    "blogBreadcrumbs",
+    "getSortedItems",
+    "initPagination",
+    "computeItemsPerPage",
+    "setupPaginationSentinel",
+    "dirControlsHtml",
+    "initDirControls",
+    "loadJSON",
+  ];
+
+  const STUBS = `
+  // Route/content functions are loaded from app-routes.min.js on demand.
+  function __callRoute(name, args) {
+    if (!window.__RAKSARA_ROUTES__) return undefined;
+    const fn = window.__RAKSARA_ROUTES__[name];
+    if (typeof fn !== "function") return undefined;
+    return fn.apply(null, args || []);
+  }
+  async function __callRouteAsync(name, args) {
+    await ensureRoutesBundleLoaded();
+    return __callRoute(name, args || []);
+  }
+  async function renderBlogPost(slug) { return __callRouteAsync("renderBlogPost", [slug]); }
+  async function renderPortfolioList() { return __callRouteAsync("renderPortfolioList", []); }
+  async function renderPortfolioItem(slug) { return __callRouteAsync("renderPortfolioItem", [slug]); }
+  async function renderGallery(autoOpenIndex) { return __callRouteAsync("renderGallery", [autoOpenIndex]); }
+  async function renderThoughts() { return __callRouteAsync("renderThoughts", []); }
+  async function renderTags() { return __callRouteAsync("renderTags", []); }
+  async function renderTagPosts(tag) { return __callRouteAsync("renderTagPosts", [tag]); }
+  async function renderCategories() { return __callRouteAsync("renderCategories", []); }
+  async function renderCategoryPosts(category) { return __callRouteAsync("renderCategoryPosts", [category]); }
+  async function renderProfile() { return __callRouteAsync("renderProfile", []); }
+  async function renderPage(slug) { return __callRouteAsync("renderPage", [slug]); }
+  function initPortfolioCards() {
+    if (window.__RAKSARA_ROUTES__) {
+      __callRoute("initPortfolioCards", []);
+      return;
+    }
+    ensureRoutesBundleLoaded().then(() => __callRoute("initPortfolioCards", [])).catch(() => {});
+  }
+  function syncGiscusTheme(theme) {
+    if (window.__RAKSARA_ROUTES__) {
+      __callRoute("syncGiscusTheme", [theme]);
+      return;
+    }
+    ensureRoutesBundleLoaded().then(() => __callRoute("syncGiscusTheme", [theme])).catch(() => {});
+  }
+`;
+
+  const ROUTES_PREAMBLE = `// Raksara routes chunk (lazy loaded)
+(function () {
+  "use strict";
+  var C = window.__RAKSARA_CORE__;
+  if (!C) return;
+${SHARED_API.map((name) => `  var ${name} = C.${name};`).join("\n")}
+`;
+
+  const ROUTES_FOOTER = `
+  window.__RAKSARA_ROUTES__ = {
+    renderBlogPost,
+    renderPortfolioList,
+    renderPortfolioItem,
+    renderGallery,
+    renderThoughts,
+    renderTags,
+    renderTagPosts,
+    renderCategories,
+    renderCategoryPosts,
+    renderProfile,
+    renderPage,
+    initPortfolioCards,
+    syncGiscusTheme,
+  };
+})();
+`;
+
   try {
     const jsPath = path.join(WEB_DIR, "app.js");
     const minJsPath = path.join(WEB_DIR, "app.min.js");
+    const routesMinPath = path.join(WEB_DIR, "app-routes.min.js");
 
     if (!fs.existsSync(jsPath)) {
       console.log("  ⚠ app.js not found, skipping JS minification");
@@ -2179,7 +2291,27 @@ async function minifyJS() {
     }
 
     const js = fs.readFileSync(jsPath, "utf-8");
-    const result = await terser.minify(js, {
+    const regionAMatch = js.match(/\/\/ __PAGES_REGION_A_START__([\s\S]*?)\/\/ __PAGES_REGION_A_END__/);
+    const regionBMatch = js.match(/\/\/ __PAGES_REGION_B_START__([\s\S]*?)\/\/ __PAGES_REGION_B_END__/);
+
+    let coreJs = js;
+    let routesCode = "";
+
+    if (regionAMatch && regionBMatch) {
+      routesCode = `${regionAMatch[1]}\n${regionBMatch[1]}`;
+      // Keep pagination state live via getter to avoid captured null snapshot.
+      routesCode = routesCode.replace(/\b_paginationState\b/g, "getPaginationState()");
+      coreJs = coreJs.replace(
+        /\/\/ __PAGES_REGION_A_START__[\s\S]*?\/\/ __PAGES_REGION_A_END__/,
+        STUBS,
+      );
+      coreJs = coreJs.replace(
+        /\/\/ __PAGES_REGION_B_START__[\s\S]*?\/\/ __PAGES_REGION_B_END__/,
+        "",
+      );
+    }
+
+    const result = await terser.minify(coreJs, {
       compress: {
         passes: 2,
       },
@@ -2196,6 +2328,24 @@ async function minifyJS() {
     const minified = result.code;
 
     fs.writeFileSync(minJsPath, minified, "utf-8");
+
+    if (routesCode) {
+      const routesSource = `${ROUTES_PREAMBLE}${routesCode}${ROUTES_FOOTER}`;
+      const routesResult = await terser.minify(routesSource, {
+        compress: {
+          passes: 2,
+        },
+        mangle: true,
+        format: {
+          comments: false,
+        },
+      });
+      if (!routesResult.code) {
+        throw new Error("Terser produced empty output for app-routes.min.js");
+      }
+      fs.writeFileSync(routesMinPath, routesResult.code, "utf-8");
+      console.log(`  ✓ Routes chunk: ${(routesResult.code.length/1024).toFixed(1)} KB`);
+    }
 
     const originalSize = js.length;
     const minifiedSize = minified.length;
