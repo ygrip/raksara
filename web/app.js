@@ -451,20 +451,12 @@
     schedule(() => {
       ["posts", "portfolio", "gallery", "thoughts", "pages", "docs", "tags", "categories", "blogDirs"]
         .forEach((s) => ensureSection(s));
-      // Also warm up the pages detail bundle
-      ensurePagesBundleLoaded();
     });
   }
 
   async function ensureMarkdownVendorLoaded() {
     if (typeof marked !== "undefined") return;
     await loadScriptOnce(toAssetHref("vendor-markdown.min.js"), "markdownPromise");
-  }
-
-  // Load the pages detail bundle lazily on first navigation to a detail page.
-  async function ensurePagesBundleLoaded() {
-    if (window.__R__ && window.__R__._pages) return;
-    await loadScriptOnce(toAssetHref("app-pages.min.js"), "pagesBundle");
   }
 
   async function ensureSearchVendorLoaded() {
@@ -5618,40 +5610,6 @@
     initMobileSidebar();
     handleRoute();
   }
-
-  // ── Public API for lazy-loaded page bundles ───────────
-  window.__R__ = {
-    state,
-    showContent,
-    showLoading,
-    loadMarkdown,
-    parseMarkdown,
-    renderMd,
-    ensureMarkdownVendorLoaded,
-    ensureImageManifest,
-    ensureSection,
-    buildResponsiveImageAttrs,
-    buildDetailImageAttrs,
-    getImageManifestEntry,
-    updatePageMeta,
-    navigateTo,
-    shareButton,
-    initShareButton,
-    renderStatusChip,
-    initArticleImages,
-    initSortableTables,
-    initParallax,
-    initLazyImages,
-    escapeHtml,
-    formatDate,
-    resolvePath,
-    toPublicAssetHref,
-    humanize,
-    getAbsolutePageUrl,
-    resolveContentLink,
-    normalizeLegacyRouteLinks,
-    blogBreadcrumbs,
-  };
 
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", init);
