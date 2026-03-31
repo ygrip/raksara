@@ -266,6 +266,14 @@ body {
     display: none;
 }
 
+/* Show the correct icon immediately based on the HTML data-theme attribute.
+   Both icons start hidden above; only one is revealed here — no JS required.
+   This eliminates CLS caused by the icon-btn growing from 0→16px on init. */
+[data-theme="dark"] .icon-moon,
+[data-theme="light"] .icon-sun {
+    display: block;
+}
+
 .logo {
     display: flex;
     align-items: center;
@@ -1394,6 +1402,11 @@ body {
 
 .home-section {
     margin-bottom: 52px;
+    /* Skip off-screen section rendering during initial paint.
+       Reduces rendering work for TBT and FCP. contain-intrinsic-size
+       reserves approximate height so scroll position is stable (no CLS). */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 420px;
 }
 
 .home-section-header {

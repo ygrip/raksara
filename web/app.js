@@ -674,7 +674,6 @@
   }
 
   function initClientRouting() {
-    normalizeLegacyRouteLinks(document);
     document.addEventListener("click", (e) => {
       const a = e.target.closest("a[href]");
       if (!a) return;
@@ -720,6 +719,11 @@
     window.addEventListener("hashchange", () => {
       if (window.location.hash.startsWith("#/")) handleRoute();
     });
+    // Legacy #/path links are handled by the click interceptor already;
+    // rewrite href attributes in background so right-click "open in new tab" is correct.
+    (window.requestIdleCallback
+      ? (fn) => window.requestIdleCallback(fn, { timeout: 2000 })
+      : (fn) => setTimeout(fn, 300))(() => normalizeLegacyRouteLinks(document));
   }
 
   // ── Data Loading ──────────────────────────────────────
@@ -5659,10 +5663,16 @@
       navigateTo(window.location.hash, { replace: true });
     }
     initTheme();
-    initSearch();
-    initLightbox();
     initMobileSidebar();
     handleRoute();
+    // Search overlay and lightbox are event-listener-only setups.
+    // Wire them during idle time so they don't lengthen the critical init task.
+    (window.requestIdleCallback
+      ? (fn) => window.requestIdleCallback(fn, { timeout: 2000 })
+      : (fn) => setTimeout(fn, 100))(() => {
+      initSearch();
+      initLightbox();
+    });
   }
 
   // Stable contract consumed by lazily loaded route chunk.
