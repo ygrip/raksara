@@ -1919,31 +1919,58 @@
   }
 
   function initLazyImages(root) {
-    (root || document)
-      .querySelectorAll("img:not(.loaded)")
-      .forEach((img) => {
-        const shell = getImageShell(img);
-        if (shell && !shell.classList.contains("is-loaded")) {
-          shell.classList.add("is-loading");
-          const lqip = img.dataset.lqip;
-          if (lqip) {
+    const imgs = Array.from(
+      (root || document).querySelectorAll("img:not(.loaded)")
+    );
+
+    // Separate LCP candidate (first image in the list, loaded eagerly) from
+    // the rest so we can batch all non-LCP LQIP style mutations into one RAF
+    // instead of triggering N independent style invalidations.
+    const lqipBatch = [];
+
+    imgs.forEach((img, idx) => {
+      const shell = getImageShell(img);
+      if (shell && !shell.classList.contains("is-loaded")) {
+        shell.classList.add("is-loading");
+        const lqip = img.dataset.lqip;
+        if (lqip) {
+          if (idx === 0) {
+            // LCP image: apply LQIP inline so the placeholder appears
+            // on the very next frame without waiting for a batch.
             shell.style.setProperty("--lqip-url", `url("${lqip}")`);
             requestAnimationFrame(() => {
               if (!shell.classList.contains("is-loaded")) {
                 shell.classList.add("lqip-shown");
               }
             });
+          } else {
+            // Non-LCP: queue for single batched RAF below.
+            lqipBatch.push({ shell, lqip });
           }
         }
+      }
 
-        if (img.complete) {
-          settleImage(img);
-          return;
-        }
+      if (img.complete) {
+        settleImage(img);
+        return;
+      }
 
-        img.addEventListener("load", () => settleImage(img), { once: true });
-        img.addEventListener("error", () => settleImage(img), { once: true });
+      img.addEventListener("load", () => settleImage(img), { once: true });
+      img.addEventListener("error", () => settleImage(img), { once: true });
+    });
+
+    // One RAF for all remaining LQIP injections — single style recalculation
+    // instead of one per image, reducing layout thrashing on busy pages.
+    if (lqipBatch.length) {
+      requestAnimationFrame(() => {
+        lqipBatch.forEach(({ shell, lqip }) => {
+          shell.style.setProperty("--lqip-url", `url("${lqip}")`);
+          if (!shell.classList.contains("is-loaded")) {
+            shell.classList.add("lqip-shown");
+          }
+        });
       });
+    }
   }
 
   // ── Page Renderers ────────────────────────────────────
@@ -2012,17 +2039,26 @@
       pageEl.style.transform = "";
       pageEl.style.transition = "";
       updatePageMeta({ title: null, description: heroSubtitle });
+      // Immediately fill the hero title so the span is never blank —
+      // prevents subtitle from jumping while initHeroTyping waits for idle.
+      const _titleSpan1 = pageEl.querySelector(".accent-gradient");
+      if (_titleSpan1 && !_titleSpan1.textContent.trim()) {
+        _titleSpan1.textContent = heroTitle;
+        if (window.innerWidth < 768 ||
+            (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
+          _titleSpan1.classList.add("typed");
+        }
+      }
       // initLazyImages runs immediately: eager LCP image must be settled ASAP.
       initLazyImages();
-      // Portfolio card clicks are interactive — attach soon after paint.
-      initPortfolioCards();
-      // Parallax and typing are pure visual effects — defer to after first interactive frame
-      // so they don't block user input on the main thread (TBT target: <150ms).
+      // Parallax, portfolio card wiring, and typing are all deferred to idle
+      // so the main thread is free for user input from first paint.
       const scheduleVisual = window.requestIdleCallback
         ? (fn) => window.requestIdleCallback(fn, { timeout: 1000 })
         : (fn) => setTimeout(fn, 0);
       scheduleVisual(() => {
         initParallax();
+        initPortfolioCards();
         initHeroTyping(heroTitle);
       });
       return;
@@ -2035,13 +2071,21 @@
         title: null,
         description: heroSubtitle,
       });
+      const _titleSpan2 = document.querySelector(".accent-gradient");
+      if (_titleSpan2 && !_titleSpan2.textContent.trim()) {
+        _titleSpan2.textContent = heroTitle;
+        if (window.innerWidth < 768 ||
+            (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
+          _titleSpan2.classList.add("typed");
+        }
+      }
       initLazyImages();
-      initPortfolioCards();
       const scheduleVisual = window.requestIdleCallback
         ? (fn) => window.requestIdleCallback(fn, { timeout: 1000 })
         : (fn) => setTimeout(fn, 0);
       scheduleVisual(() => {
         initParallax();
+        initPortfolioCards();
         initHeroTyping(heroTitle);
       });
       return;
@@ -2120,13 +2164,21 @@
       title: null,
       description: heroSubtitle,
     });
+    const _titleSpan3 = document.querySelector(".accent-gradient");
+    if (_titleSpan3 && !_titleSpan3.textContent.trim()) {
+      _titleSpan3.textContent = heroTitle;
+      if (window.innerWidth < 768 ||
+          (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
+        _titleSpan3.classList.add("typed");
+      }
+    }
     initLazyImages();
-    initPortfolioCards();
     const scheduleVisual = window.requestIdleCallback
       ? (fn) => window.requestIdleCallback(fn, { timeout: 1000 })
       : (fn) => setTimeout(fn, 0);
     scheduleVisual(() => {
       initParallax();
+      initPortfolioCards();
       initHeroTyping(heroTitle);
     });
   }
