@@ -1001,26 +1001,32 @@
     const el = document.getElementById("page-content");
     const isPrerendered = el && el.dataset.prerendered === "profile";
     
-    // Check if we already have chart containers or progress elements (indicates prerendered content)
-    const hasPrerenderedChart = document.querySelector(".rk-chart-container[data-chart-config]");
-    const hasPrerenderedProgress = document.querySelector(".rk-progress-wrap");
-    const actuallyPrerendered = isPrerendered || hasPrerenderedChart || hasPrerenderedProgress;
-    
-    if (!actuallyPrerendered) {
+    if (!isPrerendered) {
       showLoading();
     }
 
-    // When prerendered we only need frontmatter for metadata/share — skip pages
-    // section fetch and use the default path to avoid a network round-trip.
-    let filePath = "content/pages/profile.md";
-    if (!actuallyPrerendered) {
+    try {
+      // Always try to load prerendered JSON first (faster, avoids markdown processing)
+      let profileHtml = null;
+      let frontmatter = {};
+      
+      try {
+        const prerenderedData = await loadJSON("metadata/profile-prerender.json");
+        if (prerenderedData && prerenderedData.html) {
+          profileHtml = prerenderedData.html;
+        }
+      } catch (e) {
+        // Prerender not available, will load from markdown
+      }
+      
+      // Always load pages section for frontmatter (needed for metadata/share)
       await ensureSection("pages");
       const page = state.pages.find((p) => p.slug === "profile");
-      filePath = page ? page.path : filePath;
-    }
-    try {
+      let filePath = page ? page.path : "content/pages/profile.md";
       const raw = await loadMarkdown(filePath);
-      const { frontmatter, body } = parseMarkdown(raw);
+      const parsed = parseMarkdown(raw);
+      frontmatter = parsed.frontmatter;
+      const body = parsed.body;
 
       const coverUrl =
         resolvePath(frontmatter.cover) ||
@@ -1049,18 +1055,11 @@
         ? frontmatter.metadata
         : [];
 
-      if (actuallyPrerendered) {
-        // Content already in DOM — clear flag and reset any transition styles.
-        // renderMd() is intentionally skipped: the prerendered body HTML is
-        // already in the DOM and vendor-markdown.min.js is not loaded yet,
-        // so calling it here would block the main thread for no gain.
-        if (el.dataset.prerendered) {
-          delete el.dataset.prerendered;
-        }
-        el.style.opacity = "";
-        el.style.transform = "";
-        el.style.transition = "";
+      if (profileHtml) {
+        // Use prerendered HTML directly
+        showContent(profileHtml);
       } else {
+        // Render from markdown
         const html = renderMd(body);
 
         let metaHtml = "";

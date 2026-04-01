@@ -808,7 +808,7 @@
       if (!config || !config.type || !config.data) { el.style.display = "none"; return; }
       try {
         el.removeAttribute("data-chart-idx");
-        el.innerHTML = '<div class="rk-chart-inner"><canvas></canvas></div>';
+        el.innerHTML = '<div class="rk-chart-zoom-controls"><button class="rk-chart-zoom-btn" data-zoom-out aria-label="Zoom out">−</button><span class="rk-chart-zoom-level">100%</span><button class="rk-chart-zoom-btn" data-zoom-in aria-label="Zoom in">+</button><button class="rk-chart-zoom-btn" data-zoom-reset aria-label="Reset zoom">Reset</button></div><div class="rk-chart-viewport"><div class="rk-chart-inner"><canvas></canvas></div></div>';
         const canvas = el.querySelector("canvas");
         const baseOptions = _getChartThemeDefaults();
         const isLineLike = config.type === "line" || config.type === "radar";
@@ -820,20 +820,120 @@
             },
           });
         }
+        
+        // Ensure legend is always visible
+        baseOptions.plugins = _deepMerge(baseOptions.plugins || {}, {
+          legend: {
+            position: 'bottom',
+            labels: {
+              padding: 15,
+              boxWidth: 12,
+              font: {
+                size: 12,
+              },
+            },
+          },
+        });
+        
+        // Make chart fill the container perfectly
+        baseOptions.responsive = true;
+        baseOptions.maintainAspectRatio = false;
+        baseOptions.layout = _deepMerge(baseOptions.layout || {}, {
+          padding: 0,
+        });
+        
         const merged = {
           ...config,
           options: _deepMerge(baseOptions, config.options || {}),
         };
         const chartInstance = new window.Chart(canvas, merged);
         
-        // Register chart instance for theme updates
+        // Register chart instance for theme updates and zoom tracking
         const chartId = `chart_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        chartInstances.set(chartId, { instance: chartInstance, originalConfig: config });
+        chartInstances.set(chartId, { instance: chartInstance, originalConfig: config, zoomLevel: 100 });
         el.dataset.chartId = chartId;
+        
+        // Initialize zoom controls with scroll capability
+        initChartZoom(el, chartId);
       } catch {
         el.style.display = "none";
       }
     }));
+  }
+  
+  function initChartZoom(container, chartId) {
+    const viewport = container.querySelector(".rk-chart-viewport");
+    const inner = container.querySelector(".rk-chart-inner");
+    const levelDisplay = container.querySelector(".rk-chart-zoom-level");
+    const zoomInBtn = container.querySelector("[data-zoom-in]");
+    const zoomOutBtn = container.querySelector("[data-zoom-out]");
+    const zoomResetBtn = container.querySelector("[data-zoom-reset]");
+    
+    if (!viewport || !inner || !levelDisplay || !zoomInBtn || !zoomOutBtn || !zoomResetBtn) return;
+    
+    const chartData = chartInstances.get(chartId);
+    if (!chartData) return;
+    
+    let currentZoom = 100;
+    const minZoom = 100;
+    const maxZoom = 300;  // 3x zoom
+    const zoomStep = 10;
+    
+    function updateZoomLevel() {
+      levelDisplay.textContent = `${currentZoom}%`;
+      inner.style.transform = `scale(${currentZoom / 100})`;
+      chartData.zoomLevel = currentZoom;
+      zoomOutBtn.disabled = currentZoom <= minZoom;
+      zoomInBtn.disabled = currentZoom >= maxZoom;
+    }
+    
+    zoomInBtn.addEventListener("click", () => {
+      if (currentZoom < maxZoom) {
+        currentZoom = Math.min(currentZoom + zoomStep, maxZoom);
+        updateZoomLevel();
+      }
+    });
+    
+    zoomOutBtn.addEventListener("click", () => {
+      if (currentZoom > minZoom) {
+        currentZoom = Math.max(currentZoom - zoomStep, minZoom);
+        updateZoomLevel();
+      }
+    });
+    
+    zoomResetBtn.addEventListener("click", () => {
+      currentZoom = 100;
+      updateZoomLevel();
+      viewport.scrollLeft = 0;
+      viewport.scrollTop = 0;
+    });
+    
+    updateZoomLevel();
+  }
+  
+  // Reset zoom levels for all charts when route changes (before teardown)
+  function resetChartZooms() {
+    chartInstances.forEach(({ instance }, chartId) => {
+      const chartEl = document.querySelector(`[data-chart-id="${chartId}"]`);
+      if (chartEl) {
+        const viewport = chartEl.querySelector(".rk-chart-viewport");
+        const inner = chartEl.querySelector(".rk-chart-inner");
+        const levelDisplay = chartEl.querySelector(".rk-chart-zoom-level");
+        if (viewport && inner && levelDisplay) {
+          inner.style.transform = "scale(1)";
+          levelDisplay.textContent = "100%";
+          viewport.scrollLeft = 0;
+          viewport.scrollTop = 0;
+          const chartData = chartInstances.get(chartId);
+          if (chartData) chartData.zoomLevel = 100;
+          // Re-enable buttons
+          const btns = chartEl.querySelectorAll(".rk-chart-zoom-btn");
+          btns.forEach(btn => btn.disabled = false);
+          const zoomOutBtn = chartEl.querySelector("[data-zoom-out]");
+          if (zoomOutBtn) zoomOutBtn.disabled = true;
+        }
+      }
+    });
   }
   
   // Update all chart themes when theme changes

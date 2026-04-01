@@ -1,6 +1,7 @@
   // ── Router ────────────────────────────────────────────
   async function handleRoute() {
     teardownPagination();
+    resetChartZooms();
     if (_typingTimer) {
       clearTimeout(_typingTimer);
       _typingTimer = null;
