@@ -175,17 +175,34 @@ raksara/
 
 ## Tech Stack
 
+### Core
 - Vanilla JavaScript (no framework)
+- CSS3 with glassmorphism and CSS variables
+
+### Build & Optimization
 - [Rollup](https://rollupjs.org/) — Bundles browser vendor dependencies
 - [Terser](https://github.com/terser/terser) — JavaScript minification
 - [cssnano](https://cssnano.github.io/cssnano/) — CSS minification
 - [html-minifier-next](https://github.com/j9t/html-minifier-next) — HTML minification
+- [PostCSS](https://postcss.org/) — CSS transformation
+- [@rollup/plugin-commonjs](https://github.com/rollup/plugins) — CommonJS support
+- [@rollup/plugin-node-resolve](https://github.com/rollup/plugins) — Node module resolution
+
+### Content Processing
 - [Marked](https://marked.js.org/) — Markdown rendering
-- [Highlight.js](https://highlightjs.org/) — Code syntax highlighting
-- [MiniSearch](https://lucaong.github.io/minisearch/) — Client-side search
 - [gray-matter](https://github.com/jonschlinkert/gray-matter) — Frontmatter parsing
 - [fast-glob](https://github.com/mrmlnc/fast-glob) — File scanning
-- [mermaid](https://github.com/mermaid-js/mermaid) — Diagram rendering
+- [js-yaml](https://github.com/nodeca/js-yaml) — YAML parsing
+
+### Client-Side Features
+- [Highlight.js](https://highlightjs.org/) — Code syntax highlighting
+- [MiniSearch](https://lucaong.github.io/minisearch/) — Client-side full-text search
+- [Chart.js](https://www.chartjs.org/) — Interactive data visualization (radar, line, bar charts)
+- [mermaid](https://github.com/mermaid-js/mermaid) — Diagram and flowchart rendering
+
+### Image Processing
+- [Sharp](https://sharp.pixelplumbing.com/) — Image optimization and responsive image generation
+- [png-to-ico](https://github.com/steambap/png-to-ico) — Favicon generation
 
 ## License
 
