@@ -979,10 +979,15 @@
                 ...opts,
                 author: resolvedAuthor,
               });
-              if (blob)
+              if (blob) {
                 shareData.files = [
                   new File([blob], "share.png", { type: "image/png" }),
                 ];
+                if (opts && opts.isProfile) {
+                  shareData.text = title ? `${title} : ${url}` : url;
+                  delete shareData.url;
+                }
+              }
             }
           } catch {}
           if (label) label.textContent = origText;
