@@ -1,5 +1,6 @@
 const fg = require("fast-glob");
 const matter = require("gray-matter");
+const { validateFrontmatter } = require("./schemas");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
@@ -11,9 +12,6 @@ const terser = require("terser");
 const { rollup } = require("rollup");
 const { nodeResolve } = require("@rollup/plugin-node-resolve");
 const commonjs = require("@rollup/plugin-commonjs");
-const postcss = require("postcss");
-const cssnano = require("cssnano");
-const { minify: minifyHtml } = require("html-minifier-next");
 const { imagesToIco } = require("png-to-ico");
 
 const REPO_ROOT = path.join(__dirname, "..");
@@ -21,10 +19,11 @@ const LOCAL_CONTENT_LINK = path.join(REPO_ROOT, "content");
 const LOCAL_CONTENT_SOURCE = path.resolve(REPO_ROOT, "..", "raksara-content");
 let CONTENT_DIR = "";
 const METADATA_DIR = path.join(__dirname, "..", "metadata");
-const WEB_DIR = path.join(__dirname, "..", "web");
+const SVELTEKIT_DIR = path.join(REPO_ROOT, "sveltekit");
+const SVELTEKIT_STATIC_DIR = path.join(SVELTEKIT_DIR, "static");
+const WEB_DIR = SVELTEKIT_STATIC_DIR;
 const RESPONSIVE_DIR_NAME = ".raksara-responsive";
 const RESPONSIVE_WIDTHS = [320, 480, 640, 960, 1280, 1600];
-const BUILD_CACHE_BUST = String(Date.now());
 const COLOR_TONES = {
   purple: { accent: "#6366f1", hoverDark: "#818cf8", hoverLight: "#4f46e5", g1: "#6366f1", g2: "#8b5cf6", g3: "#a855f7", rgb: "99,102,241" },
   blue: { accent: "#3b82f6", hoverDark: "#60a5fa", hoverLight: "#2563eb", g1: "#3b82f6", g2: "#06b6d4", g3: "#0ea5e9", rgb: "59,130,246" },
@@ -32,6 +31,9 @@ const COLOR_TONES = {
   yellow: { accent: "#eab308", hoverDark: "#facc15", hoverLight: "#ca8a04", g1: "#eab308", g2: "#f59e0b", g3: "#f97316", rgb: "234,179,8" },
   green: { accent: "#22c55e", hoverDark: "#4ade80", hoverLight: "#16a34a", g1: "#22c55e", g2: "#10b981", g3: "#14b8a6", rgb: "34,197,94" },
   orange: { accent: "#f97316", hoverDark: "#fb923c", hoverLight: "#ea580c", g1: "#f97316", g2: "#fb923c", g3: "#fbbf24", rgb: "249,115,22" },
+};
+const STATUS_ALIASES = {
+  complete: "completed",
 };
 const VALID_STATUSES = new Set(["draft", "ongoing", "completed"]);
 
@@ -44,7 +46,6 @@ function resolveContentDir() {
   const candidates = [
     LOCAL_CONTENT_LINK,
     path.join(__dirname, "..", "content-template"),
-    path.join(__dirname, "..", "web", "content"),
   ];
   return candidates.find((p) => fs.existsSync(p)) || candidates[0];
 }
@@ -117,7 +118,8 @@ function shouldIncludeInSearch(section) {
 
 function normalizeStatus(value) {
   const normalized = String(value || "").trim().toLowerCase();
-  return VALID_STATUSES.has(normalized) ? normalized : "";
+  const canonical = STATUS_ALIASES[normalized] || normalized;
+  return VALID_STATUSES.has(canonical) ? canonical : "";
 }
 
 /**
@@ -189,8 +191,10 @@ async function buildMetadata() {
     const raw = fs.readFileSync(fullPath, "utf-8");
     const parsed = parseMatter(raw, file);
     if (!parsed) continue;
-    const { data, content } = parsed;
+    const { data: rawData, content } = parsed;
     const section = file.split(path.sep)[0];
+    const strictMode = process.argv.includes("--strict");
+    const data = validateFrontmatter(section, rawData, file, strictMode);
     let slug =
       section === "blog"
         ? file.replace(/^blog\//, "").replace(/\.md$/, "")
@@ -425,19 +429,38 @@ function write(filename, data) {
   console.log(`  ✓ ${filename}`);
 }
 
+function copyDirRecursive(srcDir, destDir) {
+  if (!fs.existsSync(srcDir)) return;
+  fs.rmSync(destDir, { recursive: true, force: true });
+  fs.mkdirSync(destDir, { recursive: true });
+
+  for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+    const srcPath = path.join(srcDir, entry.name);
+    const destPath = path.join(destDir, entry.name);
+    if (entry.isDirectory()) {
+      copyDirRecursive(srcPath, destPath);
+    } else if (entry.isSymbolicLink()) {
+      const target = fs.readlinkSync(srcPath);
+      fs.symlinkSync(target, destPath);
+    } else if (entry.isFile()) {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
 function copyMetadataToWeb() {
-  const webMetaDir = path.join(WEB_DIR, "metadata");
-  fs.mkdirSync(webMetaDir, { recursive: true });
+  const sveltekitMetaDir = path.join(SVELTEKIT_STATIC_DIR, "metadata");
+  fs.mkdirSync(sveltekitMetaDir, { recursive: true });
   const metaFiles = fs.readdirSync(METADATA_DIR);
   for (const f of metaFiles) {
-    fs.copyFileSync(path.join(METADATA_DIR, f), path.join(webMetaDir, f));
+    fs.copyFileSync(path.join(METADATA_DIR, f), path.join(sveltekitMetaDir, f));
   }
 
-  const contentWebDir = path.join(WEB_DIR, "content");
-  if (path.resolve(CONTENT_DIR) !== path.resolve(contentWebDir)) {
-    copyDirRecursive(CONTENT_DIR, contentWebDir);
+  const sveltekitContentDir = path.join(SVELTEKIT_STATIC_DIR, "content");
+  if (path.resolve(CONTENT_DIR) !== path.resolve(sveltekitContentDir)) {
+    copyDirRecursive(CONTENT_DIR, sveltekitContentDir);
   }
-  console.log("  ✓ Copied metadata and content to web/");
+  console.log("  ✓ Copied metadata and content to sveltekit/static/");
 }
 
 async function generateSeoArtifacts({
@@ -473,19 +496,6 @@ async function generateSeoArtifacts({
     const adsTxtPath = path.join(WEB_DIR, "ads.txt");
     if (fs.existsSync(adsTxtPath)) fs.unlinkSync(adsTxtPath);
   }
-  await generateStaticRoutePages(routes, {
-    siteUrl,
-    siteConfig,
-    posts,
-    portfolioItems,
-    galleryItems,
-    thoughts,
-    pages,
-    tags,
-    categories,
-    blogDirs,
-  });
-  await generate404Page({ siteUrl, siteConfig });
   writeWebFile(".nojekyll", "");
 
   // Write CNAME if the site uses a custom domain (not *.github.io)
@@ -500,8 +510,7 @@ async function generateSeoArtifacts({
   if (adsenseConfig && adsenseConfig.adsTxtLine) {
     console.log("  ✓ Generated ads.txt");
   }
-  console.log("  ✓ Generated 404.html");
-  console.log(`  ✓ Generated route pages (${routes.length})`);
+  console.log("  ✓ Generated SvelteKit static SEO assets");
 }
 
 function getSiteUrl(siteConfig) {
@@ -860,45 +869,6 @@ function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function replaceOrInsertHeadTag(html, regex, replacement) {
-  if (regex.test(html)) return html.replace(regex, replacement);
-  return html.replace("</head>", `${replacement}</head>`);
-}
-
-function upsertMetaTag(html, attrName, attrValue, content) {
-  const regex = new RegExp(`<meta[^>]+${attrName}=["']${escapeRegExp(attrValue)}["'][^>]*>`, "i");
-  return replaceOrInsertHeadTag(
-    html,
-    regex,
-    `<meta ${attrName}="${attrValue}" content="${escapeHtml(content || "")}"/>`,
-  );
-}
-
-function upsertLinkTag(html, relValue, attrs) {
-  const regex = new RegExp(`<link[^>]+rel=["']${escapeRegExp(relValue)}["'][^>]*>`, "i");
-  const attrString = Object.entries({ rel: relValue, ...attrs })
-    .filter(([, value]) => value !== undefined && value !== null && value !== "")
-    .map(([key, value]) => `${key}="${escapeHtml(String(value))}"`)
-    .join(" ");
-  return replaceOrInsertHeadTag(html, regex, `<link ${attrString}/>`);
-}
-
-function upsertScriptById(html, id, scriptBody) {
-  const regex = new RegExp(`<script[^>]+id=["']${escapeRegExp(id)}["'][^>]*>[\\s\\S]*?<\\/script>`, "i");
-  return replaceOrInsertHeadTag(
-    html,
-    regex,
-    `<script id="${escapeHtml(id)}">${scriptBody}</script>`,
-  );
-}
-
-function setHtmlInlineStyle(html, styleValue) {
-  if (/<html[^>]*style="[^"]*"/i.test(html)) {
-    return html.replace(/<html([^>]*)style="[^"]*"([^>]*)>/i, `<html$1style="${escapeHtml(styleValue)}"$2>`);
-  }
-  return html.replace(/<html([^>]*)>/i, `<html$1 style="${escapeHtml(styleValue)}">`);
-}
-
 function stripSvgPreamble(svgMarkup) {
   return String(svgMarkup || "")
     .replace(/<\?xml[\s\S]*?\?>\s*/i, "")
@@ -948,31 +918,6 @@ function buildLogoIconMarkup(siteConfig, siteName, options = {}) {
     return "&#9670;";
   }
   return `<img src="${escapeHtml(resolvedLogoPath)}" alt="${escapeHtml(siteName)}" width="${size}" height="${size}" loading="eager" decoding="async" fetchpriority="high">`;
-}
-
-function build404IllustrationMarkup(palette) {
-  const rawSvg = String.raw`<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 500 500" xml:space="preserve"><g id="OBJECTS_copia"><g><path style="fill:#F5DF60;" d="M195.829,287.638h-13.112v23.048h-31.762v-23.048h-47.481v-23.619l49.517-72.402h29.727v71.995h13.112V287.638z M150.955,263.612v-13.845c0-2.606,0.094-6.12,0.285-10.547c0.189-4.424,0.338-6.746,0.448-6.963h-0.896c-1.846,4.181-3.937,8.091-6.271,11.728l-13.194,19.627H150.955z"/><path style="fill:#F5DF60;" d="M290.22,251.314c0,21.067-3.53,36.5-10.587,46.301c-7.058,9.8-17.864,14.699-32.413,14.699c-14.226,0-24.949-5.116-32.17-15.352c-7.222-10.233-10.832-25.451-10.832-45.649c0-21.175,3.529-36.702,10.588-46.585c7.057-9.881,17.863-14.822,32.414-14.822c14.171,0,24.88,5.145,32.128,15.433C286.596,215.63,290.22,230.953,290.22,251.314z M236.224,251.314c0,13.466,0.841,22.723,2.525,27.772c1.682,5.049,4.506,7.574,8.47,7.574c4.017,0,6.853-2.606,8.51-7.819c1.656-5.212,2.484-14.387,2.484-27.527c0-13.193-0.842-22.438-2.524-27.731c-1.684-5.294-4.508-7.94-8.47-7.94c-3.964,0-6.788,2.553-8.47,7.655C237.065,228.402,236.224,237.74,236.224,251.314z"/><path style="fill:#F5DF60;" d="M391.289,287.638h-13.111v23.048h-31.763v-23.048h-47.481v-23.619l49.517-72.402h29.727v71.995h13.111V287.638z M346.415,263.612v-13.845c0-2.606,0.094-6.12,0.285-10.547c0.189-4.424,0.338-6.746,0.448-6.963h-0.896c-1.846,4.181-3.938,8.091-6.271,11.728l-13.193,19.627H346.415z"/></g><g><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="55.75" y1="218.036" x2="103.887" y2="218.036"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="115.441" y1="218.036" x2="125.717" y2="218.036"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="47.033" y1="204.488" x2="133.208" y2="204.488"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="39.94" y1="204.488" x2="32.847" y2="204.488"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="47.033" y1="191.617" x2="75.643" y2="191.617"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="83.303" y1="191.617" x2="143.388" y2="191.617"/></g><g><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="396.009" y1="325.524" x2="447.521" y2="325.524"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="455.899" y1="325.524" x2="463.35" y2="325.524"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="406.296" y1="311.975" x2="473.803" y2="311.975"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="401.152" y1="311.975" x2="396.009" y2="311.975"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="396.009" y1="299.104" x2="427.041" y2="299.104"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="432.595" y1="299.104" x2="455.899" y2="299.104"/></g><g><path style="fill:none;stroke:#000000;stroke-width:3.2675;stroke-miterlimit:10;" d="M201.994,287.183h-13.112v23.048h-31.762v-23.048h-47.481v-23.619l49.517-72.402h29.727v71.995h13.112V287.183z M157.119,263.157v-13.845c0-2.606,0.094-6.12,0.285-10.547c0.189-4.424,0.338-6.746,0.448-6.963h-0.896c-1.846,4.181-3.937,8.091-6.271,11.728l-13.194,19.627H157.119z"/><path style="fill:none;stroke:#000000;stroke-width:3.2675;stroke-miterlimit:10;" d="M296.384,250.859c0,21.067-3.53,36.5-10.587,46.301c-7.058,9.8-17.864,14.699-32.413,14.699c-14.226,0-24.949-5.116-32.17-15.352c-7.222-10.233-10.832-25.451-10.832-45.649c0-21.175,3.529-36.702,10.587-46.585c7.057-9.881,17.863-14.822,32.414-14.822c14.171,0,24.88,5.145,32.128,15.433C292.761,215.175,296.384,230.499,296.384,250.859z M242.389,250.859c0,13.466,0.841,22.723,2.525,27.772c1.682,5.049,4.506,7.574,8.47,7.574c4.017,0,6.853-2.606,8.51-7.819c1.656-5.212,2.484-14.387,2.484-27.528c0-13.193-0.842-22.438-2.524-27.731c-1.684-5.294-4.508-7.94-8.47-7.94c-3.964,0-6.788,2.553-8.47,7.655C243.23,227.947,242.389,237.286,242.389,250.859z"/><path style="fill:none;stroke:#000000;stroke-width:3.2675;stroke-miterlimit:10;" d="M397.454,287.183h-13.112v23.048H352.58v-23.048h-47.481v-23.619l49.517-72.402h29.727v71.995h13.112V287.183z M352.58,263.157v-13.845c0-2.606,0.094-6.12,0.285-10.547c0.189-4.424,0.338-6.746,0.448-6.963h-0.896c-1.846,4.181-3.938,8.091-6.271,11.728l-13.193,19.627H352.58z"/></g><text transform="matrix(1 0 0 1 190.3823 362.4004)" style="font-family:'OpenSans-Extrabold'; font-size:37.1855px;">ERROR</text><g><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="418.489" y1="215.1" x2="418.489" y2="204.061"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="410.783" y1="218.292" x2="402.978" y2="210.486"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="407.592" y1="225.998" x2="396.553" y2="225.998"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="410.783" y1="233.703" x2="402.978" y2="241.509"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="418.489" y1="236.895" x2="418.489" y2="247.934"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="426.195" y1="233.703" x2="434.001" y2="241.509"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="429.387" y1="225.998" x2="440.426" y2="225.998"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="426.195" y1="218.292" x2="434.001" y2="210.486"/></g><g><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="72.261" y1="270.066" x2="72.261" y2="262.087"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="66.691" y1="272.374" x2="61.049" y2="266.732"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="64.384" y1="277.944" x2="56.405" y2="277.944"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="66.691" y1="283.514" x2="61.049" y2="289.156"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="72.261" y1="285.821" x2="72.261" y2="293.8"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="77.831" y1="283.514" x2="83.473" y2="289.156"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="80.138" y1="277.944" x2="88.118" y2="277.944"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="77.831" y1="272.374" x2="83.473" y2="266.732"/></g><g><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="288.183" y1="105.254" x2="288.183" y2="97.274"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="282.613" y1="107.561" x2="276.971" y2="101.919"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="280.306" y1="113.131" x2="272.327" y2="113.131"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="282.613" y1="118.701" x2="276.971" y2="124.343"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="288.183" y1="121.008" x2="288.183" y2="128.987"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="293.753" y1="118.701" x2="299.395" y2="124.343"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="296.06" y1="113.131" x2="304.039" y2="113.131"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="293.753" y1="107.561" x2="299.395" y2="101.919"/></g><rect x="111.874" y="326.894" style="fill:none;stroke:#000000;stroke-width:2.4187;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" width="273.761" height="43.098"/><rect x="111.874" y="386.271" style="fill:none;" width="275.126" height="30.529"/><polyline style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" points="133.208,172.198 133.208,137.669 312.701,137.669 312.701,214.389"/><polyline style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" points="249.436,113.131 249.436,156.361 368.464,156.361 368.464,176.029"/><path style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" d="M137.491,176.481c0,2.366-1.918,4.283-4.283,4.283c-2.366,0-4.283-1.918-4.283-4.283c0-2.365,1.918-4.283,4.283-4.283C135.574,172.198,137.491,174.115,137.491,176.481z"/><circle style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" cx="249.436" cy="108.848" r="4.283"/><path style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" d="M372.747,180.764c0,2.365-1.918,4.283-4.283,4.283c-2.366,0-4.283-1.918-4.283-4.283c0-2.366,1.918-4.283,4.283-4.283C370.829,176.481,372.747,178.399,372.747,180.764z"/><path style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" d="M316.984,219.383c0,2.365-1.918,4.283-4.283,4.283s-4.283-1.918-4.283-4.283c0-2.366,1.918-4.283,4.283-4.283S316.984,217.018,316.984,219.383z"/><g><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="105.295" y1="305.164" x2="95.161" y2="315.298"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="95.161" y1="305.164" x2="105.295" y2="315.298"/></g><g><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="110.362" y1="158" x2="100.228" y2="168.135"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="100.228" y1="158" x2="110.362" y2="168.135"/></g><g><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="439.068" y1="272.876" x2="428.933" y2="283.011"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="428.933" y1="272.876" x2="439.068" y2="283.011"/></g><path style="fill:none;stroke:#000000;stroke-width:2.2614;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" d="M151.47,100.161c-3.232,0-6.19,1.163-8.487,3.089c-2.346-7.062-8.994-12.16-16.843-12.16c-8.787,0-16.065,6.389-17.487,14.771c-0.926-0.265-1.901-0.416-2.913-0.416c-5.843,0-10.579,4.737-10.579,10.579c0,5.375,4.012,9.803,9.202,10.48v0.1h47.107c7.302,0,13.222-5.919,13.222-13.222C164.692,106.081,158.772,100.161,151.47,100.161z"/><path style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" d="M396.605,167.417c2.348,0,4.497,0.845,6.166,2.244c1.704-5.13,6.534-8.834,12.236-8.834c6.384,0,11.671,4.642,12.704,10.731c0.673-0.193,1.381-0.302,2.116-0.302c4.245,0,7.686,3.441,7.686,7.686c0,3.905-2.914,7.122-6.685,7.613v0.072h-34.222c-5.305,0-9.605-4.301-9.605-9.605S391.3,167.417,396.605,167.417z"/><path style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" d="M443.789,349.113c-1.969,0-3.771,0.709-5.171,1.882c-1.429-4.302-5.48-7.409-10.262-7.409c-5.354,0-9.788,3.893-10.654,9c-0.564-0.161-1.158-0.253-1.775-0.253c-3.56,0-6.446,2.886-6.446,6.446c0,3.275,2.444,5.973,5.607,6.385v0.061h28.7c4.449,0,8.056-3.606,8.056-8.055C451.844,352.72,448.238,349.113,443.789,349.113z"/><path style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" d="M54.253,332.114c2.348,0,4.497,0.845,6.166,2.244c1.704-5.13,6.534-8.834,12.236-8.834c6.384,0,11.671,4.642,12.704,10.731c0.673-0.193,1.381-0.302,2.116-0.302c4.245,0,7.686,3.441,7.686,7.686c0,3.905-2.914,7.122-6.685,7.613v0.072H54.253c-5.305,0-9.605-4.3-9.605-9.605C44.648,336.414,48.948,332.114,54.253,332.114z"/><path style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-dasharray:3.2675,7.6242;" d="M164.692,93.818c0,0,60.44-49.277,142.56-26.575C393.515,91.09,410.783,152.6,410.783,152.6"/><path style="fill:none;stroke:#000000;stroke-width:2.0166;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-dasharray:3.0467,7.1089;" d="M73.433,237.04c-23.431,3.634-35.21,53.363-8.854,73.104"/><path style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-dasharray:3.2675,7.6242;" d="M368.464,380.526c0,0,40.138,17.546,57.732-6.933"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="177.513" y1="180.764" x2="177.513" y2="155.418"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="171.395" y1="180.764" x2="171.395" y2="168.135"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="270.67" y1="186.628" x2="270.67" y2="168.091"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="263.72" y1="185.047" x2="263.72" y2="177.359"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="257.554" y1="185.047" x2="257.554" y2="172.198"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="183.394" y1="180.764" x2="183.394" y2="168.091"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="351.395" y1="184.292" x2="351.395" y2="178.622"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="345.277" y1="184.292" x2="345.277" y2="170.482"/><line style="fill:none;stroke:#000000;stroke-width:2.1628;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;" x1="357.276" y1="184.292" x2="357.276" y2="174.428"/></g></svg>`;
-
-  return buildInlineSvgMarkup(
-    rawSvg
-      .replace(/#F5DF60/gi, palette.accent)
-      .replace(/#000000/gi, palette.hoverDark)
-      .replace(
-        /font-family:'OpenSans-Extrabold'; font-size:37\.1855px;/i,
-        `font-family:Inter,Arial,sans-serif;font-weight:800;font-size:37.1855px;fill:${palette.hoverDark};`,
-      ),
-    { className: "not-found-illustration-art" },
-  );
-}
-
-function humanizeSlug(slug) {
-  return String(slug || "")
-    .replace(/[-_]/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function getPageEntry(pages, slug) {
-  return (pages || []).find((page) => page.slug === slug) || null;
 }
 
 function getRouteMeta(route, context) {
@@ -1092,183 +1037,6 @@ function getRouteMeta(route, context) {
   return { ...meta, title: `${humanizeSlug(parts[0] || siteName)} — ${siteName}`, robots: "noindex, nofollow" };
 }
 
-function extractCriticalCssSync() {
-  try {
-    const cssPath = path.join(WEB_DIR, "styles.css");
-    if (!fs.existsSync(cssPath)) return "";
-    const css = fs.readFileSync(cssPath, "utf-8");
-    const marker = "/* END CRITICAL CSS */";
-    const markerIdx = css.indexOf(marker);
-    const criticalRaw = markerIdx !== -1 ? css.slice(0, markerIdx) : "";
-    if (!criticalRaw.trim()) return "";
-    // Minify inline: collapse whitespace, strip comments (keep /* END CRITICAL CSS */ already excluded)
-    return criticalRaw
-      .replace(/\/\*[\s\S]*?\*\//g, "")     // strip block comments
-      .replace(/\s{2,}/g, " ")              // collapse whitespace
-      .replace(/\s*([{};:,>+~])\s*/g, "$1") // remove space around punctuation
-      .replace(/;\s*}/g, "}")               // remove trailing semicolons
-      .trim();
-  } catch {
-    return "";
-  }
-}
-
-function buildShellHtml(srcHtml, { baseHref, route, context }) {
-  const siteConfig = context.siteConfig || {};
-  const siteUrl = context.siteUrl || "";
-  const adsenseConfig = parseAdsenseConfig(siteConfig);
-  const routeMeta = getRouteMeta(route, context);
-  const palette = getAccentPalette(siteConfig);
-  const siteName = (siteConfig && siteConfig.hero_title) || "Raksara";
-  const configScript = `window.__RAKSARA_SITE_CONFIG__ = ${JSON.stringify(siteConfig).replace(/</g, "\\u003c")};`;
-  const keywords = Array.isArray(routeMeta.keywords)
-    ? routeMeta.keywords.join(", ")
-    : (routeMeta.keywords || "");
-  const faviconRefs = buildRootFaviconRefs();
-  const twitterCard = routeMeta.image ? "summary_large_image" : "summary";
-  const logoMarkup = buildLogoIconMarkup(siteConfig, siteName);
-
-  let html = injectOrReplaceBaseHref(srcHtml, baseHref);
-  html = html
-    .replace(/href=["']styles\.min\.css(?:\?[^"']*)?["']/g, `href="styles.min.css?v=${BUILD_CACHE_BUST}"`)
-    .replace(/src=["']app\.min\.js(?:\?[^"']*)?["']/g, `src="app.min.js?v=${BUILD_CACHE_BUST}"`);
-
-  // Replace CDN highlight.js CSS links with local vendor copies when they exist.
-  // This makes the site work without any CDN dependency. If local files are absent
-  // (e.g. before first build), the CDN links are left untouched as fallback.
-  const localHljsStylesDir = path.join(WEB_DIR, "vendor", "hljs", "styles");
-  const HLJS_CDN_BASE = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/";
-  for (const theme of ["github-dark.min.css", "github.min.css"]) {
-    if (fs.existsSync(path.join(localHljsStylesDir, theme))) {
-      const cdnHref = HLJS_CDN_BASE + theme;
-      const localHref = `vendor/hljs/styles/${theme}`;
-      html = html.split(cdnHref).join(localHref);
-    }
-  }
-
-  html = html.replace(/<script[^>]+pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js[^>]*><\/script>/gi, "");
-  html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(routeMeta.title)}</title>`);
-  html = upsertMetaTag(html, "name", "description", routeMeta.description);
-  html = upsertMetaTag(html, "name", "author", routeMeta.author || "");
-  html = upsertMetaTag(html, "name", "keywords", keywords);
-  html = upsertMetaTag(html, "name", "robots", routeMeta.robots);
-  html = upsertMetaTag(html, "name", "theme-color", palette.accent);
-  html = upsertMetaTag(html, "property", "og:site_name", siteName);
-  html = upsertMetaTag(html, "property", "og:title", routeMeta.title);
-  html = upsertMetaTag(html, "property", "og:description", routeMeta.description);
-  html = upsertMetaTag(html, "property", "og:type", routeMeta.type || "website");
-  html = upsertMetaTag(html, "property", "og:url", routeMeta.url);
-  html = upsertMetaTag(html, "property", "og:image", routeMeta.image || "");
-  html = upsertMetaTag(html, "name", "twitter:card", twitterCard);
-  html = upsertMetaTag(html, "name", "twitter:title", routeMeta.title);
-  html = upsertMetaTag(html, "name", "twitter:description", routeMeta.description);
-  html = upsertMetaTag(html, "name", "twitter:image", routeMeta.image || "");
-  if (adsenseConfig && adsenseConfig.accountId) {
-    html = upsertMetaTag(html, "name", "google-adsense-account", adsenseConfig.accountId);
-  }
-  html = upsertLinkTag(html, "canonical", { href: routeMeta.url });
-  html = upsertLinkTag(html, "icon", { type: "image/svg+xml", href: faviconRefs.svg });
-  html = replaceOrInsertHeadTag(html, /<link[^>]+rel=["']apple-touch-icon["'][^>]*>/i, `<link rel="apple-touch-icon" sizes="180x180" href="${faviconRefs.apple}"/>`);
-  html = replaceOrInsertHeadTag(html, /<link[^>]+rel=["']manifest["'][^>]*>/i, `<link rel="manifest" href="${faviconRefs.manifest}"/>`);
-  html = replaceOrInsertHeadTag(html, /<link[^>]+rel=["']icon["'][^>]+sizes=["']48x48["'][^>]*>/i, `<link rel="icon" type="image/png" sizes="48x48" href="${faviconRefs.png}"/>`);
-  html = upsertScriptById(html, "raksara-site-config", configScript);
-  html = setHtmlInlineStyle(html, buildAccentCssVariables(palette));
-  html = html.replace(/<span class="logo-text">[\s\S]*?<\/span>/g, `<span class="logo-text">${escapeHtml(siteName)}</span>`);
-  html = html.replace(/<span class="logo-icon">[\s\S]*?<\/span>/g, `<span class="logo-icon">${logoMarkup}</span>`);
-  // Inline critical CSS extracted from styles.css
-  const criticalCss = extractCriticalCssSync();
-  if (criticalCss) {
-    html = html.replace(/<style id="raksara-critical-css">[\s\S]*?<\/style>/, `<style id="raksara-critical-css">${criticalCss}</style>`);
-  }
-  // Strip any previously inlined prerender from all routes (prevents home content
-  // leaking into non-root pages when index.html is used as the build template).
-  html = stripPageContentPrerender(html);
-
-  // Inline home prerender HTML for root route to improve LCP/CLS
-  if (route === "/") {
-    try {
-      const homePrerenderPath = path.join(WEB_DIR, "metadata", "home-prerender.json");
-      if (fs.existsSync(homePrerenderPath)) {
-        const prerender = JSON.parse(fs.readFileSync(homePrerenderPath, "utf-8"));
-        if (prerender && prerender.html) {
-          // html already stripped above — inject fresh prerender into empty page-content
-          html = html.replace(
-            /<div id="page-content" class="page-content"><\/div>/,
-            `<div id="page-content" class="page-content" data-prerendered="home">${prerender.html}</div>`
-          );
-        }
-      }
-    } catch (_) {
-      // If home-prerender fails to load, skip — JS will render it
-    }
-  }
-
-  // Inline profile prerender HTML for /profile route to eliminate CLS
-  if (route === "/profile") {
-    try {
-      const profilePrerenderPath = path.join(WEB_DIR, "metadata", "profile-prerender.json");
-      if (fs.existsSync(profilePrerenderPath)) {
-        const prerender = JSON.parse(fs.readFileSync(profilePrerenderPath, "utf-8"));
-        if (prerender && prerender.html) {
-          html = html.replace(
-            /<div id="page-content" class="page-content"><\/div>/,
-            `<div id="page-content" class="page-content" data-prerendered="profile">${prerender.html}</div>`
-          );
-        }
-      }
-    } catch (_) {
-      // If profile-prerender fails to load, skip — JS will render it
-    }
-
-    // Preload the cover image so the browser fetches it as early as possible (LCP)
-    // Use a relative href so the preload warms the same-origin cache used by CSS/JS
-    const profilePage = (context.pages || []).find((p) => p.slug === "profile");
-    if (profilePage && profilePage.cover) {
-      const coverHref = normalizeConfigAssetPath(profilePage.cover);
-      if (coverHref) {
-        html = html.replace("</head>", `<link rel="preload" as="image" href="${coverHref}" fetchpriority="high"/></head>`);
-      }
-    }
-  }
-
-  return html;
-}
-
-/**
- * Strip previously inlined prerender content from #page-content so
- * buildShellHtml can inject fresh content on every re-build.
- * Uses depth-counted string walking to find the matching closing </div>.
- */
-function stripPageContentPrerender(html) {
-  const OPEN_PLAIN = '<div id="page-content" class="page-content">';
-  for (const attr of ["home", "profile"]) {
-    const OPEN_PRE = `<div id="page-content" class="page-content" data-prerendered="${attr}">`;
-    const startIdx = html.indexOf(OPEN_PRE);
-    if (startIdx === -1) continue;
-
-    const contentStart = startIdx + OPEN_PRE.length;
-    let depth = 1;
-    let i = contentStart;
-    while (i < html.length && depth > 0) {
-      const nextOpen = html.indexOf('<div', i);
-      const nextClose = html.indexOf('</div>', i);
-      if (nextClose === -1) return html; // malformed, leave unchanged
-      if (nextOpen !== -1 && nextOpen < nextClose) {
-        depth++;
-        i = nextOpen + 4;
-      } else {
-        depth--;
-        if (depth === 0) {
-          return html.slice(0, startIdx) + OPEN_PLAIN + '</div>' + html.slice(nextClose + 6);
-        }
-        i = nextClose + 6;
-      }
-    }
-    return html; // could not find matching close tag
-  }
-  return html; // nothing to strip
-}
-
 function escapeXml(value) {
   return String(value)
     .replace(/&/g, "&amp;")
@@ -1312,180 +1080,9 @@ function parseAdsenseConfig(siteConfig) {
   };
 }
 
-async function generateStaticRoutePages(routes, context) {
-  const srcIndexPath = path.join(WEB_DIR, "index.html");
-  if (!fs.existsSync(srcIndexPath)) return;
-  const srcHtml = fs.readFileSync(srcIndexPath, "utf-8");
-
-  for (const route of routes) {
-    if (route === "/") continue;
-    const routePath = route.replace(/^\/+/, "");
-    const depth = routePath.split("/").filter(Boolean).length;
-    const baseHref = `${"../".repeat(depth)}` || "./";
-    const htmlWithBase = await minifyHtmlDocument(
-      buildShellHtml(srcHtml, { baseHref, route, context }),
-    );
-    const outDir = path.join(WEB_DIR, routePath);
-    fs.mkdirSync(outDir, { recursive: true });
-    fs.writeFileSync(path.join(outDir, "index.html"), htmlWithBase);
-  }
-
-  // Keep root index explicitly base-aware for consistent relative loading.
-  fs.writeFileSync(
-    path.join(WEB_DIR, "index.html"),
-    await minifyHtmlDocument(buildShellHtml(srcHtml, { baseHref: "./", route: "/", context })),
-  );
-}
-
-async function generate404Page({ siteUrl, siteConfig }) {
-  const siteName = (siteConfig && siteConfig.hero_title) || "Raksara";
-  const palette = getAccentPalette(siteConfig);
-  const adsenseConfig = parseAdsenseConfig(siteConfig);
-  const homeUrl = "/";
-  const themeBootstrapScript = `(()=>{try{const saved=localStorage.getItem("raksara-theme");const system=window.matchMedia&&window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";document.documentElement.setAttribute("data-theme",saved||system);}catch{document.documentElement.setAttribute("data-theme","dark");}})();`;
-  const faviconRefs = {
-    svg: "/favicon.svg",
-    png: "/favicon.png",
-    apple: "/apple-touch-icon.png",
-    manifest: "/site.webmanifest",
-    css: "/styles.min.css",
-  };
-  const logoMarkup = buildLogoIconMarkup(siteConfig || {}, siteName, { inline: true, size: 24 });
-  const illustrationMarkup = build404IllustrationMarkup(palette);
-  const html = `<!doctype html>
-<html lang="en" data-theme="dark" style="${escapeHtml(buildAccentCssVariables(palette))}">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Page Not Found — ${escapeHtml(siteName)}</title>
-  <meta name="description" content="The page you requested could not be found."/>
-  <meta name="robots" content="noindex, nofollow"/>
-  <meta name="theme-color" content="${escapeHtml(palette.accent)}"/>
-  ${adsenseConfig && adsenseConfig.accountId ? `<meta name="google-adsense-account" content="${escapeHtml(adsenseConfig.accountId)}"/>` : ""}
-  <link rel="icon" type="image/svg+xml" href="${faviconRefs.svg}"/>
-  <link rel="icon" type="image/png" sizes="48x48" href="${faviconRefs.png}"/>
-  <link rel="apple-touch-icon" sizes="180x180" href="${faviconRefs.apple}"/>
-  <link rel="manifest" href="${faviconRefs.manifest}"/>
-  <script>${themeBootstrapScript}</script>
-  <link rel="stylesheet" href="${faviconRefs.css}"/>
-  <style>
-    html,body{height:100%;overflow:hidden}
-    body{margin:0;min-height:100svh;display:grid;place-items:center;padding:32px;box-sizing:border-box;color:var(--text-primary);background:var(--bg-base)}
-    .not-found-shell{width:min(680px,100%);padding:40px;border:1px solid var(--border-color);border-radius:28px;background:var(--bg-card);box-shadow:0 24px 80px var(--shadow-color);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
-    .not-found-illustration{width:min(320px,72vw);margin:0 auto 28px}
-    .not-found-illustration-art{display:block;width:100%;height:auto}
-    .not-found-brand{display:flex;align-items:center;gap:12px;margin-bottom:18px;font-weight:700}
-    .not-found-brand .logo-icon{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;color:var(--accent)}
-    .not-found-brand .logo-icon img,.not-found-brand .logo-icon svg{display:block;width:24px;height:24px}
-    .not-found-shell h1{margin:0 0 12px;font-size:clamp(2rem,5vw,3.2rem);line-height:1.05}
-    .not-found-shell p{margin:0 0 24px;color:var(--text-muted);font-size:1.05rem}
-    .not-found-actions{display:flex;gap:12px;flex-wrap:wrap}
-    .not-found-actions a{display:inline-flex;align-items:center;justify-content:center;padding:12px 18px;border-radius:999px;text-decoration:none;font-weight:600}
-    .not-found-home{background:var(--accent);color:#fff}
-    .not-found-back{border:1px solid var(--border-color);color:var(--text-primary);background:transparent}
-    [data-theme="light"] .not-found-shell{background:var(--bg-glass-heavy)}
-    @media (max-width:640px){.not-found-shell{padding:28px}.not-found-illustration{width:min(260px,76vw)}}
-  </style>
-</head>
-<body>
-  <div class="bg-gradient"></div>
-  <div class="bg-noise"></div>
-  <main class="not-found-shell">
-    <div class="not-found-brand"><span class="logo-icon">${logoMarkup}</span><span>${escapeHtml(siteName)}</span></div>
-    <div class="not-found-illustration">${illustrationMarkup}</div>
-    <h1>That page does not exist.</h1>
-    <p>The requested URL could not be resolved. Return to the main site or go back to the previous page.</p>
-    <div class="not-found-actions">
-      <a class="not-found-home" href="${escapeHtml(homeUrl)}">Go home</a>
-      <a class="not-found-back" href="javascript:history.back()">Go back</a>
-    </div>
-  </main>
-</body>
-</html>`;
-  writeWebFile("404.html", await minifyHtmlDocument(html));
-}
-
-function injectOrReplaceBaseHref(html, baseHref) {
-  if (/<base\s+href=/i.test(html)) {
-    return html.replace(/<base\s+href=["'][^"']*["']\s*\/?\s*>/i, `<base href="${baseHref}">`);
-  }
-  return html.replace("<head>", `<head>\n        <base href="${baseHref}">`);
-}
-
 function writeWebFile(filename, content) {
   const filepath = path.join(WEB_DIR, filename);
   fs.writeFileSync(filepath, content);
-}
-
-function copyHighlightRuntime() {
-  try {
-    const packageRoot = path.join(REPO_ROOT, "node_modules", "highlight.js");
-    const srcEsDir = path.join(packageRoot, "es");
-    const srcLibDir = path.join(packageRoot, "lib");
-    const srcStylesDir = path.join(packageRoot, "styles");
-    const destRoot = path.join(WEB_DIR, "vendor", "hljs");
-
-    if (!fs.existsSync(srcEsDir) || !fs.existsSync(srcLibDir)) {
-      console.log("  ⚠ highlight.js runtime not found, skipping language module copy");
-      return;
-    }
-
-    fs.rmSync(destRoot, { recursive: true, force: true });
-    copyDirRecursive(srcEsDir, path.join(destRoot, "es"));
-    copyDirRecursive(srcLibDir, path.join(destRoot, "lib"));
-
-    // Copy CSS theme files so highlight.js CSS works without CDN
-    const themeFiles = ["github-dark.min.css", "github.min.css"];
-    if (fs.existsSync(srcStylesDir)) {
-      const destStylesDir = path.join(destRoot, "styles");
-      fs.mkdirSync(destStylesDir, { recursive: true });
-      for (const theme of themeFiles) {
-        const src = path.join(srcStylesDir, theme);
-        if (fs.existsSync(src)) {
-          fs.copyFileSync(src, path.join(destStylesDir, theme));
-        }
-      }
-    }
-
-    console.log("  ✓ Highlight.js runtime copied for on-demand language loading");
-  } catch (err) {
-    console.error("  ✗ Highlight runtime copy failed:", err.message);
-  }
-}
-
-async function minifyHtmlDocument(html) {
-  try {
-    return await minifyHtml(html, {
-      collapseWhitespace: true,
-      removeComments: true,
-      removeRedundantAttributes: true,
-      removeScriptTypeAttributes: true,
-      removeStyleLinkTypeAttributes: true,
-      keepClosingSlash: true,
-      minifyCSS: true,
-      minifyJS: true,
-    });
-  } catch (err) {
-    console.error("  ⚠ HTML minification skipped:", err.message);
-    return html;
-  }
-}
-
-const SKIP_DIRS = new Set([".git", "node_modules", ".github"]);
-
-function copyDirRecursive(src, dest) {
-  fs.mkdirSync(dest, { recursive: true });
-  const entries = fs.readdirSync(src, { withFileTypes: true });
-  for (const entry of entries) {
-    if (SKIP_DIRS.has(entry.name)) continue;
-    const srcPath = path.join(src, entry.name);
-    const destPath = path.join(dest, entry.name);
-    if (entry.isDirectory()) {
-      copyDirRecursive(srcPath, destPath);
-    } else {
-      fs.copyFileSync(srcPath, destPath);
-    }
-  }
 }
 
 async function generateResponsiveImages() {
@@ -2166,33 +1763,39 @@ async function prerender(posts, thoughts, portfolio, gallery, config, imageManif
   }
 }
 
-async function minifyCSS() {
+function copyHighlightRuntime() {
   try {
-    const cssPath = path.join(WEB_DIR, "styles.css");
-    const minCssPath = path.join(WEB_DIR, "styles.min.css");
-    
-    if (!fs.existsSync(cssPath)) {
-      console.log("  ⚠ styles.css not found, skipping CSS minification");
+    const packageRoot = path.join(REPO_ROOT, "node_modules", "highlight.js");
+    const srcEsDir = path.join(packageRoot, "es");
+    const srcLibDir = path.join(packageRoot, "lib");
+    const srcStylesDir = path.join(packageRoot, "styles");
+    const destRoot = path.join(WEB_DIR, "vendor", "hljs");
+
+    if (!fs.existsSync(srcEsDir) || !fs.existsSync(srcLibDir)) {
+      console.log("  ⚠ highlight.js runtime not found, skipping language module copy");
       return;
     }
 
-    const css = fs.readFileSync(cssPath, "utf-8");
+    fs.rmSync(destRoot, { recursive: true, force: true });
+    copyDirRecursive(srcEsDir, path.join(destRoot, "es"));
+    copyDirRecursive(srcLibDir, path.join(destRoot, "lib"));
 
-    const result = await postcss([cssnano({ preset: "default" })]).process(css, {
-      from: cssPath,
-      to: minCssPath,
-    });
-    const minified = result.css;
+    // Copy CSS theme files so highlight.js CSS works without CDN
+    const themeFiles = ["github-dark.min.css", "github.min.css"];
+    if (fs.existsSync(srcStylesDir)) {
+      const destStylesDir = path.join(destRoot, "styles");
+      fs.mkdirSync(destStylesDir, { recursive: true });
+      for (const theme of themeFiles) {
+        const src = path.join(srcStylesDir, theme);
+        if (fs.existsSync(src)) {
+          fs.copyFileSync(src, path.join(destStylesDir, theme));
+        }
+      }
+    }
 
-    fs.writeFileSync(minCssPath, minified, "utf-8");
-
-    const originalSize = css.length;
-    const minifiedSize = minified.length;
-    const savings = ((1 - minifiedSize / originalSize) * 100).toFixed(1);
-
-    console.log(`  ✓ CSS minified: ${(originalSize/1024).toFixed(1)} KB → ${(minifiedSize/1024).toFixed(1)} KB (${savings}% savings)`);
+    console.log("  ✓ Highlight.js runtime copied for on-demand language loading");
   } catch (err) {
-    console.error("  ✗ CSS minification failed:", err.message);
+    console.error("  ✗ Highlight runtime copy failed:", err.message);
   }
 }
 
@@ -2228,31 +1831,8 @@ async function bundleBrowserVendor({ inputPath, outputPath, name }) {
 
 async function bundleVendorJS() {
   try {
-    const markdownInput = path.join(REPO_ROOT, "scripts", "vendor-markdown-entry.js");
-    const searchInput = path.join(REPO_ROOT, "scripts", "vendor-search-entry.js");
     const highlightInput = path.join(REPO_ROOT, "scripts", "vendor-highlight-entry.js");
-    const markdownOutput = path.join(WEB_DIR, "vendor-markdown.min.js");
-    const searchOutput = path.join(WEB_DIR, "vendor-search.min.js");
     const highlightOutput = path.join(WEB_DIR, "vendor-highlight.min.js");
-
-    if (!fs.existsSync(markdownInput) || !fs.existsSync(searchInput)) {
-      console.log("  ⚠ vendor entry files not found, skipping Rollup vendor bundles");
-      return;
-    }
-
-    const markdownSize = await bundleBrowserVendor({
-      inputPath: markdownInput,
-      outputPath: markdownOutput,
-      name: "RaksaraMarkdownVendor",
-    });
-    const searchSize = await bundleBrowserVendor({
-      inputPath: searchInput,
-      outputPath: searchOutput,
-      name: "RaksaraSearchVendor",
-    });
-
-    console.log(`  ✓ Markdown vendor bundle: ${(markdownSize/1024).toFixed(1)} KB`);
-    console.log(`  ✓ Search vendor bundle: ${(searchSize/1024).toFixed(1)} KB`);
 
     // Bundle highlight.js core as a browser-ready IIFE (optional — CDN fallback used if absent)
     if (fs.existsSync(highlightInput)) {
@@ -2288,234 +1868,6 @@ async function bundleVendorJS() {
   }
 }
 
-async function minifyJS() {
-  const SHARED_API = [
-    "state",
-    "runtime",
-    "SEO_INITIAL_COUNT",
-    "getPaginationState",
-    "showContent",
-    "showLoading",
-    "loadMarkdown",
-    "parseMarkdown",
-    "renderMd",
-    "ensureSection",
-    "ensureImageManifest",
-    "ensureMarkdownVendorLoaded",
-    "ensureRoutesBundleLoaded",
-    "buildResponsiveImageAttrs",
-    "buildDetailImageAttrs",
-    "getImageManifestEntry",
-    "getGalleryImages",
-    "updatePageMeta",
-    "navigateTo",
-    "shareButton",
-    "initShareButton",
-    "renderStatusChip",
-    "initArticleImages",
-    "initSortableTables",
-    "initParallax",
-    "initLazyImages",
-    "escapeHtml",
-    "formatDate",
-    "resolvePath",
-    "toPublicAssetHref",
-    "humanize",
-    "getAbsolutePageUrl",
-    "resolveContentLink",
-    "normalizeLegacyRouteLinks",
-    "blogBreadcrumbs",
-    "getSortedItems",
-    "initPagination",
-    "computeItemsPerPage",
-    "setupPaginationSentinel",
-    "dirControlsHtml",
-    "initDirControls",
-    "loadJSON",
-  ];
-
-  const STUBS = `
-  // Route/content functions are loaded from app-routes.min.js on demand.
-  function __callRoute(name, args) {
-    if (!window.__RAKSARA_ROUTES__) return undefined;
-    const fn = window.__RAKSARA_ROUTES__[name];
-    if (typeof fn !== "function") return undefined;
-    return fn.apply(null, args || []);
-  }
-  async function __callRouteAsync(name, args) {
-    await ensureRoutesBundleLoaded();
-    return __callRoute(name, args || []);
-  }
-  async function renderBlogPost(slug) { return __callRouteAsync("renderBlogPost", [slug]); }
-  async function renderPortfolioList() { return __callRouteAsync("renderPortfolioList", []); }
-  async function renderPortfolioItem(slug) { return __callRouteAsync("renderPortfolioItem", [slug]); }
-  async function renderGallery(autoOpenIndex) { return __callRouteAsync("renderGallery", [autoOpenIndex]); }
-  async function renderThoughts() { return __callRouteAsync("renderThoughts", []); }
-  async function renderTags() { return __callRouteAsync("renderTags", []); }
-  async function renderTagPosts(tag) { return __callRouteAsync("renderTagPosts", [tag]); }
-  async function renderCategories() { return __callRouteAsync("renderCategories", []); }
-  async function renderCategoryPosts(category) { return __callRouteAsync("renderCategoryPosts", [category]); }
-  async function renderProfile() { return __callRouteAsync("renderProfile", []); }
-  async function renderPage(slug) { return __callRouteAsync("renderPage", [slug]); }
-  function initPortfolioCards() {
-    if (window.__RAKSARA_ROUTES__) {
-      __callRoute("initPortfolioCards", []);
-      return;
-    }
-    ensureRoutesBundleLoaded().then(() => __callRoute("initPortfolioCards", [])).catch(() => {});
-  }
-  function syncGiscusTheme(theme) {
-    if (window.__RAKSARA_ROUTES__) {
-      __callRoute("syncGiscusTheme", [theme]);
-      return;
-    }
-    ensureRoutesBundleLoaded().then(() => __callRoute("syncGiscusTheme", [theme])).catch(() => {});
-  }
-`;
-
-  const ROUTES_PREAMBLE = `// Raksara routes chunk (lazy loaded)
-(function () {
-  "use strict";
-  var C = window.__RAKSARA_CORE__;
-  if (!C) return;
-${SHARED_API.map((name) => `  var ${name} = C.${name};`).join("\n")}
-`;
-
-  const ROUTES_FOOTER = `
-  window.__RAKSARA_ROUTES__ = {
-    renderBlogPost,
-    renderPortfolioList,
-    renderPortfolioItem,
-    renderGallery,
-    renderThoughts,
-    renderTags,
-    renderTagPosts,
-    renderCategories,
-    renderCategoryPosts,
-    renderProfile,
-    renderPage,
-    initPortfolioCards,
-    syncGiscusTheme,
-  };
-})();
-`;
-
-  try {
-    const jsPath = path.join(WEB_DIR, "app.js");
-    const srcDir = path.join(WEB_DIR, "src");
-    const minJsPath = path.join(WEB_DIR, "app.min.js");
-    const routesMinPath = path.join(WEB_DIR, "app-routes.min.js");
-
-    // Prefer web/src/*.js fragments over the legacy monolithic web/app.js.
-    // The IIFE open is prepended here; the IIFE close lives at the end of
-    // 14-ui.js and is preserved during concatenation.
-    //
-    // Order is explicit — do NOT rely on alphabetical sorting.
-    // To add a new fragment: add its filename to this array at the right position.
-    const SRC_FILE_ORDER = [
-      "01-state.js",
-      "02-utils.js",
-      "03-data.js",
-      "04-markdown.js",
-      "05-render-helpers.js",
-      "06-content-components.js",
-      "07-home.js",
-      "08-blog.js",
-      "09-detail-pages.js",
-      "10-page.js",
-      "11-share.js",
-      "12-router.js",
-      "13-search.js",
-      "14-ui.js",
-    ];
-
-    let js;
-    if (fs.existsSync(srcDir)) {
-      const available = SRC_FILE_ORDER.filter((f) =>
-        fs.existsSync(path.join(srcDir, f)),
-      );
-      if (available.length > 0) {
-        const fragments = available.map((f) =>
-          fs.readFileSync(path.join(srcDir, f), "utf-8"),
-        );
-        js = `(function () {\n  "use strict";\n\n${fragments.join("\n")}`;
-        console.log(`  ✓ Concatenated ${available.length} source fragments from web/src/`);
-      }
-    }
-
-    if (!js) {
-      if (!fs.existsSync(jsPath)) {
-        console.log("  ⚠ app.js not found and web/src/ is empty, skipping JS minification");
-        return;
-      }
-      js = fs.readFileSync(jsPath, "utf-8");
-    }
-    const regionAMatch = js.match(/\/\/ __PAGES_REGION_A_START__([\s\S]*?)\/\/ __PAGES_REGION_A_END__/);
-    const regionBMatch = js.match(/\/\/ __PAGES_REGION_B_START__([\s\S]*?)\/\/ __PAGES_REGION_B_END__/);
-
-    let coreJs = js;
-    let routesCode = "";
-
-    if (regionAMatch && regionBMatch) {
-      routesCode = `${regionAMatch[1]}\n${regionBMatch[1]}`;
-      // Keep pagination state live via getter to avoid captured null snapshot.
-      routesCode = routesCode.replace(/\b_paginationState\b/g, "getPaginationState()");
-      coreJs = coreJs.replace(
-        /\/\/ __PAGES_REGION_A_START__[\s\S]*?\/\/ __PAGES_REGION_A_END__/,
-        STUBS,
-      );
-      coreJs = coreJs.replace(
-        /\/\/ __PAGES_REGION_B_START__[\s\S]*?\/\/ __PAGES_REGION_B_END__/,
-        "",
-      );
-    }
-
-    const result = await terser.minify(coreJs, {
-      compress: {
-        passes: 2,
-      },
-      mangle: true,
-      format: {
-        comments: false,
-      },
-    });
-
-    if (!result.code) {
-      throw new Error("Terser produced empty output");
-    }
-
-    const minified = result.code;
-
-    fs.writeFileSync(minJsPath, minified, "utf-8");
-
-    if (routesCode) {
-      const routesSource = `${ROUTES_PREAMBLE}${routesCode}${ROUTES_FOOTER}`;
-      const routesResult = await terser.minify(routesSource, {
-        compress: {
-          passes: 2,
-        },
-        mangle: true,
-        format: {
-          comments: false,
-        },
-      });
-      if (!routesResult.code) {
-        throw new Error("Terser produced empty output for app-routes.min.js");
-      }
-      fs.writeFileSync(routesMinPath, routesResult.code, "utf-8");
-      console.log(`  ✓ Routes chunk: ${(routesResult.code.length/1024).toFixed(1)} KB`);
-    }
-
-    const originalSize = js.length;
-    const minifiedSize = minified.length;
-    const savings = ((1 - minifiedSize / originalSize) * 100).toFixed(1);
-
-    console.log(`  ✓ JS minified: ${(originalSize/1024).toFixed(1)} KB → ${(minifiedSize/1024).toFixed(1)} KB (${savings}% savings)`);
-  } catch (err) {
-    console.error("  ✗ JS minification failed:", err.message);
-  }
-}
-
 async function runBuild() {
   const cleanupSymlink = setupLocalContentSymlink();
   CONTENT_DIR = resolveContentDir();
@@ -2528,9 +1880,7 @@ async function runBuild() {
       : { color: "purple" };
     await generateFaviconAssets(siteConfig);
     copyHighlightRuntime();
-    await minifyCSS();
     await bundleVendorJS();
-    await minifyJS();
   } finally {
     cleanupSymlink();
   }

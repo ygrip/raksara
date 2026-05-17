@@ -61,20 +61,20 @@ sections on the blog page with humanized names (e.g. `my-series` becomes
 
 ```
 blog/
-  standalone-post.md            -> /#/blog/post/standalone-post
+  standalone-post.md            -> /blog/post/standalone-post
   novel/
-    chapter-1.md                -> /#/blog/post/novel/chapter-1
-    chapter-2.md                -> /#/blog/post/novel/chapter-2
+    chapter-1.md                -> /blog/post/novel/chapter-1
+    chapter-2.md                -> /blog/post/novel/chapter-2
     bonus/
-      deleted-scenes.md         -> /#/blog/post/novel/bonus/deleted-scenes
+      deleted-scenes.md         -> /blog/post/novel/bonus/deleted-scenes
 ```
 
 Directory listing pages:
 
 ```
-/#/blog                         -> root (shows folders + root-level posts)
-/#/blog/dir/novel               -> shows novel/ contents
-/#/blog/dir/novel/bonus         -> shows novel/bonus/ contents
+/blog                           -> root (shows folders + root-level posts)
+/blog/dir/novel                 -> shows novel/ contents
+/blog/dir/novel/bonus           -> shows novel/bonus/ contents
 ```
 
 ### Next / Previous Page Navigation
@@ -98,7 +98,7 @@ previous_page:
 | Field | Required | Description |
 |---|---|---|
 | `title` | No | Custom link label. Defaults to "Next Page" / "Previous Page" |
-| `link` | Yes | Hash URL to the target page |
+| `link` | Yes | URL path to the target page |
 
 ### Content Types
 
@@ -201,7 +201,7 @@ Readers can also toggle it manually.
 |---|---|---|
 | `title` | Yes | Display title of the post |
 | `date` | Yes | Publication date (`YYYY-MM-DD`) |
-| `type` | No | Content type: `default`, `poem`, `novel`, or `comic` |
+| `type` | No | Content type: `blog`, `poem`, `novel`, `chapters`, or `comic` |
 | `tags` | No | List of tags (lowercase, hyphenated) |
 | `category` | No | Single category string |
 | `summary` | No | Short description for cards. Auto-generated from body if omitted |
@@ -216,8 +216,8 @@ Readers can also toggle it manually.
 
 ### Internal Links
 
-You can link to other content pages using relative paths. Raksara
-automatically resolves these to the correct hash-based URLs.
+You can link to other content pages using site paths. Raksara automatically
+resolves supported content paths to SvelteKit routes.
 
 ```markdown
 [Read my other post](/blog/poem/saturns-ring)
@@ -241,8 +241,8 @@ hyphens, and stripping special characters.
 ### URL
 
 ```
-/#/blog/post/my-new-post
-/#/blog/post/folder/nested-post
+/blog/post/my-new-post
+/blog/post/folder/nested-post
 ```
 
 ---
@@ -261,7 +261,7 @@ size (fetched automatically). Clicking the card downloads the file.
 ::file[https://example.com/whitepaper.pdf "External Whitepaper"]
 ```
 
-- **First argument** — path to the file (relative to the web root or a full URL).
+- **First argument** — path to the file (relative to the site root or a full URL).
 - **Optional quoted label** — overrides the displayed filename.
 
 ### Where to Put Files
@@ -512,7 +512,7 @@ Your thought goes here. One or two paragraphs max.
 
 ### URL
 
-All thoughts appear on: `/#/thoughts`
+All thoughts appear on: `/thoughts`
 
 ---
 
@@ -544,6 +544,8 @@ Valid `status` values for blog/novel and portfolio content are:
 - `draft`
 - `ongoing`
 - `completed`
+
+`complete` is accepted as a legacy alias and normalized to `completed`.
 
 When provided, Raksara shows a status chip on cards and detail pages.
 
@@ -739,7 +741,7 @@ gallery, thoughts, portfolio listing, and portfolio detail pages.
 The share button copies the page title and URL in the format:
 
 ```
-Page Title : https://yoursite.github.io/raksara/#/blog/post/my-post
+Page Title : https://yoursite.github.io/raksara/blog/post/my-post
 ```
 
 On mobile devices that support the Web Share API, it opens the native share

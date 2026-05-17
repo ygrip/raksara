@@ -1,213 +1,109 @@
 # Raksara
 
-A GitHub-native static content platform that transforms a repository into a blog, portfolio, and personal site.
+A GitHub-native SvelteKit content site for blogs, portfolios, galleries, notes, and custom Markdown components.
 
-> Raksara — A place where ideas, knowledge, and engineering thoughts are recorded.
+Raksara keeps the engine in this repository and the content in a separate repository. During local development the engine can read a sibling `../raksara-content` repo through the `content` symlink created by the metadata build.
 
 ## Features
 
-- **Blog** — Markdown-powered with frontmatter, pagination, tags, and categories
-- **Portfolio** — Project showcase with GitHub/demo links
-- **Gallery** — Image grid with lightbox viewer
-- **Shower Thoughts** — Short-form content section
-- **Collapsible TOC** — `::toc(...)` component with expand/collapse toggle (expanded by default)
-- **Collapsible Long Code Blocks** — Long snippets start collapsed with fade indicator and expand/collapse control
-- **Homepage Gallery Window** — Mac-like gallery stack card that opens the full gallery
-- **Portfolio Timeline Controls** — Search and sort while preserving timeline-style visual grouping
-- **Profile** — Parallax hero with avatar, cover, and social links
-- **Search** — Client-side full-text search powered by MiniSearch
-- **Optimized Build Output** — Rollup vendor bundle + Terser JS minification + cssnano CSS minification + HTML/JSON minification
-- **Navigation Tree** — Auto-generated content tree sidebar
-- **Light/Dark Theme** — Glassmorphism UI with animated gradients
-- **Configurable Accent Color** — Choose from 6 color presets (purple, blue, red, yellow, green, orange) via `raksara.yml`
-- **Giscus Comments (Optional)** — GitHub Discussions-powered comments for blog and portfolio detail pages, configurable via `raksara.yml` with per-post override
-- **Share Anywhere** — Share button on posts, directories, gallery, thoughts, and portfolio pages; copies `Title : URL` to clipboard or opens native share sheet
-- **GitHub Pages** — Automatic deployment via GitHub Actions
+- SvelteKit static site output for GitHub Pages
+- Markdown blog posts with nested directories, tags, categories, breadcrumbs, next/previous navigation, and reading mode
+- Portfolio pages with GitHub/demo links and project status
+- Gallery list with image lightbox, per-image URLs, captions, filtering, and share cards
+- Profile page with cover, avatar, metadata chips, animation, and share support
+- Custom Markdown components: panels, containers, chips, sortable tables, charts, progress bars, videos, files, table of contents, and chapters tables
+- Highlight.js code blocks with copy, expand/collapse, and mobile-friendly controls
+- Giscus comments for blog and portfolio detail pages
+- Light/dark theme and configurable accent color from `raksara.yml`
+- Generated metadata, search index, SEO artifacts, responsive images, favicons, and static vendor assets
 
-## Architecture
+## Repository Layout
 
-Raksara separates the **engine** (this repo) from **content** (a separate private repo). This repo is a clean, forkable template — your personal content lives in its own repository.
-
-```
-raksara/                          your-content-repo/
-  web/              (frontend)      blog/
-  scripts/          (build)         portfolio/
-  content-template/ (skeleton)      gallery/
-  .github/workflows/                thoughts/
-  sync.yml          (trigger)       pages/
-  package.json                      assets/images/
-                                    raksara.yml  (site config)
-                                    .github/workflows/
+```text
+raksara/
+  sveltekit/          SvelteKit frontend and static assets
+  scripts/            Metadata, responsive image, SEO, and vendor asset build
+  content-template/   Starter content repo structure
+  metadata/           Generated metadata, ignored by git
+  content/            External content checkout or local symlink, ignored by git
+  .github/workflows/  GitHub Pages deployment
+  sync.yml            Optional rebuild trigger marker
 ```
 
-At build time, GitHub Actions checks out your content repo into `content/`, runs the metadata build, and deploys to GitHub Pages.
-
-## Quick Start
-
-### 1. Fork this repo
-
-Fork `ygrip/raksara` to your own GitHub account.
-
-### 2. Create a private content repo
-
-Create a new private repository for your content. Use `content-template/` in this repo as a starting point:
-
-```bash
-# Clone your new content repo
-git clone git@github.com:you/your-content.git
-cd your-content
-
-# Copy the template structure
-cp -R /path/to/raksara/content-template/* .
-
-# Edit the example files, then commit and push
-git add . && git commit -m "Initial content" && git push
-```
-
-See `CONTENT_GUIDE.md` for detailed authoring instructions.
-
-### 3. Configure GitHub secrets and variables
-
-**On your forked Raksara repo:**
-
-| Type | Name | Value |
-|------|------|-------|
-| Variable | `CONTENT_REPO` | `you/your-content` (owner/repo) |
-| Variable | `SITE_URL` | `https://you.github.io` or your custom domain |
-| Secret | `CONTENT_PAT` | A GitHub PAT with `repo` scope to read your private content repo |
-
-**On your content repo:**
-
-| Type | Name | Value |
-|------|------|-------|
-| Variable | `RAKSARA_REPO` | `you/raksara` (owner/repo of your fork) |
-| Secret | `RAKSARA_PAT` | A GitHub PAT with `repo` scope to trigger dispatch on your fork |
-
-### 4. Trigger a build
-
-Either:
-- **Push content** to your content repo (auto-triggers via `repository_dispatch`)
-- **Bump `sync.yml`** version in this repo and push
-- **Manual dispatch** from the Actions tab in GitHub
-
-## Rebuilding Your Site
-
-There are three ways to trigger a rebuild:
-
-### Automatic (recommended)
-
-Push content to your private content repo. Its workflow automatically notifies this repo to rebuild and deploy.
-
-### Manual bump
-
-Edit `sync.yml` at the repo root and increment the version:
-
-```yaml
-version: 2   # was 1
-```
-
-Push the change — the deploy workflow runs on any push to `main`.
-
-### GitHub Actions UI
-
-Go to Actions > Deploy Site > Run workflow.
+The legacy `web/` frontend has been removed. `sveltekit/build/` is the deploy artifact.
 
 ## Local Development
 
 ```bash
-# Install dependencies
 npm install
+cd sveltekit && npm install && cd ..
 
-# Prepare sibling content repo
-git clone git@github.com:you/raksara-content.git ../raksara-content
+# Optional: clone content beside this repo
+# git clone git@github.com:you/raksara-content.git ../raksara-content
 
-# Build metadata (script will create content -> ../raksara-content symlink,
-# then remove it automatically after build)
-npm run build
-
-# Serve locally
+# Build metadata and start SvelteKit
 npm run dev
 ```
 
-### Build output optimization
+Useful commands:
 
-`npm run build` now performs additional optimization steps:
-
-- Bundles route-scoped vendors using Rollup:
-  - `web/vendor-markdown.min.js` for Markdown rendering (`marked`), loaded only on markdown-heavy routes
-  - `web/vendor-search.min.js` for search (`minisearch`), loaded only when opening search overlay
-- Loads Highlight.js core and language modules on demand from `web/vendor/hljs/` per code block language
-- Minifies `web/app.js` into `web/app.min.js` using Terser
-- Minifies `web/styles.css` into `web/styles.min.css` using cssnano
-- Minifies generated static HTML route files (including `web/index.html`) with `html-minifier-next`
-- Writes compact JSON metadata (no pretty-print whitespace) for smaller payloads
-- Generates a homepage gallery cover image (`web/content/assets/images/gallery-cover.webp`) used by prerendered homepage gallery window
-
-### Local build behavior
-
-- For local runs, the build script checks for `../raksara-content`.
-- If found, it creates a temporary `content/` symlink before building.
-- After the build finishes (success or failure), the symlink is removed.
-- In CI (`GITHUB_ACTIONS=true`), this symlink behavior is skipped.
-
-### SEO base URL source
-
-- Sitemap and robots use environment variables, not YAML config.
-- Supported variables (priority order):
-  1. `SITE_URL` (recommended)
-  2. `BASE_URL`
-- If none is set, the build falls back to `https://<github-owner>.github.io` when possible.
-
-## Project Structure
-
-```
-raksara/
-├── content-template/     # Skeleton content structure for forkers
-├── web/                  # Frontend (HTML, CSS, JS)
-├── scripts/
-│   └── build-metadata.js # Scans content/, generates JSON indexes + SEO artifacts
-├── .github/
-│   └── workflows/
-│       └── deploy.yml    # CI/CD: checkout content, build, deploy
-├── sync.yml              # Bump to trigger rebuild
-└── package.json
+```bash
+npm run build:metadata      # Generate metadata and static assets
+npm run dev                 # Build metadata, then run SvelteKit dev server
+npm run check:sveltekit     # Type/check SvelteKit
+npm run build               # Build metadata, then SvelteKit static output
 ```
 
-## Tech Stack
+The metadata build writes to:
 
-### Core
-- Vanilla JavaScript (no framework)
-- CSS3 with glassmorphism and CSS variables
+- `metadata/*.json`
+- `sveltekit/static/metadata/*.json`
+- `sveltekit/static/content/`
+- `sveltekit/static/vendor*.js`
+- `sveltekit/static/vendor/hljs/`
+- `sveltekit/static/sitemap.xml`, `robots.txt`, `ads.txt`, favicons, and manifest
 
-### Build & Optimization
-- [Rollup](https://rollupjs.org/) — Bundles browser vendor dependencies
-- [Terser](https://github.com/terser/terser) — JavaScript minification
-- [cssnano](https://cssnano.github.io/cssnano/) — CSS minification
-- [html-minifier-next](https://github.com/j9t/html-minifier-next) — HTML minification
-- [PostCSS](https://postcss.org/) — CSS transformation
-- [@rollup/plugin-commonjs](https://github.com/rollup/plugins) — CommonJS support
-- [@rollup/plugin-node-resolve](https://github.com/rollup/plugins) — Node module resolution
+## Content Repository
 
-### Content Processing
-- [Marked](https://marked.js.org/) — Markdown rendering
-- [gray-matter](https://github.com/jonschlinkert/gray-matter) — Frontmatter parsing
-- [fast-glob](https://github.com/mrmlnc/fast-glob) — File scanning
-- [js-yaml](https://github.com/nodeca/js-yaml) — YAML parsing
+Your content repository should contain:
 
-### Client-Side Features
-- [Highlight.js](https://highlightjs.org/) — Code syntax highlighting
-- [MiniSearch](https://lucaong.github.io/minisearch/) — Client-side full-text search
-- [Chart.js](https://www.chartjs.org/) — Interactive data visualization (radar, line, bar charts)
-- [mermaid](https://github.com/mermaid-js/mermaid) — Diagram and flowchart rendering
+```text
+blog/
+portfolio/
+gallery/
+thoughts/
+pages/
+assets/images/
+raksara.yml
+```
 
-### Image Processing
-- [Sharp](https://sharp.pixelplumbing.com/) — Image optimization and responsive image generation
-- [png-to-ico](https://github.com/steambap/png-to-ico) — Favicon generation
+Use `content-template/` as a starting point. See [CONTENT_GUIDE.md](CONTENT_GUIDE.md) for frontmatter, custom Markdown components, and authoring details.
+
+## GitHub Pages Deployment
+
+Configure these repository variables/secrets on the engine repo:
+
+| Type | Name | Purpose |
+|---|---|---|
+| Variable | `CONTENT_REPO` | Content repository in `owner/repo` form |
+| Variable | `SITE_URL` | Published site URL |
+| Secret | `CONTENT_PAT` | Token that can read the content repo |
+
+The deploy workflow:
+
+1. Checks out this engine repo.
+2. Checks out the content repo into `content/`.
+3. Installs root and SvelteKit dependencies.
+4. Runs `npm run build:metadata`.
+5. Runs `npm run build:sveltekit`.
+6. Uploads `sveltekit/build` to GitHub Pages.
+
+## Sensitive Data
+
+Do not commit actual secrets, tokens, private content, or generated build output. The repo ignores `content/`, `.env*`, `metadata/`, `sveltekit/build/`, and generated SvelteKit static content/metadata assets. Keep deploy credentials in GitHub Actions secrets.
 
 ## License
 
-Engine source code: MIT
+Engine source code: MIT.
 
-Content is owned by the respective content repository author. The default content
-template uses [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/)
-as a suggested license — adjust to your preference in your content repo.
+Content is owned by the respective content repository author. The default content template suggests CC BY-NC-ND 4.0; adjust that in your content repo as needed.
