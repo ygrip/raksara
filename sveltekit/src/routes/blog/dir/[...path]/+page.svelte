@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import type { PageData } from './$types';
 	import type { Post } from '$lib/types';
 	import { formatDate, humanize } from '$lib/utils';
@@ -12,6 +13,21 @@
 	const config = $derived(data.config);
 	const imageManifest = $derived(data.imageManifest ?? null);
 	const postThumbSizes = '(max-width: 480px) 100px, (max-width: 640px) 120px, 180px';
+
+	function postHref(slug: string): string {
+		return `/blog/post/${slug}/`;
+	}
+
+	function openPostCard(event: MouseEvent, slug: string) {
+		if (event.target instanceof Element && event.target.closest('a, button')) return;
+		goto(postHref(slug));
+	}
+
+	function openPostCardFromKey(event: KeyboardEvent, slug: string) {
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+		event.preventDefault();
+		goto(postHref(slug));
+	}
 
 	const MAX_CRUMBS = 3;
 	const allCrumbs = $derived(dirPath ? ['blog', ...dirPath.split('/').filter(Boolean)] : ['blog']);
@@ -108,8 +124,8 @@
 			class="post-card{post.cover ? ' has-thumb' : ''}"
 			role="link"
 			tabindex="0"
-			onclick={() => (window.location.href = `/blog/post/${post.slug}`)}
-			onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (window.location.href = `/blog/post/${post.slug}`)}
+			onclick={(event) => openPostCard(event, post.slug)}
+			onkeydown={(event) => openPostCardFromKey(event, post.slug)}
 		>
 			{#if post.cover}
 				{@const postThumbLqip = buildLqipStyle(post.cover, imageManifest)}
@@ -118,7 +134,7 @@
 				</div>
 			{/if}
 			<div class="post-card-body">
-				<div class="post-card-title"><a href="/blog/post/{post.slug}" style="color:inherit;text-decoration:none;">{post.title}</a></div>
+				<div class="post-card-title"><a href={postHref(post.slug)} style="color:inherit;text-decoration:none;">{post.title}</a></div>
 				{#if post.status}
 					<span class="status-chip status-{post.status}">{post.status}</span>
 				{/if}

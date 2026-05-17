@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import type { PageData } from './$types';
 	import { formatDate } from '$lib/utils';
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
@@ -11,6 +12,21 @@
 	const imageManifest = $derived(data.imageManifest ?? null);
 	const total = $derived(posts.length + portfolio.length + gallery.length);
 	const galleryThumbSizes = '(max-width: 640px) calc(100vw - 32px), 640px';
+
+	function postHref(slug: string): string {
+		return `/blog/post/${slug}/`;
+	}
+
+	function openPostCard(event: MouseEvent, slug: string) {
+		if (event.target instanceof Element && event.target.closest('a, button')) return;
+		goto(postHref(slug));
+	}
+
+	function openPostCardFromKey(event: KeyboardEvent, slug: string) {
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+		event.preventDefault();
+		goto(postHref(slug));
+	}
 </script>
 
 <svelte:head>
@@ -33,10 +49,10 @@
 				class="post-card"
 				role="link"
 				tabindex="0"
-				onclick={() => (window.location.href = `/blog/post/${post.slug}`)}
-				onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (window.location.href = `/blog/post/${post.slug}`)}
+				onclick={(event) => openPostCard(event, post.slug)}
+				onkeydown={(event) => openPostCardFromKey(event, post.slug)}
 			>
-				<div class="post-card-title"><a href="/blog/post/{post.slug}" style="color:inherit;text-decoration:none;">{post.title}</a></div>
+				<div class="post-card-title"><a href={postHref(post.slug)} style="color:inherit;text-decoration:none;">{post.title}</a></div>
 				{#if post.summary}<div class="post-card-summary">{post.summary}</div>{/if}
 				<div class="post-card-meta">
 					<span class="post-card-date">{formatDate(post.date)}</span>
@@ -78,7 +94,7 @@
 		{#each portfolio as item}
 				<div class="timeline-item">
 					<div class="portfolio-card">
-						<div class="portfolio-card-title"><a href="/portfolio/{item.slug}" style="color:inherit;text-decoration:none;">{item.title}</a></div>
+						<div class="portfolio-card-title"><a href="/portfolio/{item.slug}/" style="color:inherit;text-decoration:none;">{item.title}</a></div>
 						{#if item.summary}<div class="portfolio-card-summary">{item.summary}</div>{/if}
 						{#if item.tags?.length}
 							<div class="portfolio-card-tags">

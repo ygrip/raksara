@@ -5411,7 +5411,37 @@ body.gallery-lightbox-open .gallery-lightbox-overlay {
         min-height: 400px;
     }
     
-    .rk-chart-inner {
+.rk-chart-inner {
         padding: 15px;
+    }
+}
+
+.route-loading-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 3000;
+    width: 100%;
+    height: 2px;
+    pointer-events: none;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.route-loading-bar::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 42%;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: route-loading-slide 0.9s ease-in-out infinite;
+}
+
+@keyframes route-loading-slide {
+    from {
+        transform: translateX(-100%);
+    }
+    to {
+        transform: translateX(240%);
     }
 }

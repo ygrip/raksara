@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import type { PageData } from './$types';
 	import { heroTyping } from '$lib/actions/typing';
 	import { assetUrl, formatDate } from '$lib/utils';
@@ -21,6 +21,29 @@
 	const galleryCover = '/content/assets/images/gallery-cover.webp';
 
 	const postThumbSizes = '(max-width: 480px) 100px, (max-width: 640px) 120px, 180px';
+
+	function blogPostHref(slug: string): string {
+		return `/blog/post/${slug}/`;
+	}
+
+	function portfolioHref(slug: string): string {
+		return `/portfolio/${slug}/`;
+	}
+
+	function shouldIgnoreCardClick(event: MouseEvent): boolean {
+		return event.target instanceof Element && Boolean(event.target.closest('a, button'));
+	}
+
+	function openCard(event: MouseEvent, href: string) {
+		if (shouldIgnoreCardClick(event)) return;
+		goto(href);
+	}
+
+	function openCardFromKey(event: KeyboardEvent, href: string) {
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+		event.preventDefault();
+		goto(href);
+	}
 </script>
 
 <svelte:head>
@@ -63,8 +86,8 @@
 					class="post-card{post.cover ? ' has-thumb' : ''}"
 					role="link"
 					tabindex="0"
-					onclick={() => (window.location.href = `/blog/post/${post.slug}`)}
-					onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (window.location.href = `/blog/post/${post.slug}`)}
+					onclick={(event) => openCard(event, blogPostHref(post.slug))}
+					onkeydown={(event) => openCardFromKey(event, blogPostHref(post.slug))}
 				>
 					{#if post.cover}
 						{@const postThumbLqip = buildLqipStyle(post.cover, imageManifest)}
@@ -73,7 +96,7 @@
 						</div>
 					{/if}
 					<div class="post-card-body">
-						<div class="post-card-title"><a href="/blog/post/{post.slug}" style="color:inherit;text-decoration:none;">{post.title}</a></div>
+						<div class="post-card-title"><a href={blogPostHref(post.slug)} style="color:inherit;text-decoration:none;">{post.title}</a></div>
 						{#if post.summary}
 							<div class="post-card-summary">{post.summary}</div>
 						{/if}
@@ -102,9 +125,15 @@
 		</div>
 		<div class="portfolio-grid">
 			{#each bundle.portfolio.slice(0, 4) as item}
-				<div class="portfolio-card">
+				<div
+					class="portfolio-card"
+					role="link"
+					tabindex="0"
+					onclick={(event) => openCard(event, portfolioHref(item.slug))}
+					onkeydown={(event) => openCardFromKey(event, portfolioHref(item.slug))}
+				>
 					<div class="portfolio-card-title">
-						<a href="/portfolio/{item.slug}" style="color:inherit;text-decoration:none;">{item.title}</a>
+						<a href={portfolioHref(item.slug)} style="color:inherit;text-decoration:none;">{item.title}</a>
 					</div>
 					{#if item.summary}
 						<div class="portfolio-card-summary">{item.summary}</div>

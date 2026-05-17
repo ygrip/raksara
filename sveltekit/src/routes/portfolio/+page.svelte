@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import type { PageData } from './$types';
 	import type { PortfolioItem } from '$lib/types';
 	import { formatDate } from '$lib/utils';
@@ -12,8 +13,19 @@
 	let sortKey = $state<SortKey>('latest');
 	let searchQuery = $state('');
 
-	function openPortfolio(slug: string) {
-		window.location.href = `/portfolio/${slug}`;
+	function portfolioHref(slug: string): string {
+		return `/portfolio/${slug}/`;
+	}
+
+	function openPortfolio(event: MouseEvent, slug: string) {
+		if (event.target instanceof Element && event.target.closest('a, button')) return;
+		goto(portfolioHref(slug));
+	}
+
+	function openPortfolioFromKey(event: KeyboardEvent, slug: string) {
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+		event.preventDefault();
+		goto(portfolioHref(slug));
 	}
 
 	const sorted = $derived.by(() => {
@@ -109,11 +121,11 @@
 						class="portfolio-card"
 						role="link"
 						tabindex="0"
-						onclick={() => openPortfolio(item.slug)}
-						onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && openPortfolio(item.slug)}
+						onclick={(event) => openPortfolio(event, item.slug)}
+						onkeydown={(event) => openPortfolioFromKey(event, item.slug)}
 					>
 						<div class="portfolio-card-title">
-							<a href="/portfolio/{item.slug}" style="color:inherit;text-decoration:none;">{item.title}</a>
+							<a href={portfolioHref(item.slug)} style="color:inherit;text-decoration:none;">{item.title}</a>
 						</div>
 						{#if item.summary}
 							<div class="portfolio-card-summary">{item.summary}</div>

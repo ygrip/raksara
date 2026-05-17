@@ -1,7 +1,7 @@
 <script lang="ts">
 	import './layout.css';
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { navigating, page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import type { LayoutData } from './$types';
 	import SearchOverlay from '$lib/components/SearchOverlay.svelte';
@@ -408,3 +408,7 @@
 </div>
 
 <SearchOverlay bind:open={searchOpen} />
+
+{#if $navigating}
+	<div class="route-loading-bar" aria-hidden="true"></div>
+{/if}
