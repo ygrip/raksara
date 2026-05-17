@@ -28,10 +28,10 @@ function routeFromNav(value: unknown): PostNav | null {
   };
 }
 
-export const prerender = false;
+export const prerender = true;
 
 export const load: PageLoad = async ({ params, fetch }) => {
-  const slug = params.slug;
+  const slug = params.slug.replace(/\/+$/, '');
   // Fetch the raw markdown from /content/blog/{slug}.md
   const res = await fetch(`/content/blog/${slug}.md`);
   const raw = res.ok ? await res.text() : null;

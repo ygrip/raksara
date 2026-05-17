@@ -27,6 +27,7 @@
 	const nav = $derived(config?.nav ?? defaultNav);
 	const adsenseId = $derived(config ? getAdsenseId(config) : '');
 	const currentPath = $derived($page.url.pathname);
+	const canonicalHref = $derived(buildCanonicalHref(currentPath));
 	const siteDescription = $derived(
 		config?.description?.trim()
 			|| config?.hero_subtitle?.trim()
@@ -40,6 +41,13 @@
 		const normalizedPath = currentPath === '/' ? '/' : currentPath.replace(/\/$/, '');
 		if (normalizedHref === '/') return normalizedPath === '/';
 		return normalizedPath === normalizedHref || normalizedPath.startsWith(normalizedHref + '/');
+	}
+
+	function buildCanonicalHref(pathname: string): string {
+		const siteUrl = String(config?.site_url || config?.url || $page.url.origin).replace(/\/+$/, '');
+		if (!pathname || pathname === '/') return `${siteUrl}/`;
+		const cleanPath = `/${pathname.replace(/^\/+/, '').replace(/\/+$/, '')}/`;
+		return `${siteUrl}${cleanPath}`;
 	}
 
 	function navigateSidebar(event: MouseEvent, href: string) {
@@ -257,9 +265,7 @@
 	{@html `<style id="raksara-config-palette">${paletteStyle()}</style>`}
 	<title>{config?.hero_title ?? 'Raksara'}</title>
 	<meta name="description" content={siteDescription} />
-	{#if config?.url}
-		<link rel="canonical" href={config.url} />
-	{/if}
+	<link rel="canonical" href={canonicalHref} />
 	<meta property="og:site_name" content={config?.hero_title ?? 'Raksara'} />
 	<meta property="og:type" content="website" />
 	<meta name="twitter:card" content="summary_large_image" />

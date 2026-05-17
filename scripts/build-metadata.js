@@ -488,6 +488,7 @@ async function generateSeoArtifacts({
   });
   const indexableRoutes = routes.filter((route) => isIndexableRoute(route));
 
+  writeWebFile("metadata/prerender-routes.json", `${JSON.stringify(indexableRoutes.map(toPrerenderRoute), null, 2)}\n`);
   writeWebFile("sitemap.xml", buildSitemapXml(siteUrl, indexableRoutes));
   writeWebFile("robots.txt", buildRobotsTxt(siteUrl));
   if (adsenseConfig && adsenseConfig.adsTxtLine) {
@@ -506,6 +507,7 @@ async function generateSeoArtifacts({
   }
 
   console.log("  ✓ Generated sitemap.xml");
+  console.log("  ✓ Generated prerender route manifest");
   console.log("  ✓ Generated robots.txt");
   if (adsenseConfig && adsenseConfig.adsTxtLine) {
     console.log("  ✓ Generated ads.txt");
@@ -638,6 +640,11 @@ function buildSitemapXml(siteUrl, routes) {
     "</urlset>",
     "",
   ].join("\n");
+}
+
+function toPrerenderRoute(route) {
+  if (route === "/") return "/";
+  return route.endsWith("/") ? route : `${route}/`;
 }
 
 function buildRobotsTxt(siteUrl) {
@@ -1252,9 +1259,23 @@ function resolvePath(p) {
   return p.replace(/^\/+/, "");
 }
 
+function toRootRelativePublicPath(p) {
+  if (!p) return p;
+  if (
+    p.startsWith("http://") ||
+    p.startsWith("https://") ||
+    p.startsWith("data:") ||
+    p.startsWith("/")
+  ) {
+    return p;
+  }
+  return `/${p}`;
+}
+
 function buildResponsiveImageAttrsPrerender(src, options = {}, imageManifest) {
   const resolved = resolvePath(src);
   if (!resolved) return "";
+  const publicSrc = toRootRelativePublicPath(resolved);
 
   const {
     alt = "",
@@ -1266,7 +1287,7 @@ function buildResponsiveImageAttrsPrerender(src, options = {}, imageManifest) {
     decoding = "async",
   } = options;
 
-  const attrs = [`src="${escapeHtml(resolved)}"`, `alt="${escapeHtml(alt)}"`];
+  const attrs = [`src="${escapeHtml(publicSrc)}"`, `alt="${escapeHtml(alt)}"`];
   const manifestEntry = imageManifest[resolved];
 
   if (className) attrs.push(`class="${escapeHtml(className)}"`);
@@ -1284,11 +1305,11 @@ function buildResponsiveImageAttrsPrerender(src, options = {}, imageManifest) {
           .sort((left, right) => left.width - right.width)
       : [];
     const srcset = variants.map(
-      (variant) => `${escapeHtml(resolvePath(variant.path))} ${variant.width}w`,
+      (variant) => `${escapeHtml(toRootRelativePublicPath(resolvePath(variant.path)))} ${variant.width}w`,
     );
 
     if (manifestEntry.width) {
-      srcset.push(`${escapeHtml(resolved)} ${manifestEntry.width}w`);
+      srcset.push(`${escapeHtml(publicSrc)} ${manifestEntry.width}w`);
       attrs.push(`width="${manifestEntry.width}"`);
     }
     if (manifestEntry.height) {
@@ -1638,6 +1659,7 @@ async function renderProfilePagePrerender(pages, imageManifest) {
   };
 
   const coverUrl = localResolvePath(frontmatter.cover) || "";
+  const coverPublicUrl = toRootRelativePublicPath(coverUrl);
   const avatarUrl = localResolvePath(frontmatter.avatar) || "";
 
   // Generate a tiny LQIP for the hero background blur layer.
@@ -1712,7 +1734,7 @@ async function renderProfilePagePrerender(pages, imageManifest) {
   const bodyHtml = await renderCustomMarkdownForPrerender(body || "");
 
   return `<div class="profile-hero" id="profile-hero">
-      <div class="profile-hero-bg" id="profile-hero-bg" data-src="${escapeHtml(coverUrl)}"${heroBgStyle}></div>
+      <div class="profile-hero-bg" id="profile-hero-bg" data-src="${escapeHtml(coverPublicUrl)}"${heroBgStyle}></div>
       <div class="profile-hero-skeleton"></div>
       <div class="profile-hero-overlay"></div>
       <div class="profile-hero-share">${shareButtonHtml}</div>

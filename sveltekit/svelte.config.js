@@ -1,5 +1,27 @@
 import adapter from '@sveltejs/adapter-static';
 import { relative, sep } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+
+const prerenderManifestUrl = new URL('./static/metadata/prerender-routes.json', import.meta.url);
+
+function loadPrerenderEntries() {
+	if (!existsSync(prerenderManifestUrl)) {
+		return ['*'];
+	}
+
+	try {
+		const routes = JSON.parse(readFileSync(prerenderManifestUrl, 'utf-8'));
+		if (Array.isArray(routes) && routes.every((route) => typeof route === 'string')) {
+			return routes.length > 0 ? routes : ['/'];
+		}
+	} catch (error) {
+		console.warn(`Failed to load prerender route manifest: ${error.message}`);
+	}
+
+	return ['*'];
+}
+
+const prerenderEntries = loadPrerenderEntries();
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -28,10 +50,12 @@ const config = {
 			// Warn (not error) when metadata JSON files are missing at build time.
 			// In CI the build pipeline copies metadata/ before npm run build runs.
 			handleHttpError: 'warn',
-			// Dynamic slug routes are not prerendered — served via fallback SPA on GitHub Pages.
 			handleUnseenRoutes: 'warn',
-			// Crawl all linked pages for prerendering
-			crawl: true,
+			// The metadata build emits the same indexable routes used by sitemap.xml.
+			// GitHub Pages then serves crawler-readable HTML for those routes, while
+			// non-indexable routes can still use the adapter fallback as an SPA.
+			entries: prerenderEntries,
+			crawl: false,
 		},
 	}
 };

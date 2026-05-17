@@ -114,6 +114,7 @@ export interface SiteConfig {
   title: string;
   description?: string;
   url?: string;
+  site_url?: string;
   author?: string;
   accent?: string;
   /** Gradient stop 1 (CSS colour) */

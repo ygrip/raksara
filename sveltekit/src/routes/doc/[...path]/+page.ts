@@ -14,7 +14,7 @@ function routeFromNav(value: unknown): string | null {
 export const prerender = false;
 
 export const load: PageLoad = async ({ params, fetch }) => {
-  const slug = `doc/${params.path}`;
+  const slug = `doc/${params.path.replace(/\/+$/, '')}`;
   const pages = await loadPages(fetch).catch(() => []);
   const page = pages.find((p) => p.slug === slug) ?? null;
 

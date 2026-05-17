@@ -58,10 +58,17 @@ The metadata build writes to:
 
 - `metadata/*.json`
 - `sveltekit/static/metadata/*.json`
+- `sveltekit/static/metadata/prerender-routes.json`
 - `sveltekit/static/content/`
 - `sveltekit/static/vendor*.js`
 - `sveltekit/static/vendor/hljs/`
 - `sveltekit/static/sitemap.xml`, `robots.txt`, `ads.txt`, favicons, and manifest
+
+## Static SEO Output
+
+Raksara is deployed to GitHub Pages, so indexable pages must exist as static HTML, not only as client-side routes. The metadata build computes the canonical route list once, filters it with the same `isIndexableRoute()` logic used for `sitemap.xml`, and writes `sveltekit/static/metadata/prerender-routes.json`.
+
+During `npm run build:sveltekit`, SvelteKit reads that manifest and prerenders exactly those indexable routes. Non-indexable routes such as gallery popups, tag/category archives, and utility pages can still use the static adapter fallback as SPA routes, but sitemap URLs should always have matching HTML in `sveltekit/build`.
 
 ## Content Repository
 

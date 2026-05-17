@@ -5,7 +5,7 @@ import { loadPosts, loadBlogDirs } from '$lib/metadata';
 export const prerender = false;
 
 export const load: PageLoad = async ({ params, fetch }) => {
-  const dirPath = params.path ?? '';
+  const dirPath = (params.path ?? '').replace(/\/+$/, '');
   const [posts, blogDirs] = await Promise.all([
     loadPosts(fetch).catch(() => [] as import('$lib/types').Post[]),
     loadBlogDirs(fetch).catch(() => ({})),

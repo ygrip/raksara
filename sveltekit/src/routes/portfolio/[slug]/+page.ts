@@ -2,7 +2,7 @@
 import type { PageLoad } from './$types';
 import { loadPortfolio } from '$lib/metadata';
 
-export const prerender = false;
+export const prerender = true;
 
 export const load: PageLoad = async ({ params, fetch }) => {
   const portfolio = await loadPortfolio(fetch).catch(() => []);

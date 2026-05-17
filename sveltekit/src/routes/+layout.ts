@@ -5,6 +5,7 @@ import { loadConfig } from '$lib/metadata';
 import type { LayoutLoad } from './$types';
 
 export const prerender = true;
+export const trailingSlash = 'always';
 
 export const load: LayoutLoad = async ({ fetch }) => {
   const config = await loadConfig(fetch).catch(() => null);
