@@ -166,6 +166,7 @@
 
 <svelte:head>
 	<title>Gallery · {config?.hero_title ?? 'Raksara'}</title>
+	<meta name="description" content={`Browse ${gallery.length} gallery photos on ${config?.hero_title ?? 'Raksara'}.`} />
 </svelte:head>
 
 <div class="page-header">

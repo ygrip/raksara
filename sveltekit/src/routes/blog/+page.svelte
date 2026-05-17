@@ -42,6 +42,7 @@
 
 <svelte:head>
 	<title>Blog · {config?.hero_title ?? 'Raksara'}</title>
+	<meta name="description" content={`Browse ${(rootPosts ?? []).length} blog posts on ${config?.hero_title ?? 'Raksara'}.`} />
 </svelte:head>
 
 <!-- Page header -->

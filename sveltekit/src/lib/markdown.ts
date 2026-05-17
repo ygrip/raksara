@@ -742,6 +742,151 @@ export async function initCharts(container: HTMLElement): Promise<void> {
       Chart = (window as unknown as Record<string, unknown>)['Chart'] as (new (...a: unknown[]) => unknown) | undefined;
     }
     if (!Chart) return;
+
+    const ZOOM_STEP = 0.2;
+    const ZOOM_MIN = 0.6;
+    const ZOOM_MAX = 3;
+
+    function createChartShell(el: HTMLElement) {
+      const controls = document.createElement('div');
+      controls.className = 'rk-chart-zoom-controls';
+
+      const zoomOut = document.createElement('button');
+      zoomOut.className = 'rk-chart-zoom-btn';
+      zoomOut.type = 'button';
+      zoomOut.textContent = '−';
+      zoomOut.setAttribute('aria-label', 'Zoom out chart');
+
+      const zoomIn = document.createElement('button');
+      zoomIn.className = 'rk-chart-zoom-btn';
+      zoomIn.type = 'button';
+      zoomIn.textContent = '+';
+      zoomIn.setAttribute('aria-label', 'Zoom in chart');
+
+      const reset = document.createElement('button');
+      reset.className = 'rk-chart-zoom-btn';
+      reset.type = 'button';
+      reset.textContent = 'Reset';
+      reset.setAttribute('aria-label', 'Reset chart zoom');
+
+      const zoomLevel = document.createElement('span');
+      zoomLevel.className = 'rk-chart-zoom-level';
+      zoomLevel.textContent = '100%';
+
+      controls.append(zoomOut, zoomIn, reset, zoomLevel);
+
+      const viewport = document.createElement('div');
+      viewport.className = 'rk-chart-viewport';
+
+      const inner = document.createElement('div');
+      inner.className = 'rk-chart-inner';
+
+      const canvas = document.createElement('canvas');
+      inner.appendChild(canvas);
+      viewport.appendChild(inner);
+
+      el.innerHTML = '';
+      el.append(controls, viewport);
+
+      let chartInstance: { resize?: (width?: number, height?: number) => void; width?: number; height?: number } | null = null;
+      let baseWidth = 900;
+      let baseHeight = 520;
+      let baseChartWidth = 900;
+      let baseChartHeight = 520;
+      const CHART_PADDING = 60;
+
+      let zoom = 1;
+      const setZoom = (next: number, keepCenter = true) => {
+        const clamped = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Number(next.toFixed(2))));
+        if (clamped === zoom) return;
+
+        const oldZoom = zoom;
+        zoom = clamped;
+
+        const centerX = viewport.scrollLeft + viewport.clientWidth / 2;
+        const centerY = viewport.scrollTop + viewport.clientHeight / 2;
+
+        const targetChartWidth = Math.max(360, Math.round(baseChartWidth * zoom));
+        const targetChartHeight = Math.max(280, Math.round(baseChartHeight * zoom));
+        const targetInnerWidth = Math.max(baseWidth, targetChartWidth + CHART_PADDING);
+        const targetInnerHeight = Math.max(baseHeight, targetChartHeight + CHART_PADDING);
+
+        inner.style.width = `${targetInnerWidth}px`;
+        inner.style.height = `${targetInnerHeight}px`;
+
+        // Force Chart.js to resize the actual drawing surface, not only its container.
+        chartInstance?.resize?.(targetChartWidth, targetChartHeight);
+
+        if (keepCenter) {
+          requestAnimationFrame(() => {
+            const ratio = zoom / oldZoom;
+            viewport.scrollLeft = Math.max(0, centerX * ratio - viewport.clientWidth / 2);
+            viewport.scrollTop = Math.max(0, centerY * ratio - viewport.clientHeight / 2);
+          });
+        }
+
+        zoomLevel.textContent = `${Math.round(zoom * 100)}%`;
+        zoomOut.disabled = zoom <= ZOOM_MIN;
+        zoomIn.disabled = zoom >= ZOOM_MAX;
+      };
+
+      zoomOut.addEventListener('click', () => setZoom(zoom - ZOOM_STEP));
+      zoomIn.addEventListener('click', () => setZoom(zoom + ZOOM_STEP));
+      reset.addEventListener('click', () => {
+        setZoom(1);
+        viewport.scrollLeft = 0;
+        viewport.scrollTop = 0;
+      });
+
+      const initBaseSize = () => {
+        baseWidth = Math.max(720, viewport.clientWidth - 40);
+        baseHeight = Math.max(420, Math.round(baseWidth * 0.58));
+        inner.style.width = `${baseWidth}px`;
+        inner.style.height = `${baseHeight}px`;
+      };
+
+      const fitChartToViewport = () => {
+        const viewportW = Math.max(360, viewport.clientWidth);
+        const viewportH = Math.max(280, viewport.clientHeight);
+        const sourceW = Math.max(1, chartInstance?.width ?? viewportW);
+        const sourceH = Math.max(1, chartInstance?.height ?? viewportH);
+        const ratio = sourceW / sourceH;
+
+        const maxW = Math.max(320, viewportW - CHART_PADDING);
+        const maxH = Math.max(240, viewportH - CHART_PADDING);
+
+        let fittedW = maxW;
+        let fittedH = fittedW / ratio;
+        if (fittedH > maxH) {
+          fittedH = maxH;
+          fittedW = fittedH * ratio;
+        }
+
+        baseChartWidth = Math.max(320, Math.round(fittedW));
+        baseChartHeight = Math.max(240, Math.round(fittedH));
+        baseWidth = Math.max(viewportW, baseChartWidth + CHART_PADDING);
+        baseHeight = Math.max(viewportH, baseChartHeight + CHART_PADDING);
+
+        inner.style.width = `${baseWidth}px`;
+        inner.style.height = `${baseHeight}px`;
+        chartInstance?.resize?.(baseChartWidth, baseChartHeight);
+        viewport.scrollLeft = Math.max(0, (viewport.scrollWidth - viewport.clientWidth) / 2);
+        viewport.scrollTop = Math.max(0, (viewport.scrollHeight - viewport.clientHeight) / 2);
+      };
+
+      initBaseSize();
+      zoomOut.disabled = true;
+
+      return {
+        canvas,
+        bindChart(instance: { resize?: () => void } | null) {
+          chartInstance = instance as { resize?: (width?: number, height?: number) => void; width?: number; height?: number } | null;
+          initBaseSize();
+          fitChartToViewport();
+        },
+      };
+    }
+
     charts.forEach((el) => {
       const config = decodeURIComponent(el.dataset['chartConfig'] ?? '{}');
       try {
@@ -749,17 +894,26 @@ export async function initCharts(container: HTMLElement): Promise<void> {
         // object literals with unquoted keys are supported, not only strict JSON.
         // eslint-disable-next-line no-new-func
         const parsed = new Function('"use strict"; return (' + config + ');')();
+        const shell = createChartShell(el);
+        const chartConfig = parsed as Record<string, unknown>;
+
+        const options = (chartConfig.options && typeof chartConfig.options === 'object'
+          ? chartConfig.options
+          : {}) as Record<string, unknown>;
+        options['responsive'] = true;
+        if (options['maintainAspectRatio'] == null) {
+          options['maintainAspectRatio'] = false;
+        }
+        chartConfig.options = options;
+
         if (parsed?.data && typeof parsed.data === 'string') {
-          el.textContent = '';
           fetch(assetUrl(parsed.data))
             .then((res) => (res.ok ? res.json() : Promise.reject()))
             .then((data) => {
               parsed.data = data;
-              const canvas = document.createElement('canvas');
-              el.innerHTML = '';
-              el.appendChild(canvas);
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              new (Chart as any)(canvas, parsed);
+              const chart = new (Chart as any)(shell.canvas, parsed);
+              shell.bindChart(chart as { resize?: () => void });
             })
             .catch(() => {
               el.style.display = 'none';
@@ -770,11 +924,9 @@ export async function initCharts(container: HTMLElement): Promise<void> {
           el.style.display = 'none';
           return;
         }
-        const canvas = document.createElement('canvas');
-        el.innerHTML = '';
-        el.appendChild(canvas);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        new (Chart as any)(canvas, parsed);
+        const chart = new (Chart as any)(shell.canvas, parsed);
+        shell.bindChart(chart as { resize?: () => void });
       } catch {
         el.style.display = 'none';
       }
@@ -819,10 +971,7 @@ export function initSortableTables(container: HTMLElement): void {
       th.style.userSelect = 'none';
       th.setAttribute('role', 'button');
       th.setAttribute('aria-sort', 'none');
-      const icon = document.createElement('span');
-      icon.className = 'sort-icon';
-      icon.innerHTML = '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="display:inline;margin-left:4px"><path d="M3 1l2 2 2-2M3 6l2-2 2 2" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/></svg>';
-      th.appendChild(icon);
+      
       th.addEventListener('click', () => {
         const tbody = table.querySelector('tbody');
         if (!tbody) return;

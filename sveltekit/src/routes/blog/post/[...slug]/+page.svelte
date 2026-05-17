@@ -9,6 +9,8 @@
 	import { assetUrl, formatDate, humanize } from '$lib/utils';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
 
+	type ChapterNav = { title: string; href: string };
+
 	let { data }: { data: PageData } = $props();
 	const post = $derived(data.post);
 	const markdown = $derived(data.markdown);
@@ -24,18 +26,69 @@
 
 	// Chapter (series) navigation
 	const allPosts = $derived((data as Record<string, unknown> & typeof data).allPosts as import('$lib/types').Post[] ?? []);
+	const manualNextPage = $derived((data as Record<string, unknown> & { nextPage?: ChapterNav | null }).nextPage ?? null);
+	const manualPreviousPage = $derived((data as Record<string, unknown> & { previousPage?: ChapterNav | null }).previousPage ?? null);
 	const seriesSlug = $derived(post?.series ?? post?.dir ?? null);
+	const chapterOrder = (item: import('$lib/types').Post): number => {
+		const explicit = Number((item as import('$lib/types').Post & { order?: string | number }).chapter ?? (item as import('$lib/types').Post & { order?: string | number }).order ?? NaN);
+		if (Number.isFinite(explicit) && explicit > 0) return explicit;
+		const fromSlug = item.slug?.match(/(?:^|\/)ch-(\d+)(?:$|[^0-9])/i);
+		if (fromSlug?.[1]) return Number(fromSlug[1]);
+		return Number.POSITIVE_INFINITY;
+	};
 	const seriesPosts = $derived(
 		seriesSlug ? allPosts.filter((p: import('$lib/types').Post) => (p.series ?? p.dir) === seriesSlug).sort((a: import('$lib/types').Post, b: import('$lib/types').Post) => {
-			const aIdx = Number(a.chapter ?? a.order ?? 0);
-			const bIdx = Number(b.chapter ?? b.order ?? 0);
-			return aIdx - bIdx;
+			const aIdx = chapterOrder(a);
+			const bIdx = chapterOrder(b);
+			if (aIdx !== bIdx) return aIdx - bIdx;
+			if (a.date !== b.date) return a.date.localeCompare(b.date);
+			return a.slug.localeCompare(b.slug);
 		}) : []
 	);
 	const currentIdx = $derived(seriesPosts.findIndex((p: import('$lib/types').Post) => p.slug === post?.slug));
 	const prevChapter = $derived(currentIdx > 0 ? seriesPosts[currentIdx - 1] : null);
 	const nextChapter = $derived(currentIdx >= 0 && currentIdx < seriesPosts.length - 1 ? seriesPosts[currentIdx + 1] : null);
+	const chapterPrevNav = $derived(manualPreviousPage ?? (prevChapter ? { title: prevChapter.title, href: `/blog/post/${prevChapter.slug}` } : null));
+	const chapterNextNav = $derived(manualNextPage ?? (nextChapter ? { title: nextChapter.title, href: `/blog/post/${nextChapter.slug}` } : null));
 	const breadcrumbs = $derived((post?.slug ?? '').split('/').filter(Boolean));
+	const breadcrumbParent = $derived(
+		breadcrumbs.length > 1
+			? {
+				title: humanize(breadcrumbs[breadcrumbs.length - 2]),
+				href: `/blog/dir/${breadcrumbs.slice(0, -1).join('/')}`,
+			}
+			: null
+	);
+	const breadcrumbUp = $derived(
+		breadcrumbs.length > 2
+			? {
+				title: '../',
+				href: `/blog/dir/${breadcrumbs.slice(0, -2).join('/')}`,
+			}
+			: null
+	);
+	const compactBreadcrumbs = $derived.by(() => {
+		const current = { title: post?.title ?? '', href: null as string | null, current: true };
+		if (!breadcrumbParent && !breadcrumbUp) {
+			return [{ title: 'Blog', href: '/blog', current: false }, current];
+		}
+		if (breadcrumbParent && breadcrumbUp) {
+			return [
+				{ title: breadcrumbUp.title, href: breadcrumbUp.href, current: false },
+				{ title: breadcrumbParent.title, href: breadcrumbParent.href, current: false },
+				current,
+			];
+		}
+		if (breadcrumbParent) {
+			return [
+				{ title: 'Blog', href: '/blog', current: false },
+				{ title: breadcrumbParent.title, href: breadcrumbParent.href, current: false },
+				current,
+			];
+		}
+		return [{ title: 'Blog', href: '/blog', current: false }, current];
+	});
+	const compactIsDeep = $derived(!!breadcrumbUp && !!breadcrumbParent);
 
 	// SEO/Giscus
 	const giscusConfig = $derived(config ? getGiscusConfig(config) : null);
@@ -99,9 +152,7 @@
 
 <svelte:head>
 	<title>{post?.title ?? 'Post'} · {config?.title ?? 'Raksara'}</title>
-	{#if post?.summary}
-		<meta name="description" content={post.summary} />
-	{/if}
+	<meta name="description" content={post?.summary ?? config?.description ?? config?.hero_subtitle ?? 'Read this post on Raksara.'} />
 	{#if pageMeta}
 		<meta property="og:title" content={pageMeta.title} />
 		<meta property="og:description" content={pageMeta.description ?? ''} />
@@ -127,18 +178,22 @@
 	<!-- BL-009 / BL-010: top bar with reading mode + comic mode toggles -->
 	<div class="article-top-bar">
 		<nav class="breadcrumbs post-breadcrumbs" aria-label="Breadcrumb">
-			<a href="/blog">Blog</a>
-			{#each breadcrumbs.slice(0, -1) as crumb, index}
+			{#if compactIsDeep}
+				<a href={compactBreadcrumbs[0]?.href ?? '/blog'} class="breadcrumb-up">{compactBreadcrumbs[0]?.title ?? '../'}</a>
+				<a href={compactBreadcrumbs[1]?.href ?? '/blog'}>{compactBreadcrumbs[1]?.title ?? ''}</a>
 				<span class="breadcrumb-sep">/</span>
-				<a href="/blog/dir/{breadcrumbs.slice(0, index + 1).join('/')}">{humanize(crumb)}</a>
-			{/each}
-			<span class="breadcrumb-sep">/</span>
-			<span class="breadcrumb-current">{post?.title ?? ''}</span>
+				<span class="breadcrumb-current">{compactBreadcrumbs[2]?.title ?? post?.title ?? ''}</span>
+			{:else}
+				{#each compactBreadcrumbs as crumb, idx}
+					{#if idx > 0}<span class="breadcrumb-sep">/</span>{/if}
+					{#if crumb.current}
+						<span class="breadcrumb-current">{crumb.title}</span>
+					{:else if crumb.href}
+						<a href={crumb.href} class:breadcrumb-up={crumb.title === '../'}>{crumb.title}</a>
+					{/if}
+				{/each}
+			{/if}
 		</nav>
-		<a href="/blog" class="back-link article-back-link">
-			<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-			Back
-		</a>
 		<div class="article-actions">
 			{#if isComic}
 				<button onclick={toggleComicMode} class="reading-mode-btn">
@@ -201,20 +256,20 @@
 	{/if}
 
 	<!-- Chapter navigation (series) -->
-	{#if seriesPosts.length > 1}
+	{#if chapterPrevNav || chapterNextNav}
 		<nav class="post-nav" aria-label="Chapter navigation">
-			{#if prevChapter}
-				<a href="/blog/post/{prevChapter.slug}" class="post-nav-link">
+			{#if chapterPrevNav}
+				<a href={chapterPrevNav.href} class="post-nav-link">
 					<span class="post-nav-label">← Previous</span>
-					<span class="post-nav-title">{prevChapter.title}</span>
+					<span class="post-nav-title">{chapterPrevNav.title}</span>
 				</a>
 			{:else}
 				<span></span>
 			{/if}
-			{#if nextChapter}
-				<a href="/blog/post/{nextChapter.slug}" class="post-nav-link next">
+			{#if chapterNextNav}
+				<a href={chapterNextNav.href} class="post-nav-link next">
 					<span class="post-nav-label">Next →</span>
-					<span class="post-nav-title">{nextChapter.title}</span>
+					<span class="post-nav-title">{chapterNextNav.title}</span>
 				</a>
 			{/if}
 		</nav>
@@ -258,13 +313,13 @@
 		gap: 8px;
 		align-items: center;
 	}
-	.article-back-link {
-		display: none;
-	}
 	.post-breadcrumbs {
 		min-width: 0;
 		flex: 1;
 		margin: 0;
+	}
+	.post-breadcrumbs .breadcrumb-up {
+		font-family: var(--font-mono);
 	}
 	.post-breadcrumbs .breadcrumb-current {
 		overflow: hidden;
@@ -272,12 +327,6 @@
 		white-space: nowrap;
 	}
 	@media (max-width: 640px) {
-		.post-breadcrumbs {
-			display: none;
-		}
-		.article-back-link {
-			display: inline-flex;
-		}
 		.article-actions {
 			margin-left: auto;
 		}

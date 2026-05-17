@@ -36,6 +36,7 @@
 
 <svelte:head>
 	<title>{pageTitle} · {config?.hero_title ?? 'Raksara'}</title>
+	<meta name="description" content={pageSubtitle ?? `Read short thoughts on ${config?.hero_title ?? 'Raksara'}.`} />
 </svelte:head>
 
 <div class="page-header">

@@ -11,7 +11,10 @@
 	const total = $derived((posts?.length ?? 0) + (portfolio?.length ?? 0) + (thoughts?.length ?? 0) + (gallery?.length ?? 0));
 </script>
 
-<svelte:head><title>Tag: {tag} · {config?.hero_title ?? 'Raksara'}</title></svelte:head>
+<svelte:head>
+	<title>Tag: {tag} · {config?.hero_title ?? 'Raksara'}</title>
+	<meta name="description" content={`Items tagged ${tag} on ${config?.hero_title ?? 'Raksara'}.`} />
+</svelte:head>
 
 <div class="page-header">
 	<div>

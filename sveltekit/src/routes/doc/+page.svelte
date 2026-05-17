@@ -12,6 +12,7 @@
 
 <svelte:head>
 	<title>Documentation · {config?.hero_title ?? 'Raksara'}</title>
+	<meta name="description" content={`Browse ${docs.length} documentation pages on ${config?.hero_title ?? 'Raksara'}.`} />
 </svelte:head>
 
 <div class="page-header">

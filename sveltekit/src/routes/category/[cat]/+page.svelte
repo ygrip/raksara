@@ -10,7 +10,10 @@
 	const total = $derived(posts.length + portfolio.length + gallery.length);
 </script>
 
-<svelte:head><title>Category: {cat} · {config?.hero_title ?? 'Raksara'}</title></svelte:head>
+<svelte:head>
+	<title>Category: {cat} · {config?.hero_title ?? 'Raksara'}</title>
+	<meta name="description" content={`Items in category ${cat} on ${config?.hero_title ?? 'Raksara'}.`} />
+</svelte:head>
 
 <div class="page-header">
 	<div>

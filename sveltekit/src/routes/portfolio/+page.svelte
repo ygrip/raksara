@@ -52,7 +52,10 @@
 	});
 </script>
 
-<svelte:head><title>Portfolio · {config?.hero_title ?? 'Raksara'}</title></svelte:head>
+<svelte:head>
+	<title>Portfolio · {config?.hero_title ?? 'Raksara'}</title>
+	<meta name="description" content={`Explore ${(portfolio ?? []).length} projects in the ${config?.hero_title ?? 'Raksara'} portfolio.`} />
+</svelte:head>
 
 <!-- Page header -->
 <div class="page-header">

@@ -35,6 +35,17 @@ export function assetUrl(raw: string | undefined | null): string {
   return `/${path}`;
 }
 
+/**
+ * Remove top-of-file YAML frontmatter safely.
+ * Closing delimiter must be on its own line so values containing `---` stay intact.
+ */
+export function stripYamlFrontmatter(markdown: string | null | undefined): string | null {
+  if (typeof markdown !== 'string') return null;
+  const input = markdown.replace(/^\uFEFF/, '');
+  if (!input.startsWith('---')) return input;
+  return input.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*(?:\r?\n)?/, '');
+}
+
 export async function shareUrl(title: string, url: string, text?: string): Promise<boolean> {
   try {
     if (navigator.share) {

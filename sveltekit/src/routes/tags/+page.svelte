@@ -5,7 +5,10 @@
 	const config = $derived(data.config);
 </script>
 
-<svelte:head><title>Tags · {config?.hero_title ?? 'Raksara'}</title></svelte:head>
+<svelte:head>
+	<title>Tags · {config?.hero_title ?? 'Raksara'}</title>
+	<meta name="description" content={`Browse ${tags.length} tags on ${config?.hero_title ?? 'Raksara'}.`} />
+</svelte:head>
 
 <div class="page-header">
 	<div>

@@ -9,11 +9,8 @@ export function heroTyping(node: HTMLElement, title: string) {
   function run(t: string) {
     if (timer) { clearTimeout(timer); timer = null; }
 
-    // Respect reduced-motion preference and narrow viewports
-    if (
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
-      window.innerWidth < 768
-    ) {
+    // Respect reduced-motion preference
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       node.textContent = t;
       node.classList.add('typed');
       node.parentElement?.querySelectorAll('.hero-cursor').forEach((el) => el.remove());

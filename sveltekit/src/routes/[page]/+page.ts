@@ -3,6 +3,7 @@
 // Also catches /doc/{slug} style paths via the separate doc route.
 import type { PageLoad } from './$types';
 import { loadPages, loadDocs } from '$lib/metadata';
+import { stripYamlFrontmatter } from '$lib/utils';
 
 function routeFromNav(value: unknown): string | null {
   const item = Array.isArray(value) ? value[0] : value;
@@ -34,7 +35,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
   const previousPage = routeFromNav(pageNav?.previous_page);
 
   // Strip YAML frontmatter before passing to the renderer
-  const strippedMarkdown = markdown ? markdown.replace(/^---[\s\S]*?---\n?/, '') : null;
+  const strippedMarkdown = stripYamlFrontmatter(markdown);
 
   const componentEntries = [...docs, ...pages];
 

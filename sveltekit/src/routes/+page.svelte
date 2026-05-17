@@ -11,6 +11,11 @@
 
 	const heroTitle = $derived(config?.hero_title ?? config?.title ?? 'Your Site Name');
 	const heroSubtitle = $derived(config?.hero_subtitle ?? config?.description ?? '');
+	const homeDescription = $derived(
+		config?.description
+			?? heroSubtitle
+			?? (heroTitle ? `${heroTitle} — stories, portfolio, gallery, and thoughts.` : 'Raksara homepage')
+	);
 	const galleryCover = '/content/assets/images/gallery-cover.webp';
 
 	const normalizeAssetPath = assetUrl;
@@ -18,9 +23,7 @@
 
 <svelte:head>
 	<title>{config?.hero_title ?? 'Raksara'}</title>
-	{#if config?.description}
-		<meta name="description" content={config.description} />
-	{/if}
+	<meta name="description" content={homeDescription} />
 </svelte:head>
 
 <!-- Hero -->

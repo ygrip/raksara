@@ -44,6 +44,7 @@
 
 <svelte:head>
 	<title>{humanize(dirPath?.split('/').pop() ?? 'Blog')} · {config?.hero_title ?? 'Raksara'}</title>
+	<meta name="description" content={`Explore ${(posts ?? []).length} posts in ${humanize(dirPath?.split('/').pop() ?? 'Blog')} on ${config?.hero_title ?? 'Raksara'}.`} />
 </svelte:head>
 
 <nav class="breadcrumbs" aria-label="breadcrumb">

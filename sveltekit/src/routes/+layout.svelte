@@ -27,6 +27,13 @@
 	const nav = $derived(config?.nav ?? defaultNav);
 	const adsenseId = $derived(config ? getAdsenseId(config) : '');
 	const currentPath = $derived($page.url.pathname);
+	const siteDescription = $derived(
+		config?.description?.trim()
+			|| config?.hero_subtitle?.trim()
+			|| (config?.hero_title
+				? `${config.hero_title} — stories, portfolio, gallery, and thoughts.`
+				: 'Raksara — stories, portfolio, gallery, and thoughts.')
+	);
 
 	function isActiveLink(href: string): boolean {
 		const normalizedHref = href === '/' ? '/' : href.replace(/\/$/, '');
@@ -249,7 +256,7 @@
 	{@html `<script>${earlyThemeScript()}</script>`}
 	{@html `<style id="raksara-config-palette">${paletteStyle()}</style>`}
 	<title>{config?.hero_title ?? 'Raksara'}</title>
-	<meta name="description" content={config?.description ?? ''} />
+	<meta name="description" content={siteDescription} />
 	{#if config?.url}
 		<link rel="canonical" href={config.url} />
 	{/if}
