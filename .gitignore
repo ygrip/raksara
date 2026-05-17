@@ -29,6 +29,7 @@ sveltekit/static/favicon.png
 sveltekit/static/favicon.ico
 sveltekit/static/apple-touch-icon.png
 sveltekit/static/site.webmanifest
+sveltekit/static/404.html
 
 # SvelteKit source is tracked
 !sveltekit/src/

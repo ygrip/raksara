@@ -920,6 +920,13 @@ function buildLogoIconMarkup(siteConfig, siteName, options = {}) {
   return `<img src="${escapeHtml(resolvedLogoPath)}" alt="${escapeHtml(siteName)}" width="${size}" height="${size}" loading="eager" decoding="async" fetchpriority="high">`;
 }
 
+async function minifyHtmlDocument(html) {
+  return String(html)
+    .replace(/>\s+</g, "><")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+}
+
 function getRouteMeta(route, context) {
   const { siteUrl, siteConfig, posts, portfolioItems, galleryItems, thoughts, pages, tags, categories, blogDirs } = context;
   const siteName = (siteConfig && siteConfig.hero_title) || "Raksara";

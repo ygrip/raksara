@@ -2,6 +2,7 @@
 // Handles nested slugs like "feature/my-post"
 import type { PageLoad } from './$types';
 import { stripYamlFrontmatter } from '$lib/utils';
+import { error } from '@sveltejs/kit';
 
 type PostNav = { title: string; href: string };
 
@@ -41,6 +42,9 @@ export const load: PageLoad = async ({ params, fetch }) => {
   const postsRes = await fetch('/metadata/posts.json');
   const allPosts: import('$lib/types').Post[] = postsRes.ok ? await postsRes.json() : [];
   const post = allPosts.find((p) => p.slug === slug) ?? null;
+  if (!post || !raw) {
+    throw error(404, 'Post not found');
+  }
   const nextPage = routeFromNav((post as unknown as { next_page?: unknown } | null)?.next_page);
   const previousPage = routeFromNav((post as unknown as { previous_page?: unknown } | null)?.previous_page);
   const dirsRes = await fetch('/metadata/blog-dirs.json');

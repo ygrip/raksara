@@ -4,6 +4,7 @@
 import type { PageLoad } from './$types';
 import { loadPages, loadDocs } from '$lib/metadata';
 import { stripYamlFrontmatter } from '$lib/utils';
+import { error } from '@sveltejs/kit';
 
 function routeFromNav(value: unknown): string | null {
   const item = Array.isArray(value) ? value[0] : value;
@@ -38,6 +39,10 @@ export const load: PageLoad = async ({ params, fetch }) => {
   const strippedMarkdown = stripYamlFrontmatter(markdown);
 
   const componentEntries = [...docs, ...pages];
+
+  if (!page && !strippedMarkdown) {
+    throw error(404, 'Page not found');
+  }
 
   return { page, markdown: strippedMarkdown, slug, nextPage, previousPage, docs, componentEntries };
 };
