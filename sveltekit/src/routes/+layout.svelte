@@ -56,9 +56,27 @@
 		goto(href);
 	}
 
+	const progressiveImageShellSelector = '.is-loading, .post-card-thumb, .gallery-card-img, .gallery-stack-card, .article-cover, .poem-cover, .img-skeleton';
+
+	function progressiveImageShell(img: HTMLImageElement) {
+		return img.closest<HTMLElement>(progressiveImageShellSelector);
+	}
+
+	function prepareProgressiveImage(img: HTMLImageElement) {
+		const shell = progressiveImageShell(img);
+		if (!shell || shell.classList.contains('is-loaded')) return;
+		const lqip = img.dataset['lqip'];
+		if (lqip && !shell.classList.contains('lqip-shown')) {
+			shell.style.setProperty('--lqip-url', `url("${lqip}")`);
+			shell.classList.add('lqip-shown');
+		}
+	}
+
 	function settleLoadedImage(img: HTMLImageElement) {
-		const shell = img.closest<HTMLElement>('.is-loading, .post-card-thumb, .gallery-card-img, .gallery-stack-card, .article-cover, .poem-cover, .img-skeleton');
-		if (shell && (img.currentSrc || img.src)) {
+		const shell = progressiveImageShell(img);
+		prepareProgressiveImage(img);
+		if (!img.complete || (img.naturalWidth === 0 && !img.currentSrc && !img.src)) return;
+		if (shell && !img.dataset['lqip'] && (img.currentSrc || img.src)) {
 			shell.style.setProperty('--lqip-url', `url("${img.currentSrc || img.src}")`);
 			shell.classList.add('lqip-shown');
 		}
@@ -206,9 +224,28 @@
 			}
 		}
 
-		document.querySelectorAll<HTMLImageElement>('img').forEach((img) => {
-			if (img.complete) settleLoadedImage(img);
+		const prepareImages = (root: ParentNode = document) => {
+			root.querySelectorAll<HTMLImageElement>('img').forEach((img) => {
+				prepareProgressiveImage(img);
+				if (img.complete) settleLoadedImage(img);
+			});
+		};
+
+		prepareImages();
+		const imageObserver = new MutationObserver((mutations) => {
+			for (const mutation of mutations) {
+				mutation.addedNodes.forEach((node) => {
+					if (node instanceof HTMLImageElement) {
+						prepareProgressiveImage(node);
+						if (node.complete) settleLoadedImage(node);
+						return;
+					}
+					if (node instanceof HTMLElement) prepareImages(node);
+				});
+			}
 		});
+		imageObserver.observe(document.body, { childList: true, subtree: true });
+
 		const onImageLoad = (event: Event) => {
 			const target = event.target;
 			if (target instanceof HTMLImageElement) settleLoadedImage(target);
@@ -242,6 +279,7 @@
 		return () => {
 			document.removeEventListener('load', onImageLoad, true);
 			document.removeEventListener('error', onImageLoad, true);
+			imageObserver.disconnect();
 			if (injectAdsense) {
 				['pointerdown', 'scroll', 'keydown'].forEach((ev) =>
 					window.removeEventListener(ev, injectAdsense as EventListener, true)

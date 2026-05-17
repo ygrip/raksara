@@ -11,30 +11,83 @@ export interface ResponsiveAttrs {
   width?: number;
   height?: number;
   loading?: 'lazy' | 'eager';
+  decoding?: 'async' | 'auto' | 'sync';
   fetchpriority?: 'high' | 'low' | 'auto';
   /** BL-023: LQIP base64 data URI for blur-up placeholder */
   'data-lqip'?: string;
 }
 
+function normalizeImagePath(raw: string): string {
+  let path = String(raw ?? '').trim();
+  if (!path) return '';
+  if (/^(https?:)?\/\//i.test(path) || path.startsWith('data:') || path.startsWith('blob:')) {
+    return path;
+  }
+  path = path.replace(/^https?:\/\/[^/]+/i, '');
+  path = path.replace(/^\/+/, '');
+  path = path.replace(/^content\/content\//, 'content/');
+  if (!path.startsWith('content/') && /^(assets|blog|gallery|pages|portfolio|thoughts)\//.test(path)) {
+    path = `content/${path}`;
+  }
+  return path;
+}
+
+function publicPath(path: string): string {
+  if (!path) return '';
+  if (/^(https?:)?\/\//i.test(path) || path.startsWith('data:') || path.startsWith('blob:')) return path;
+  return `/${path.replace(/^\/+/, '')}`;
+}
+
 export function buildResponsiveAttrs(
   imagePath: string,
   manifest: ImageManifest | null,
-  options: { eager?: boolean; sizes?: string } = {}
+  options: { eager?: boolean; sizes?: string; maxWidth?: number; includeOriginal?: boolean } = {}
 ): ResponsiveAttrs {
+  const normalizedPath = normalizeImagePath(imagePath);
   const sizes = options.sizes ?? '(max-width: 832px) calc(100vw - 32px), 800px';
   const attrs: ResponsiveAttrs = {
-    src: `/${imagePath}`,
+    src: publicPath(normalizedPath),
     loading: options.eager ? 'eager' : 'lazy',
+    decoding: 'async',
   };
   if (options.eager) attrs.fetchpriority = 'high';
 
-  const entry = manifest?.[imagePath];
+  if (/^(https?:)?\/\//i.test(normalizedPath) || normalizedPath.startsWith('data:') || normalizedPath.startsWith('blob:')) {
+    return attrs;
+  }
+
+  const entry = manifest?.[normalizedPath];
   if (!entry?.variants?.length) return attrs;
 
-  attrs.srcset = entry.variants.map((v) => `/${v.path} ${v.width}w`).join(', ');
+  const allVariants = [...entry.variants].sort((a, b) => a.width - b.width);
+  const maxWidth = options.maxWidth;
+  const variants = maxWidth
+    ? allVariants.filter((variant) => variant.width <= maxWidth)
+    : allVariants;
+  const usableVariants = variants.length ? variants : allVariants.slice(0, 1);
+  const includeOriginal = options.includeOriginal ?? !options.maxWidth;
+  attrs.src = publicPath(usableVariants[0]?.path ?? normalizedPath);
+  attrs.srcset = [
+    ...usableVariants.map((v) => `${publicPath(v.path)} ${v.width}w`),
+    ...(includeOriginal ? [`${publicPath(normalizedPath)} ${entry.width}w`] : []),
+  ].join(', ');
   attrs.sizes = sizes;
   attrs.width = entry.width;
   attrs.height = entry.height;
   if (entry.lqip) attrs['data-lqip'] = entry.lqip;
   return attrs;
+}
+
+export function responsiveAttrsToString(attrs: ResponsiveAttrs): string {
+  return Object.entries(attrs)
+    .filter((entry): entry is [string, string | number] => entry[1] !== undefined && entry[1] !== '')
+    .map(([key, value]) => `${key}="${String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`)
+    .join(' ');
+}
+
+export function buildLqipStyle(imagePath: string, manifest: ImageManifest | null): string | undefined {
+  const normalizedPath = normalizeImagePath(imagePath);
+  const lqip = manifest?.[normalizedPath]?.lqip;
+  if (!lqip) return undefined;
+  return `--lqip-url: url("${lqip.replace(/"/g, '%22')}")`;
 }

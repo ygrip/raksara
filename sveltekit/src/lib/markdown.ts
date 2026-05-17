@@ -13,7 +13,7 @@
  */
 
 import type { ImageManifest } from './types';
-import { buildResponsiveAttrs } from './responsive-image';
+import { buildResponsiveAttrs, responsiveAttrsToString } from './responsive-image';
 import { assetUrl, formatDate } from './utils';
 
 // ── Helpers ────────────────────────────────────────────
@@ -556,8 +556,8 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
     const title = typeof token === 'object' ? token.title ?? '' : '';
     const path = assetUrl(String(href ?? ''));
     if (opts.imageManifest) {
-      const attrs = buildResponsiveAttrs(path, opts.imageManifest);
-      return `<img ${attrs} loading="lazy" alt="${escapeHtml(alt)}" title="${escapeHtml(title)}">`; 
+      const attrs = responsiveAttrsToString(buildResponsiveAttrs(path, opts.imageManifest));
+      return `<img ${attrs} alt="${escapeHtml(alt)}" title="${escapeHtml(title)}">`; 
     }
     return `<img src="${escapeHtml(path)}" alt="${escapeHtml(alt)}" title="${escapeHtml(title)}" loading="lazy" decoding="async">`;
   };
@@ -1085,8 +1085,13 @@ function initProgressBars(container: HTMLElement): void {
 function initArticleImages(container: HTMLElement): void {
   container.querySelectorAll<HTMLImageElement>('img').forEach((img) => {
     const shell = img.closest<HTMLElement>('.is-loading, .post-card-thumb, .gallery-card-img, .gallery-stack-card, .article-cover, .poem-cover, .img-skeleton');
+    const lqip = img.dataset['lqip'];
+    if (shell && lqip && !shell.classList.contains('lqip-shown')) {
+      shell.style.setProperty('--lqip-url', `url("${lqip}")`);
+      shell.classList.add('lqip-shown');
+    }
     const settle = () => {
-      if (shell && (img.currentSrc || img.src)) {
+      if (shell && !lqip && (img.currentSrc || img.src)) {
         shell.style.setProperty('--lqip-url', `url("${img.currentSrc || img.src}")`);
         shell.classList.add('lqip-shown');
       }

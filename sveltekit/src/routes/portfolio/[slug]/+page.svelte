@@ -6,12 +6,15 @@
 	import ShareCard from '$lib/components/ShareCard.svelte';
 	import { shouldShowGiscus, getGiscusConfig, buildPostMeta } from '$lib/seo';
 	import { assetUrl, formatDate } from '$lib/utils';
+	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
 
 	let { data }: { data: PageData } = $props();
 	const item = $derived(data.item);
 	const markdown = $derived(data.markdown);
 	const config = $derived(data.config);
+	const imageManifest = $derived(data.imageManifest ?? null);
+	const articleCoverSizes = '(max-width: 832px) calc(100vw - 32px), 800px';
 
 	let renderedHtml = $state('');
 	let articleEl: HTMLElement | null = null;
@@ -33,7 +36,7 @@
 			return;
 		}
 		(async () => {
-			renderedHtml = await renderMarkdown(stripLeadingTitle(source, item?.title));
+			renderedHtml = await renderMarkdown(stripLeadingTitle(source, item?.title), { imageManifest: imageManifest ?? undefined });
 			await tick();
 			if (articleEl) await initArticleFeatures(articleEl);
 			if (location.hash) {
@@ -76,8 +79,9 @@
 
 	<header class="article-header">
 		{#if item?.cover}
-			<div class="article-cover is-loading">
-				<img src={assetUrl(item.cover)} alt={item.title} loading="lazy" />
+			{@const coverLqip = buildLqipStyle(item.cover, imageManifest)}
+			<div class="article-cover is-loading" class:lqip-shown={!!coverLqip} style={coverLqip}>
+				<img {...buildResponsiveAttrs(item.cover, imageManifest, { sizes: articleCoverSizes })} alt={item.title} />
 			</div>
 		{/if}
 

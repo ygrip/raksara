@@ -49,6 +49,8 @@ export const load: PageLoad = async ({ params, fetch }) => {
   const previousPage = routeFromNav((post as unknown as { previous_page?: unknown } | null)?.previous_page);
   const dirsRes = await fetch('/metadata/blog-dirs.json');
   const blogDirs = dirsRes.ok ? await dirsRes.json() : {};
+  const imageManifestRes = await fetch('/metadata/image-manifest.json');
+  const imageManifest = imageManifestRes.ok ? await imageManifestRes.json() : null;
 
-  return { slug, markdown, post, allPosts, blogDirs, nextPage, previousPage };
+  return { slug, markdown, post, allPosts, blogDirs, nextPage, previousPage, imageManifest };
 };

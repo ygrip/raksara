@@ -7,6 +7,7 @@
 	import ShareCard from '$lib/components/ShareCard.svelte';
 	import { shouldShowGiscus, getGiscusConfig, buildPostMeta } from '$lib/seo';
 	import { assetUrl, formatDate, humanize } from '$lib/utils';
+	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
 
 	type ChapterNav = { title: string; href: string };
@@ -15,6 +16,8 @@
 	const post = $derived(data.post);
 	const markdown = $derived(data.markdown);
 	const config = $derived(data.config);
+	const imageManifest = $derived(data.imageManifest ?? null);
+	const articleCoverSizes = '(max-width: 832px) calc(100vw - 32px), 800px';
 
 	let renderedHtml = $state('');
 	let articleEl: HTMLElement | null = null;
@@ -139,6 +142,7 @@
 		(async () => {
 			renderedHtml = await renderMarkdown(stripLeadingTitle(source, title), {
 				context: { posts: allPosts, blogDirs: data.blogDirs },
+				imageManifest: imageManifest ?? undefined,
 			});
 			await tick();
 			if (articleEl) await initArticleFeatures(articleEl);
@@ -241,8 +245,9 @@
 	</header>
 
 	{#if post?.cover}
-		<div class="article-cover is-loading">
-			<img src={assetUrl(post.cover)} alt={post.title} loading="lazy" class="loaded" />
+		{@const coverLqip = buildLqipStyle(post.cover, imageManifest)}
+		<div class="article-cover is-loading" class:lqip-shown={!!coverLqip} style={coverLqip}>
+			<img {...buildResponsiveAttrs(post.cover, imageManifest, { sizes: articleCoverSizes })} alt={post.title} class="loaded" />
 		</div>
 	{/if}
 

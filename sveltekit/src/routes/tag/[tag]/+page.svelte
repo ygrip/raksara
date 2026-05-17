@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { assetUrl, formatDate } from '$lib/utils';
+	import { formatDate } from '$lib/utils';
+	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	let { data }: { data: PageData } = $props();
 	const tag = $derived(data.tag);
 	const posts = $derived(data.posts);
@@ -8,7 +9,9 @@
 	const thoughts = $derived(data.thoughts);
 	const gallery = $derived(data.gallery);
 	const config = $derived(data.config);
+	const imageManifest = $derived(data.imageManifest ?? null);
 	const total = $derived((posts?.length ?? 0) + (portfolio?.length ?? 0) + (thoughts?.length ?? 0) + (gallery?.length ?? 0));
+	const galleryThumbSizes = '(max-width: 640px) calc(100vw - 32px), 640px';
 </script>
 
 <svelte:head>
@@ -55,10 +58,12 @@
 	<div class="home-section-header"><h2>Gallery</h2></div>
 	<ul class="gallery-list">
 		{#each gallery as item}
+			{@const gallerySource = item.images?.[0]?.src ?? item.image ?? ''}
+			{@const galleryLqip = buildLqipStyle(gallerySource, imageManifest)}
 			<li class="gallery-card">
-				<div class="gallery-card-img is-loading">
+				<div class="gallery-card-img is-loading" class:lqip-shown={!!galleryLqip} style={galleryLqip}>
 					<a href="/gallery?tag={tag}" aria-label="Filter gallery by tag {tag}">
-						<img src={assetUrl(item.images?.[0]?.src ?? item.image)} alt={item.caption ?? item.title} loading="lazy" />
+						<img {...buildResponsiveAttrs(gallerySource, imageManifest, { sizes: galleryThumbSizes, maxWidth: 640 })} alt={item.caption ?? item.title} />
 					</a>
 				</div>
 				<div class="gallery-card-info">

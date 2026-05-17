@@ -5,11 +5,15 @@
 	import type { GalleryItem } from '$lib/types';
 	import { assetUrl, formatDate } from '$lib/utils';
 	import { shareContent } from '$lib/share';
+	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import ShareCard from '$lib/components/ShareCard.svelte';
 
 	let { data }: { data: PageData } = $props();
 	const gallery = $derived(data.gallery);
 	const config  = $derived(data.config);
+	const imageManifest = $derived(data.imageManifest ?? null);
+	const galleryThumbSizes = '(max-width: 640px) calc(100vw - 32px), 640px';
+	const lightboxImageSizes = 'min(92vw, 1024px)';
 	type SortKey = 'latest' | 'oldest' | 'az' | 'za';
 	let sortKey = $state<SortKey>('latest');
 	let searchQuery = $state('');
@@ -158,9 +162,8 @@
 		});
 	}
 
-	// thumbnail helper
-	function thumb(item: GalleryItem): string {
-		return assetUrl(item.images?.[0]?.src ?? item.image);
+	function thumbSource(item: GalleryItem): string {
+		return item.images?.[0]?.src ?? item.image ?? '';
 	}
 </script>
 
@@ -224,21 +227,24 @@
 	{#each visibleGallery as item}
 		{@const count = item.images?.length ?? (item.image ? 1 : 0)}
 		{@const isMulti = count > 1}
+		{@const itemThumbSource = thumbSource(item)}
+		{@const itemThumbLqip = buildLqipStyle(itemThumbSource, imageManifest)}
 		<li class="gallery-card{isMulti ? ' multi-image' : ''}">
 			<!-- Image area -->
 			<div
 				class="gallery-card-img is-loading"
+				class:lqip-shown={!!itemThumbLqip}
+				style={itemThumbLqip}
 				role="button"
 				tabindex="0"
 				onclick={() => openLightbox(item)}
 				onkeydown={(e) => e.key === 'Enter' && openLightbox(item)}
 				aria-label="View {item.title}"
 			>
-				{#if thumb(item)}
+				{#if itemThumbSource}
 					<img
-						src={thumb(item)}
+						{...buildResponsiveAttrs(itemThumbSource, imageManifest, { sizes: galleryThumbSizes, maxWidth: 640 })}
 						alt={item.images?.[0]?.alt ?? item.images?.[0]?.caption ?? item.caption ?? item.title}
-						loading="lazy"
 					/>
 				{/if}
 				{#if isMulti}
@@ -262,19 +268,17 @@
 
 					</button>
 				</div>
-				{#if item.caption}
-					<div class="gallery-card-caption">{item.caption}</div>
-				{/if}
+				<div class="gallery-card-caption" aria-hidden={!item.caption}>{item.caption || '\u00a0'}</div>
 				<div class="gallery-card-footer">
 					<div class="gallery-card-date">{formatDate(item.date)}</div>
 				</div>
-				{#if item.tags?.length}
-					<div class="gallery-card-tags">
+				<div class="gallery-card-tags" aria-hidden={!item.tags?.length}>
+					{#if item.tags?.length}
 						{#each item.tags.slice(0, 4) as tag}
 							<a href="/gallery?tag={tag}" class="tag" style="padding:2px 8px;font-size:11px">{tag}</a>
 						{/each}
-					</div>
-				{/if}
+					{/if}
+				</div>
 			</div>
 		</li>
 	{/each}
@@ -320,7 +324,7 @@
 
 				{#if currentImg}
 					<img
-						src={assetUrl(currentImg.src)}
+						{...buildResponsiveAttrs(currentImg.src, imageManifest, { sizes: lightboxImageSizes, eager: true })}
 						alt={currentImg.alt ?? currentImg.caption ?? activeItem.caption ?? activeItem.title}
 						class="max-h-[72vh] rounded-xl object-contain"
 					/>

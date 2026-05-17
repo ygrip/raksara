@@ -1,7 +1,8 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import type { Post } from '$lib/types';
-	import { assetUrl, formatDate, humanize } from '$lib/utils';
+	import { formatDate, humanize } from '$lib/utils';
+	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import ShareCard from '$lib/components/ShareCard.svelte';
 
 	let { data }: { data: PageData } = $props();
@@ -9,6 +10,8 @@
 	const posts = $derived(data.posts);
 	const subdirs = $derived(data.subdirs);
 	const config = $derived(data.config);
+	const imageManifest = $derived(data.imageManifest ?? null);
+	const postThumbSizes = '(max-width: 480px) 100px, (max-width: 640px) 120px, 180px';
 
 	const MAX_CRUMBS = 3;
 	const allCrumbs = $derived(dirPath ? ['blog', ...dirPath.split('/').filter(Boolean)] : ['blog']);
@@ -109,8 +112,9 @@
 			onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (window.location.href = `/blog/post/${post.slug}`)}
 		>
 			{#if post.cover}
-				<div class="post-card-thumb is-loading">
-					<img src={assetUrl(post.cover)} alt={post.title} loading="lazy" />
+				{@const postThumbLqip = buildLqipStyle(post.cover, imageManifest)}
+				<div class="post-card-thumb is-loading" class:lqip-shown={!!postThumbLqip} style={postThumbLqip}>
+					<img {...buildResponsiveAttrs(post.cover, imageManifest, { sizes: postThumbSizes, maxWidth: 640 })} alt={post.title} />
 				</div>
 			{/if}
 			<div class="post-card-body">

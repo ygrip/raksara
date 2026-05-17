@@ -3,11 +3,13 @@
 	import type { PageData } from './$types';
 	import { heroTyping } from '$lib/actions/typing';
 	import { assetUrl, formatDate } from '$lib/utils';
+	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 
 	let { data }: { data: PageData } = $props();
 	const bundle  = $derived(data.bundle);
 	const config  = $derived(bundle?.config);
 	const gallery = $derived(data.gallery);
+	const imageManifest = $derived(data.imageManifest ?? null);
 
 	const heroTitle = $derived(config?.hero_title ?? config?.title ?? 'Your Site Name');
 	const heroSubtitle = $derived(config?.hero_subtitle ?? config?.description ?? '');
@@ -18,7 +20,7 @@
 	);
 	const galleryCover = '/content/assets/images/gallery-cover.webp';
 
-	const normalizeAssetPath = assetUrl;
+	const postThumbSizes = '(max-width: 480px) 100px, (max-width: 640px) 120px, 180px';
 </script>
 
 <svelte:head>
@@ -65,8 +67,9 @@
 					onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (window.location.href = `/blog/post/${post.slug}`)}
 				>
 					{#if post.cover}
-						<div class="post-card-thumb is-loading">
-							<img src={normalizeAssetPath(post.cover)} alt={post.title} loading={i === 0 ? 'eager' : 'lazy'} />
+						{@const postThumbLqip = buildLqipStyle(post.cover, imageManifest)}
+						<div class="post-card-thumb is-loading" class:lqip-shown={!!postThumbLqip} style={postThumbLqip}>
+							<img {...buildResponsiveAttrs(post.cover, imageManifest, { sizes: postThumbSizes, eager: i === 0, maxWidth: 640 })} alt={post.title} />
 						</div>
 					{/if}
 					<div class="post-card-body">
@@ -150,8 +153,13 @@
 					<div class="gallery-window-body">
 						<div class="gallery-stack">
 							{#each [0, 1, 2] as idx}
-								<div class="gallery-stack-card layer-{idx + 1} is-loading">
-									<img src={stackSources[Math.min(idx, stackSources.length - 1)]} alt="Gallery preview {idx + 1}" loading="lazy" />
+								{@const stackSource = stackSources[Math.min(idx, stackSources.length - 1)]}
+								{@const stackLqip = buildLqipStyle(stackSource, imageManifest)}
+								<div class="gallery-stack-card layer-{idx + 1} is-loading" class:lqip-shown={!!stackLqip} style={stackLqip}>
+									<img
+										{...buildResponsiveAttrs(stackSource, imageManifest, { sizes: '(max-width: 900px) 72vw, 560px', maxWidth: 960 })}
+										alt="Gallery preview {idx + 1}"
+									/>
 								</div>
 							{/each}
 						</div>
