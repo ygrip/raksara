@@ -2066,6 +2066,7 @@ body {
 }
 
 .gallery-card {
+    position: relative;
     display: grid;
     grid-template-rows: auto minmax(176px, auto);
     border-radius: var(--radius-lg);
@@ -2076,6 +2077,29 @@ body {
         border-color 0.3s var(--bounce),
         box-shadow 0.3s var(--bounce);
     contain: layout paint;
+    isolation: isolate;
+}
+
+.gallery-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-image:
+        radial-gradient(circle at center, rgba(255, 255, 255, 0.06) 0%, rgba(2, 6, 23, 0.5) 72%),
+        var(--lqip-url, none);
+    background-size: cover, cover;
+    background-position: center, center;
+    background-repeat: no-repeat, no-repeat;
+    filter: blur(20px) saturate(1.12);
+    transform: scale(1.12);
+    opacity: 0;
+    transition: opacity 0.28s ease;
+    pointer-events: none;
+}
+
+.gallery-card[style*="--lqip-url"]::before {
+    opacity: 0.56;
 }
 
 .gallery-card:hover {
@@ -2085,6 +2109,10 @@ body {
 
 .gallery-card-img {
     position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     isolation: isolate;
     cursor: pointer;
     overflow: hidden;
@@ -2092,14 +2120,17 @@ body {
     aspect-ratio: 16 / 10;
     min-height: 280px;
     block-size: clamp(260px, 50vw, 420px);
+    width: 100%;
+    height: 100%;
+    margin: 0 auto;
 }
 
 .gallery-card-img > img,
 .gallery-card.multi-image .gallery-card-img > img {
     width: 100%;
     height: 100%;
-    max-height: none;
     object-fit: contain;
+    object-position: center center;
 }
 
 .gallery-card-img img {
@@ -2107,12 +2138,10 @@ body {
     z-index: 1;
     width: 100%;
     height: 100%;
-    max-height: none;
     display: block;
     object-fit: contain;
-    object-position: center;
+    object-position: center center;
     transition:
-        transform 0.4s var(--smooth),
         opacity 0.35s ease;
     opacity: 0;
 }
@@ -2122,11 +2151,38 @@ body {
 }
 
 .gallery-card-img:hover img {
-    transform: scale(1.03);
+    transform: none;
 }
 
 .gallery-card-img::after {
-    background-size: contain;
+    background-image:
+        linear-gradient(180deg, rgba(2, 6, 23, 0.2) 0%, rgba(2, 6, 23, 0.44) 100%),
+        var(--lqip-url, none);
+    background-size: cover, cover;
+    background-position: center, center;
+    background-repeat: no-repeat, no-repeat;
+    filter: blur(16px) saturate(1.12);
+    transform: scale(1.16);
+}
+
+.gallery-card-img.lqip-shown::after {
+    opacity: 0.82;
+}
+
+.gallery-card-img.is-loaded::after {
+    opacity: 0.38;
+    transition: opacity 0.35s ease;
+}
+
+/* For gallery list cards, backdrop lives on .gallery-card to cover full card */
+.gallery-list .gallery-card .gallery-card-img::after {
+    display: none;
+}
+
+.gallery-list .gallery-card .gallery-card-info {
+    position: relative;
+    z-index: 1;
+    background: rgba(2, 6, 23, 0.34);
 }
 
 .gallery-share-btn {

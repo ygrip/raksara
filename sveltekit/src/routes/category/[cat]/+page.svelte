@@ -71,11 +71,18 @@
 		{#each gallery as item}
 			{@const gallerySource = item.images?.[0]?.src ?? item.image ?? ''}
 			{@const galleryLqip = buildLqipStyle(gallerySource, imageManifest)}
-			<li class="gallery-card">
-				<div class="gallery-card-img is-loading" class:lqip-shown={!!galleryLqip} style={galleryLqip}>
-					<a href="/gallery?category={cat}" aria-label="Filter gallery by category {cat}">
-						<img {...buildResponsiveAttrs(gallerySource, imageManifest, { sizes: galleryThumbSizes, maxWidth: 640 })} alt={item.caption ?? item.title} />
-					</a>
+			<li class="gallery-card" style={galleryLqip}>
+				<div
+					class="gallery-card-img is-loading"
+					class:lqip-shown={!!galleryLqip}
+					style={galleryLqip}
+					role="button"
+					tabindex="0"
+					onclick={() => goto(`/gallery?category=${encodeURIComponent(cat)}`)}
+					onkeydown={(event) => (event.key === 'Enter' || event.key === ' ') && goto(`/gallery?category=${encodeURIComponent(cat)}`)}
+					aria-label="Filter gallery by category {cat}"
+				>
+					<img {...buildResponsiveAttrs(gallerySource, imageManifest, { sizes: galleryThumbSizes, maxWidth: 640 })} alt={item.caption ?? item.title} />
 				</div>
 				<div class="gallery-card-info">
 					<div class="gallery-card-title"><a href="/gallery?category={cat}" style="color:inherit;text-decoration:none;">{item.title}</a></div>

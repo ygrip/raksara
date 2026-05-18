@@ -229,7 +229,7 @@
 		{@const isMulti = count > 1}
 		{@const itemThumbSource = thumbSource(item)}
 		{@const itemThumbLqip = buildLqipStyle(itemThumbSource, imageManifest)}
-		<li class="gallery-card{isMulti ? ' multi-image' : ''}">
+		<li class="gallery-card{isMulti ? ' multi-image' : ''}" style={itemThumbLqip}>
 			<!-- Image area -->
 			<div
 				class="gallery-card-img is-loading"
