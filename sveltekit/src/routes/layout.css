@@ -2099,7 +2099,7 @@ body {
     width: 100%;
     height: 100%;
     max-height: none;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .gallery-card-img img {
@@ -2109,7 +2109,7 @@ body {
     height: 100%;
     max-height: none;
     display: block;
-    object-fit: cover;
+    object-fit: contain;
     object-position: center;
     transition:
         transform 0.4s var(--smooth),
@@ -2123,6 +2123,10 @@ body {
 
 .gallery-card-img:hover img {
     transform: scale(1.03);
+}
+
+.gallery-card-img::after {
+    background-size: contain;
 }
 
 .gallery-share-btn {
