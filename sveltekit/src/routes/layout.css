@@ -2102,6 +2102,11 @@ body {
     opacity: 0.56;
 }
 
+[data-theme="light"] .gallery-card[style*="--lqip-url"]::before {
+    opacity: 0.3;
+    filter: blur(16px) saturate(1.04);
+}
+
 .gallery-card:hover {
     border-color: var(--accent-border);
     box-shadow: 0 8px 32px var(--accent-glow);
@@ -2182,7 +2187,14 @@ body {
 .gallery-list .gallery-card .gallery-card-info {
     position: relative;
     z-index: 1;
-    background: rgba(2, 6, 23, 0.34);
+    background: color-mix(in srgb, var(--bg-glass-heavy) 82%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid var(--border-glass);
+}
+
+[data-theme="light"] .gallery-list .gallery-card .gallery-card-info {
+    background: color-mix(in srgb, var(--bg-glass-heavy) 88%, transparent);
 }
 
 .gallery-share-btn {
