@@ -16,6 +16,8 @@
 		hasCoverField,
 		hasPrevNextField,
 		slugifyAdmin,
+		buildFileAssetPath,
+		FILE_ATTACHMENT_ACCEPT,
 		type NavRef
 	} from '$lib/admin/content-form';
 	import { getComponentsForType } from '$lib/admin/custom-components';
@@ -85,6 +87,15 @@
 	let bodyTextareaEl: HTMLTextAreaElement | null = $state(null);
 	// Inline image file input (hidden)
 	let inlineImageInputEl: HTMLInputElement | null = $state(null);
+	// File attachment input (hidden) — for ::file component uploads
+	let fileAttachInputEl: HTMLInputElement | null = $state(null);
+	// Video player picker modal
+	let videoPickerOpen = $state(false);
+	let videoPickerUrl = $state('');
+	let videoPickerAlt = $state('');
+	let videoPickerThumb = $state(''); // data URI or URL
+	let videoPickerThumbAsset = $state<AdminAssetUpload | null>(null);
+	let videoThumbInputEl: HTMLInputElement | null = $state(null);
 
 	// --- Derived ---
 	const activeWorkerUrl = $derived(workerUrl.trim().replace(/\/+$/, ''));
@@ -584,6 +595,11 @@
 		const input = event.currentTarget as HTMLInputElement;
 		const file = input.files?.[0];
 		if (!file) return;
+		if (!file.type.startsWith('image/')) {
+			formError = 'Only image files can be inserted as inline images. Use the File Attachment component for other files.';
+			input.value = '';
+			return;
+		}
 		formError = '';
 		try {
 			const index = contentAssets.length;
@@ -614,6 +630,111 @@
 		} finally {
 			input.value = '';
 		}
+	}
+
+	async function addFileAttachment(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+		formError = '';
+		try {
+			const slug = contentForm.slug || contentForm.title;
+			const path = buildFileAssetPath(slug, file.name);
+			const displayName = file.name.replace(/\.[^.]+$/, '');
+			const asset: AdminAssetUpload = {
+				path,
+				contentBase64: await readFileAsBase64(file),
+				mediaType: file.type || 'application/octet-stream'
+			};
+			contentAssets = [...contentAssets, asset];
+			// Insert ::file snippet at cursor
+			const snippet = `::file[${path} "${displayName}"]`;
+			const el = bodyTextareaEl;
+			if (el) {
+				const pos = el.selectionStart;
+				const text = contentForm.body;
+				const needsLeading = pos > 0 && text[pos - 1] !== '\n';
+				const insert = (needsLeading ? '\n\n' : '') + snippet;
+				contentForm.body = text.slice(0, pos) + insert + text.slice(pos);
+				requestAnimationFrame(() => {
+					el.focus();
+					const endPos = pos + insert.length;
+					el.setSelectionRange(endPos, endPos);
+				});
+			} else {
+				contentForm.body += (contentForm.body ? '\n\n' : '') + snippet;
+			}
+		} catch (err) {
+			formError = err instanceof Error ? err.message : 'Unable to read file';
+		} finally {
+			input.value = '';
+		}
+	}
+
+	// ---- Video player picker ----
+
+	function extractYouTubeId(url: string): string | null {
+		const m = url.match(/(?:youtube\.com\/watch\?.*v=|youtu\.be\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/);
+		return m?.[1] ?? null;
+	}
+
+	function onVideoUrlInput() {
+		const ytId = extractYouTubeId(videoPickerUrl);
+		if (ytId && !videoPickerThumbAsset) {
+			videoPickerThumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+		}
+	}
+
+	async function addVideoThumbnail(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+		if (!file.type.startsWith('image/')) { formError = 'Only image files can be used as video thumbnails.'; input.value = ''; return; }
+		try {
+			const index = contentAssets.length;
+			const path = buildAssetPath(contentForm.type, contentForm.slug || contentForm.title, file.name, index);
+			const base64 = await readFileAsBase64(file);
+			const asset: AdminAssetUpload = { path, contentBase64: base64, mediaType: file.type || 'image/jpeg', alt: videoPickerAlt || file.name.replace(/\.[^.]+$/, '') };
+			videoPickerThumbAsset = asset;
+			videoPickerThumb = `data:${file.type};base64,${base64}`;
+		} catch (err) {
+			formError = err instanceof Error ? err.message : 'Unable to read thumbnail file';
+		} finally {
+			input.value = '';
+		}
+	}
+
+	function insertVideoPlayer() {
+		if (!videoPickerUrl.trim()) { formError = 'Please enter a video URL.'; return; }
+		const alt = videoPickerAlt.trim() || 'Video';
+		let thumbSrc = videoPickerThumb.trim();
+		if (!thumbSrc) {
+			const ytId = extractYouTubeId(videoPickerUrl);
+			thumbSrc = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : '';
+		}
+		// If we have a staged thumbnail asset, use its path in the snippet (will resolve to data URI in preview)
+		const thumbPath = videoPickerThumbAsset ? videoPickerThumbAsset.path : thumbSrc;
+		if (videoPickerThumbAsset) {
+			contentAssets = [...contentAssets, videoPickerThumbAsset];
+		}
+		const snippet = `<a class="video-player" href="${videoPickerUrl.trim()}" target="_blank">\n  <img src="${thumbPath}" alt="${alt}" />\n</a>`;
+		const el = bodyTextareaEl;
+		if (el) {
+			const pos = el.selectionStart;
+			const text = contentForm.body;
+			const needsLeading = pos > 0 && text[pos - 1] !== '\n';
+			const insert = (needsLeading ? '\n\n' : '') + snippet;
+			contentForm.body = text.slice(0, pos) + insert + text.slice(pos);
+			requestAnimationFrame(() => { el.focus(); const endPos = pos + insert.length; el.setSelectionRange(endPos, endPos); });
+		} else {
+			contentForm.body += (contentForm.body ? '\n\n' : '') + snippet;
+		}
+		// Reset
+		videoPickerOpen = false;
+		videoPickerUrl = '';
+		videoPickerAlt = '';
+		videoPickerThumb = '';
+		videoPickerThumbAsset = null;
 	}
 
 	// ---- PR detail modal ----
@@ -678,20 +799,35 @@
 		return path;
 	}
 
-	function renderInline(escaped: string): string {
-		return escaped
-			.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-			.replace(/\*(.+?)\*/g, '<em>$1</em>')
-			.replace(/`([^`]+)`/g, '<code class="pi-code">$1</code>')
-			.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="pi-img" />')
-			.replace(/\[([^\]]*)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
-	}
-
-	function buildPreviewHtml(body: string, coverAsset?: AdminAssetUpload, galleryAssets?: AdminAssetUpload[]): string {
+	function buildPreviewHtml(body: string, coverAsset?: AdminAssetUpload, galleryAssets?: AdminAssetUpload[], bodyAssets?: AdminAssetUpload[]): string {
 		const esc = (s: string) =>
 			s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 		const out: string[] = [];
+
+		// Build asset map: path → data URI, for resolving body asset paths
+		const assetMap = new Map<string, string>();
+		if (bodyAssets) {
+			for (const a of bodyAssets) {
+				if (a.contentBase64) {
+					const dataUri = `data:${a.mediaType};base64,${a.contentBase64}`;
+					assetMap.set(a.path, dataUri);
+					assetMap.set(`/${a.path}`, dataUri);
+				}
+			}
+		}
+
+		function renderInline(escaped: string): string {
+			return escaped
+				.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+				.replace(/\*(.+?)\*/g, '<em>$1</em>')
+				.replace(/`([^`]+)`/g, '<code class="pi-code">$1</code>')
+				.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, src) => {
+					const resolved = assetMap.get(src) ?? assetMap.get(src.replace(/^\//, '')) ?? src;
+					return `<img src="${resolved}" alt="${alt}" class="pi-img" />`;
+				})
+				.replace(/\[([^\]]*)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+		}
 
 		// Cover image at top
 		if (coverAsset?.contentBase64) {
@@ -751,6 +887,37 @@
 				const current = currentM ? parseInt(currentM[1]) : 0;
 				const pct = Math.round(Math.min(100, (current / total) * 100));
 				out.push(`<div class="pi-progress"><div class="pi-progress-bar" style="width:${pct}%"></div><span>${pct}%</span></div>`);
+			} else if (compTag === 'a') {
+				// Video player: <a class="video-player" href="URL">...<img src="THUMB" alt="ALT" /></a>
+				const classM = compAttrs.match(/class=["']([^"']+)["']/);
+				const hrefM = compAttrs.match(/href=["']([^"']+)["']/);
+				if (classM && classM[1].includes('video-player') && hrefM) {
+					const videoUrl = hrefM[1];
+					const inner = compBuf.map(l => l.trim()).join('\n');
+					const imgM = inner.match(/<img\s[^>]*src=["']([^"']+)["'][^>]*alt=["']([^"']*)["'][^>]*>/i)
+						?? inner.match(/<img\s[^>]*alt=["']([^"']*)["'][^>]*src=["']([^"']+)["'][^>]*>/i);
+					let thumbSrc = '';
+					let altText = 'Video';
+					if (imgM) {
+						// First regex: group1=src, group2=alt
+						thumbSrc = imgM[1];
+						altText = imgM[2] || 'Video';
+						// Check if it's actually alt first (second regex match)
+						if (!thumbSrc.startsWith('http') && !thumbSrc.startsWith('data:') && !thumbSrc.startsWith('/') && !thumbSrc.startsWith('content/')) {
+							// Likely alt came first, swap
+							[thumbSrc, altText] = [altText, thumbSrc];
+						}
+					}
+					const resolvedThumb = assetMap.get(thumbSrc) ?? assetMap.get(thumbSrc.replace(/^\//, '')) ?? thumbSrc;
+					const thumbHtml = resolvedThumb
+						? `<img src="${esc(resolvedThumb)}" alt="${esc(altText)}" class="pi-video-thumb" />`
+						: `<div class="pi-video-thumb pi-video-nothumb"></div>`;
+					out.push(`<div class="pi-video-player"><a href="${esc(videoUrl)}" target="_blank" rel="noreferrer" class="pi-video-link">${thumbHtml}<div class="pi-video-overlay"><svg width="40" height="40" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="20" fill="rgba(0,0,0,0.55)"/><polygon points="16,13 30,20 16,27" fill="white"/></svg></div></a><p class="pi-video-url">${esc(videoUrl)}</p></div>`);
+				} else {
+					// Generic <a> tag fallback
+					const hrefFallback = hrefM ? hrefM[1] : '#';
+					out.push(`<a href="${esc(hrefFallback)}" target="_blank" rel="noreferrer" class="pi-link">${renderInline(esc(compBuf.join(' ')))}</a>`);
+				}
 			} else {
 				out.push(`<div class="pi-comp-block">&lt;${esc(compTag)}&gt; block</div>`);
 			}
@@ -763,7 +930,7 @@
 		for (const raw of lines) {
 			// Handle open component tags
 			if (!inCode && !inComp) {
-				const openM = raw.match(/^<(panel|container|thought|grid|rk-progress)(\s[^>]*)?>$/i);
+				const openM = raw.match(/^<(panel|container|thought|grid|rk-progress|a)(\s[^>]*)?>$/i);
 				if (openM) {
 					inComp = true;
 					compTag = openM[1].toLowerCase();
@@ -819,7 +986,19 @@
 			}
 
 			if (/^::[\w-]+/.test(raw)) {
-				out.push(`<div class="pi-directive">${esc(raw)}</div>`);
+				// ::file[path "Display Name"] → render file card
+				const fileM = raw.match(/^::file\[([^\s\]]+)\s+"([^"]+)"\]/);
+				if (fileM) {
+					const filePath = fileM[1];
+					const displayName = fileM[2];
+					const ext = filePath.split('.').pop()?.toUpperCase() ?? 'FILE';
+					const resolvedSrc = assetMap.get(filePath) ?? assetMap.get(filePath.replace(/^\//, '')) ?? '';
+					const downloadAttr = resolvedSrc ? ` download="${esc(displayName)}"` : '';
+					const href = resolvedSrc || `/${filePath.replace(/^\//, '')}`;
+					out.push(`<a class="pi-file-card" href="${esc(href)}" target="_blank" rel="noreferrer"${downloadAttr}><span class="pi-file-ext">${esc(ext)}</span><span class="pi-file-name">${esc(displayName)}</span></a>`);
+				} else {
+					out.push(`<div class="pi-directive">${esc(raw)}</div>`);
+				}
 				continue;
 			}
 			const h1m = raw.match(/^# (.+)/);
@@ -872,7 +1051,7 @@
 			? buildThoughtsPreviewHtml()
 			: contentForm.type === 'gallery'
 				? buildPreviewHtml('', undefined, contentAssets)
-				: buildPreviewHtml(contentForm.body, contentForm.coverAsset)
+				: buildPreviewHtml(contentForm.body, contentForm.coverAsset, undefined, contentAssets)
 	);
 
 	const COMPONENT_GROUPS = [
@@ -1596,6 +1775,10 @@
 			<!-- Body editor -->
 			<!-- Hidden file input for inline image insertion -->
 			<input bind:this={inlineImageInputEl} type="file" accept="image/*" style="display:none" onchange={addInlineImageFile} />
+			<!-- Hidden file input for ::file attachment insertion -->
+			<input bind:this={fileAttachInputEl} type="file" accept={FILE_ATTACHMENT_ACCEPT} style="display:none" onchange={addFileAttachment} />
+			<!-- Hidden file input for video thumbnail upload -->
+			<input bind:this={videoThumbInputEl} type="file" accept="image/*" style="display:none" onchange={addVideoThumbnail} />
 
 			<div class="body-editor full">
 				<div class="body-editor-header">
@@ -1680,7 +1863,19 @@
 												type="button"
 												class="toolbar-btn"
 												title={comp.description + '\n\nPreview: ' + comp.preview}
-												onclick={() => insertSnippet(comp.snippet)}
+												onclick={() => {
+													if (comp.id === 'file' && data.admin.features.allowAssetUpload) {
+														fileAttachInputEl?.click();
+													} else if (comp.id === 'video-player') {
+														videoPickerOpen = true;
+														videoPickerUrl = '';
+														videoPickerAlt = '';
+														videoPickerThumb = '';
+														videoPickerThumbAsset = null;
+													} else {
+														insertSnippet(comp.snippet);
+													}
+												}}
 											>{comp.label}</button>
 										{/each}
 									</div>
@@ -1989,6 +2184,67 @@
 						{/if}
 					</div>
 				{/if}
+			</div>
+		</div>
+	{/if}
+
+	<!-- Video player picker modal -->
+	{#if videoPickerOpen}
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="nav-picker-overlay" onclick={(e) => { if (e.target === e.currentTarget) videoPickerOpen = false; }}>
+			<div class="nav-picker-modal video-picker-modal" role="dialog" aria-modal="true" aria-label="Insert video player">
+				<div class="nav-picker-header">
+					<span class="nav-picker-title">Insert Video Player</span>
+					<button type="button" class="pr-drawer-close" onclick={() => (videoPickerOpen = false)} aria-label="Close">
+						<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+							<path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+						</svg>
+					</button>
+				</div>
+				<div class="video-picker-body">
+					<label class="video-picker-field">
+						<span>Video URL</span>
+						<input
+							type="url"
+							class="video-picker-input"
+							placeholder="https://www.youtube.com/watch?v=..."
+							bind:value={videoPickerUrl}
+							oninput={onVideoUrlInput}
+							autocomplete="off"
+						/>
+					</label>
+					<label class="video-picker-field">
+						<span>Alt text / title</span>
+						<input
+							type="text"
+							class="video-picker-input"
+							placeholder="Video title"
+							bind:value={videoPickerAlt}
+							autocomplete="off"
+						/>
+					</label>
+					<div class="video-picker-field">
+						<span class="field-label">Thumbnail</span>
+						{#if videoPickerThumb}
+							<div class="video-thumb-preview">
+								<img src={videoPickerThumb} alt="Thumbnail preview" />
+								<button type="button" class="btn-ghost video-thumb-remove" onclick={() => { videoPickerThumb = ''; videoPickerThumbAsset = null; }}>
+									Remove custom
+								</button>
+							</div>
+						{:else}
+							<div class="video-thumb-upload">
+								<button type="button" class="btn-ghost" onclick={() => videoThumbInputEl?.click()}>Upload thumbnail</button>
+								<span class="muted">or leave blank to auto-detect from YouTube URL</span>
+							</div>
+						{/if}
+					</div>
+					<div class="video-picker-actions">
+						<button type="button" class="btn-ghost" onclick={() => (videoPickerOpen = false)}>Cancel</button>
+						<button type="button" class="btn-primary" onclick={insertVideoPlayer}>Insert</button>
+					</div>
+				</div>
 			</div>
 		</div>
 	{/if}
@@ -4383,4 +4639,133 @@
 	}
 	.nav-picker-empty p { margin: 0 0 6px; }
 	.nav-picker-empty-sub { font-size: 12px; color: var(--text-tertiary); }
+
+	/* Video picker modal */
+	.video-picker-modal {
+		max-width: 480px;
+		width: calc(100% - 2rem);
+	}
+	.video-picker-body {
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+		padding: 16px;
+	}
+	.video-picker-field {
+		display: flex;
+		flex-direction: column;
+		gap: 5px;
+	}
+	.video-picker-field > span, .video-picker-field > .field-label {
+		font-size: 12px;
+		font-weight: 600;
+		color: var(--text-secondary);
+	}
+	.video-picker-input {
+		background: var(--input-bg, rgba(255,255,255,0.06));
+		border: 1px solid var(--border-color, rgba(255,255,255,0.12));
+		border-radius: 6px;
+		color: var(--text-primary);
+		padding: 8px 10px;
+		font-size: 13px;
+		width: 100%;
+		box-sizing: border-box;
+	}
+	.video-thumb-preview {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+	.video-thumb-preview img {
+		width: 80px;
+		height: 52px;
+		object-fit: cover;
+		border-radius: 5px;
+		border: 1px solid var(--border-color, rgba(255,255,255,0.1));
+	}
+	.video-thumb-remove {
+		font-size: 11px;
+	}
+	.video-thumb-upload {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		flex-wrap: wrap;
+	}
+	.video-picker-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 8px;
+		padding-top: 4px;
+	}
+
+	/* Preview: file card */
+	.pi-file-card {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		padding: 8px 14px;
+		background: var(--surface-2, rgba(255,255,255,0.05));
+		border: 1px solid var(--border-color, rgba(255,255,255,0.12));
+		border-radius: 8px;
+		text-decoration: none;
+		color: var(--text-primary);
+		font-size: 13px;
+		max-width: 100%;
+		overflow: hidden;
+		margin: 4px 0;
+	}
+	.pi-file-ext {
+		background: var(--accent, #6366f1);
+		color: #fff;
+		font-size: 10px;
+		font-weight: 700;
+		padding: 2px 6px;
+		border-radius: 4px;
+		white-space: nowrap;
+		flex-shrink: 0;
+	}
+	.pi-file-name {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	/* Preview: video player card */
+	.pi-video-player {
+		margin: 8px 0;
+	}
+	.pi-video-link {
+		position: relative;
+		display: block;
+		border-radius: 8px;
+		overflow: hidden;
+		max-width: 480px;
+	}
+	.pi-video-thumb {
+		width: 100%;
+		display: block;
+		aspect-ratio: 16/9;
+		object-fit: cover;
+	}
+	.pi-video-nothumb {
+		background: var(--surface-2, rgba(255,255,255,0.05));
+		aspect-ratio: 16/9;
+	}
+	.pi-video-overlay {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	.pi-video-url {
+		font-size: 11px;
+		color: var(--text-secondary);
+		margin: 4px 0 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		max-width: 480px;
+	}
 </style>

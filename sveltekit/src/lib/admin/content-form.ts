@@ -92,6 +92,33 @@ export function buildCoverAssetPath(type: string, slug: string, fileName: string
 	return `content/assets/images/${type}/${safeSlug}/cover.${extension}`;
 }
 
+/** Path for a ::file attachment asset — goes to content/assets/files/ not images/. */
+export function buildFileAssetPath(slug: string, fileName: string): string {
+	const extension = fileExtension(fileName);
+	const baseName = slugifyAdmin(fileName.replace(/\.[^.]+$/, '')) || 'file';
+	const safeSlug = slugifyAdmin(slug) || 'draft';
+	return `content/assets/files/${safeSlug}/${baseName}.${extension}`;
+}
+
+/**
+ * File extensions accepted by the ::file component and the worker.
+ * Keep in sync with DEFAULT_ALLOWED_ASSET_EXTENSIONS in workers/admin/src/index.js.
+ */
+export const ALLOWED_FILE_ATTACHMENT_EXTENSIONS = [
+	// Images
+	'webp', 'jpg', 'jpeg', 'png', 'gif', 'svg',
+	// Documents
+	'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt',
+	// Archives
+	'zip', 'rar', 'gz', 'tar', '7z',
+	// Video
+	'mp4', 'mov', 'mkv', 'webm',
+	// Audio
+	'mp3', 'wav', 'ogg', 'flac',
+] as const;
+
+export const FILE_ATTACHMENT_ACCEPT = ALLOWED_FILE_ATTACHMENT_EXTENSIONS.map((e) => `.${e}`).join(',');
+
 /** Returns true if this form state should display a cover image upload. */
 export function hasCoverField(form: AdminContentFormState): boolean {
 	if (form.type === 'gallery' || form.type === 'thoughts') return false;

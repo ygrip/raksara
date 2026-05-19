@@ -13,6 +13,44 @@
 	let containerEl: HTMLElement | null = $state(null);
 	let cleanupParallax: (() => void) | null = null;
 
+	// ── Easter egg: 7 taps on avatar → /admin ──────────────────
+	let eggCount = $state(0);
+	let eggToast = $state('');
+	let eggToastVisible = $state(false);
+	let eggResetTimer: ReturnType<typeof setTimeout> | null = null;
+	let eggToastTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function showEggToast(msg: string) {
+		if (eggToastTimer) clearTimeout(eggToastTimer);
+		eggToast = msg;
+		eggToastVisible = true;
+		eggToastTimer = setTimeout(() => (eggToastVisible = false), 1800);
+	}
+
+	function handleAvatarTap() {
+		if (eggResetTimer) clearTimeout(eggResetTimer);
+		eggCount += 1;
+		// Reset if no tap for 2 seconds
+		eggResetTimer = setTimeout(() => (eggCount = 0), 2000);
+
+		if (eggCount === 5) {
+			showEggToast('🔐 2 more...');
+		} else if (eggCount === 6) {
+			showEggToast('🔐 1 more...');
+		} else if (eggCount >= 7) {
+			eggCount = 0;
+			eggToastVisible = false;
+			window.location.href = '/admin/';
+		}
+	}
+
+	function initAvatarEasterEgg() {
+		const avatarWrap = containerEl?.querySelector<HTMLElement>('.profile-avatar-wrap');
+		if (!avatarWrap || avatarWrap.dataset['eggInit'] === '1') return;
+		avatarWrap.dataset['eggInit'] = '1';
+		avatarWrap.addEventListener('click', handleAvatarTap);
+	}
+
 	function initProfileMedia() {
 		const bg = containerEl?.querySelector<HTMLElement>('#profile-hero-bg');
 		const skeleton = containerEl?.querySelector<HTMLElement>('.profile-hero-skeleton');
@@ -129,6 +167,7 @@
 			initProfileMedia();
 			initProfileParallax();
 			initProfileShare();
+			initAvatarEasterEgg();
 			await initArticleFeatures(containerEl);
 		}
 	});
@@ -140,11 +179,16 @@
 			initProfileMedia();
 			initProfileParallax();
 			initProfileShare();
+			initAvatarEasterEgg();
 			if (containerEl) await initArticleFeatures(containerEl);
 		})();
 	});
 
-	onDestroy(() => cleanupParallax?.());
+	onDestroy(() => {
+		cleanupParallax?.();
+		if (eggResetTimer) clearTimeout(eggResetTimer);
+		if (eggToastTimer) clearTimeout(eggToastTimer);
+	});
 </script>
 
 <svelte:head>
@@ -168,3 +212,33 @@
 		{/if}
 	</div>
 {/if}
+
+<!-- Easter egg toast -->
+{#if eggToastVisible}
+	<div class="egg-toast" aria-live="polite">{eggToast}</div>
+{/if}
+
+<style>
+	.egg-toast {
+		position: fixed;
+		bottom: 88px;
+		left: 50%;
+		transform: translateX(-50%);
+		background: rgba(0, 0, 0, 0.82);
+		color: #fff;
+		font-size: 13px;
+		font-weight: 600;
+		padding: 8px 18px;
+		border-radius: 999px;
+		pointer-events: none;
+		z-index: 9999;
+		white-space: nowrap;
+		backdrop-filter: blur(8px);
+		animation: egg-toast-in 0.18s ease;
+		letter-spacing: 0.02em;
+	}
+	@keyframes egg-toast-in {
+		from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+		to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+	}
+</style>

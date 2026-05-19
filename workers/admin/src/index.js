@@ -19,7 +19,18 @@ const DEFAULT_MAX_MARKDOWN_BYTES = 262_144;
 const DEFAULT_MAX_TOTAL_PAYLOAD_BYTES = 10_485_760;
 const DEFAULT_MAX_ASSET_BYTES = 2_097_152;
 const DEFAULT_MAX_ASSETS_PER_PR = 20;
-const DEFAULT_ALLOWED_ASSET_EXTENSIONS = new Set(['webp', 'jpg', 'jpeg', 'png', 'gif', 'svg']);
+const DEFAULT_ALLOWED_ASSET_EXTENSIONS = new Set([
+	// Images (cover + inline)
+	'webp', 'jpg', 'jpeg', 'png', 'gif', 'svg',
+	// Documents (::file component)
+	'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt',
+	// Archives
+	'zip', 'rar', 'gz', 'tar', '7z',
+	// Video
+	'mp4', 'mov', 'mkv', 'webm',
+	// Audio
+	'mp3', 'wav', 'ogg', 'flac',
+]);
 const SESSION_COOKIE = 'raksara_admin_session';
 const OAUTH_STATE_COOKIE = 'raksara_admin_oauth_state';
 const ADMIN_CHALLENGE_COOKIE = 'raksara_admin_challenge';
@@ -241,8 +252,20 @@ function enforceRequestGuardrails(request, env) {
 		return publicError(405, env, request);
 	}
 
-	if (!isAllowedOrigin(request, env)) {
+	// Auth form-POST paths use challenge + Turnstile + OAuth state for security — CORS
+	// blocking here would show raw JSON in the browser instead of a proper error page.
+	// API endpoints still enforce origin strictly.
+	const AUTH_FORM_PATHS = new Set(['/auth/github/start', '/auth/github/callback', '/auth/logout']);
+	if (!AUTH_FORM_PATHS.has(url.pathname) && !isAllowedOrigin(request, env)) {
 		return publicError(403, env, request);
+	}
+	// For auth form paths: if origin is present but not allowed, redirect back with error
+	// instead of returning raw JSON (which the browser would render as a blank page).
+	if (AUTH_FORM_PATHS.has(url.pathname)) {
+		const origin = request.headers.get('origin');
+		if (origin && !isAllowedOrigin(request, env)) {
+			return adminRedirect(request, env, { auth_error: 'Origin not allowed. Check RAKSARA_SITE_ORIGIN configuration.' });
+		}
 	}
 
 	if (method === 'POST') {
