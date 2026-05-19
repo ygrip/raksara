@@ -1,0 +1,52 @@
+name: Deploy Admin Worker
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'workers/admin/**'
+      - '.github/workflows/deploy-worker.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-worker:
+    runs-on: ubuntu-latest
+    name: Deploy to Cloudflare Workers
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: workers/admin/package.json
+
+      - name: Install worker dependencies
+        run: npm ci
+        working-directory: workers/admin
+
+      - name: Deploy worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          workingDirectory: workers/admin
+          command: >-
+            deploy
+            --route ${{ vars.WORKER_ROUTE }}
+            --var GITHUB_OWNER:${{ vars.GITHUB_OWNER }}
+            --var GITHUB_REPO:${{ vars.GITHUB_REPO }}
+            --var GITHUB_DEFAULT_BRANCH:${{ vars.GITHUB_DEFAULT_BRANCH }}
+            --var CONTENT_ROOT:${{ vars.CONTENT_ROOT }}
+            --var RAKSARA_SITE_ORIGIN:${{ vars.RAKSARA_SITE_ORIGIN }}
+            --var ADMIN_MOCK_MODE:false
+            --var ADMIN_READ_RATE_LIMIT_PER_MINUTE:${{ vars.ADMIN_READ_RATE_LIMIT_PER_MINUTE }}
+            --var ADMIN_WRITE_RATE_LIMIT_PER_MINUTE:${{ vars.ADMIN_WRITE_RATE_LIMIT_PER_MINUTE }}
+            --var ADMIN_MAX_BODY_BYTES:${{ vars.ADMIN_MAX_BODY_BYTES }}

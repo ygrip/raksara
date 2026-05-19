@@ -410,8 +410,11 @@ function injectChips(html: string): string {
 let _gridStorage: Array<{ cols: number; gap: string; content: string }> = [];
 
 function preprocessGrid(md: string): string {
-  return md.replace(/<grid(?:\s+cols=["']?(\d+)["']?)?(?:\s+gap=["']?([^"'\s>]*)["']?)?\s*>([\s\S]*?)<\/grid>/gi, (_m, cols, gap, inner) => {
-    _gridStorage.push({ cols: parseInt(cols ?? '2'), gap: gap ?? '1rem', content: inner.trim() });
+  return md.replace(/<grid((?:\s+[\w-]+(?:=(?:"[^"]*"|'[^']*'|\S+))?)*)\s*>([\s\S]*?)<\/grid>/gi, (_m, attrsStr, inner) => {
+    const attrs = parseAttrs(attrsStr);
+    const cols = attrs['cols'] ?? attrs['columns'] ?? attrs['column'] ?? '2';
+    const gap = attrs['gap'] ?? '1rem';
+    _gridStorage.push({ cols: parseInt(cols, 10) || 2, gap, content: inner.trim() });
     return `[[RAKSARA_GRID:${_gridStorage.length - 1}]]`;
   });
 }
@@ -495,6 +498,31 @@ function injectProgress(html: string): string {
   });
 }
 
+// ── Thought Bubbles ───────────────────────────────────
+
+let _thoughtStorage: Array<{ attrs: Record<string, string>; content: string }> = [];
+
+function preprocessThoughts(md: string): string {
+  return md.replace(/<thought((?:\s+[\w-]+(?:=(?:"[^"]*"|'[^']*'|\S+))?)*)\s*>([\s\S]*?)<\/thought>/gi, (_m, attrsStr, inner) => {
+    _thoughtStorage.push({ attrs: parseAttrs(attrsStr), content: inner.trim() });
+    return `[[RAKSARA_THOUGHT:${_thoughtStorage.length - 1}]]`;
+  });
+}
+
+function injectThoughts(html: string, markedParse: (s: string) => string): string {
+  if (_thoughtStorage.length === 0) return html;
+  return html.replace(/(?:<p>)?\[\[RAKSARA_THOUGHT:(\d+)\]\](?:<\/p>)?/g, (_m, idxStr) => {
+    const { attrs, content } = _thoughtStorage[parseInt(idxStr)] ?? { attrs: {}, content: '' };
+    const align = attrs['align'] === 'left' ? 'left' : 'right';
+    const author = attrs['author'] ? `<span class="thought-bubble-author">${escapeHtml(attrs['author'])}</span>` : '';
+    const logo = attrs['logo']
+      ? `<img class="thought-bubble-logo" src="${escapeHtml(assetUrl(attrs['logo']))}" alt="" loading="lazy" decoding="async">`
+      : '';
+    const attribution = author || logo ? `<div class="thought-bubble-attribution">${logo}${author}</div>` : '';
+    return `<blockquote class="thought-bubble thought-bubble-${align}"><span class="thought-bubble-quote">“</span><div class="thought-bubble-body">${markedParse(restoreCode(content))}</div>${attribution}</blockquote>`;
+  });
+}
+
 // ── Chart.js code blocks ───────────────────────────────
 
 let _chartStorage: string[] = [];
@@ -540,6 +568,7 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
   _chipStorage = [];
   _gridStorage = [];
   _progressStorage = [];
+  _thoughtStorage = [];
   _componentStorage = [];
   _chaptersStorage = [];
   _chartStorage = [];
@@ -611,7 +640,9 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
               preprocessToc(
                 preprocessChapters(
                   preprocessComponents(
-                    preprocessFileAttachments(vaulted)
+                    preprocessThoughts(
+                      preprocessFileAttachments(vaulted)
+                    )
                   )
                 )
               )
@@ -628,20 +659,23 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
   // 4. Inject custom elements
   const finalHtml = injectGrid(
     injectProgress(
-      injectChips(
-        injectContainers(
-          injectPanels(
-            injectChapters(
-              injectComponents(
-                injectToc(rawHtml),
-                opts.components
+      injectThoughts(
+        injectChips(
+          injectContainers(
+            injectPanels(
+              injectChapters(
+                injectComponents(
+                  injectToc(rawHtml),
+                  opts.components
+                ),
+                opts.context
               ),
-              opts.context
+              markedParse
             ),
             markedParse
-          ),
-          markedParse
-        )
+          )
+        ),
+        markedParse
       )
     ),
     markedParse

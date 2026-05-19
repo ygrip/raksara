@@ -356,6 +356,28 @@ async function buildMetadata() {
       siteConfig = { ...siteConfig, ...parsed };
     }
   }
+  if (siteConfig.admin && typeof siteConfig.admin === "object") {
+    const { enabled, workerUrl, allowedAuthors, auth, content } = siteConfig.admin;
+    siteConfig.admin = {
+      enabled,
+      workerUrl,
+      auth:
+        auth && typeof auth === "object"
+          ? {
+              provider: auth.provider === "github" ? "github" : "github",
+              requireTurnstile: auth.requireTurnstile === true,
+            }
+          : undefined,
+      allowedAuthors: Array.isArray(allowedAuthors)
+        ? allowedAuthors.map((author) => ({
+            githubUsername: author?.githubUsername,
+            displayName: author?.displayName,
+            role: author?.role,
+          }))
+        : [],
+      content,
+    };
+  }
   write("config.json", siteConfig);
 
   copyMetadataToWeb();
@@ -668,6 +690,8 @@ function buildRobotsTxt(siteUrl) {
     "Disallow: /categories",
     "Disallow: /category/",
     "Disallow: /blog/dir/",
+    "Disallow: /admin",
+    "Disallow: /admin/",
     "",
     "# --- Block AI crawlers explicitly ---",
     "User-agent: GPTBot",
@@ -712,7 +736,7 @@ function isIndexableRoute(route) {
   }
   if (route.startsWith("/blog/post/")) return true;
   if (route.startsWith("/portfolio/")) return true;
-  if (/^\/[^/]+$/.test(route) && !["/gallery", "/thoughts", "/tags", "/categories"].includes(route)) {
+  if (/^\/[^/]+$/.test(route) && !["/gallery", "/thoughts", "/tags", "/categories", "/admin"].includes(route)) {
     return true;
   }
   return false;

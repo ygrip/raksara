@@ -1,0 +1,6 @@
+name = "raksara-admin-worker"
+main = "src/index.js"
+compatibility_date = "2026-05-18"
+
+# ── Production vars are injected via GitHub Actions → wrangler deploy --var ──
+# ── For local dev, create a .dev.vars file (gitignored) instead            ──

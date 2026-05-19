@@ -1,0 +1,25 @@
+# Copy this file to .dev.vars for local development.
+# .dev.vars is gitignored — never commit it.
+# wrangler dev picks this up automatically.
+
+# ── Non-secret config ──────────────────────────────────────────────────────
+GITHUB_OWNER=yunaz
+GITHUB_REPO=raksara-content
+GITHUB_DEFAULT_BRANCH=main
+CONTENT_ROOT=content
+RAKSARA_SITE_ORIGIN=http://localhost:5173
+ADMIN_MOCK_MODE=true
+ADMIN_READ_RATE_LIMIT_PER_MINUTE=60
+ADMIN_WRITE_RATE_LIMIT_PER_MINUTE=8
+ADMIN_MAX_BODY_BYTES=10485760
+
+# ── Secrets (fill in for real GitHub mode; not needed in mock mode) ─────────
+SESSION_SECRET=replace-with-40-plus-random-chars-generated-by-openssl
+GITHUB_TOKEN=github_pat_replace_with_your_fine_grained_pat
+GITHUB_CLIENT_ID=replace_with_oauth_app_client_id
+GITHUB_CLIENT_SECRET=replace_with_oauth_app_client_secret
+ADMIN_API_KEY_SHA256=replace_with_sha256_hex_of_your_passphrase
+
+# ── Optional ────────────────────────────────────────────────────────────────
+# ADMIN_TURNSTILE_SECRET=replace_with_turnstile_secret_key
+# ADMIN_DEV_PASSPHRASE=local-admin

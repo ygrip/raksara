@@ -12,7 +12,8 @@ function loadPrerenderEntries() {
 	try {
 		const routes = JSON.parse(readFileSync(prerenderManifestUrl, 'utf-8'));
 		if (Array.isArray(routes) && routes.every((route) => typeof route === 'string')) {
-			return routes.length > 0 ? routes : ['/'];
+			const entries = routes.length > 0 ? routes : ['/'];
+			return Array.from(new Set([...entries, '/admin']));
 		}
 	} catch (error) {
 		console.warn(`Failed to load prerender route manifest: ${error.message}`);
