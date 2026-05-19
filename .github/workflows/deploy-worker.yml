@@ -41,9 +41,9 @@ jobs:
           command: >-
             deploy
             --route ${{ vars.WORKER_ROUTE }}
-            --var GITHUB_OWNER:${{ vars.GITHUB_OWNER }}
-            --var GITHUB_REPO:${{ vars.GITHUB_REPO }}
-            --var GITHUB_DEFAULT_BRANCH:${{ vars.GITHUB_DEFAULT_BRANCH }}
+            --var GITHUB_OWNER:${{ vars.GH_OWNER }}
+            --var GITHUB_REPO:${{ vars.GH_REPO }}
+            --var GITHUB_DEFAULT_BRANCH:${{ vars.GH_DEFAULT_BRANCH }}
             --var CONTENT_ROOT:${{ vars.CONTENT_ROOT }}
             --var RAKSARA_SITE_ORIGIN:${{ vars.RAKSARA_SITE_ORIGIN }}
             --var ADMIN_MOCK_MODE:false
