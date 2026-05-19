@@ -20,17 +20,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: workers/admin/package.json
-
-      - name: Install worker dependencies
-        run: npm ci
-        working-directory: workers/admin
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
       - name: Deploy worker
         uses: cloudflare/wrangler-action@v3
