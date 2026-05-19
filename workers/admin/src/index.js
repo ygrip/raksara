@@ -252,20 +252,14 @@ function enforceRequestGuardrails(request, env) {
 		return publicError(405, env, request);
 	}
 
-	// Auth form-POST paths use challenge + Turnstile + OAuth state for security — CORS
-	// blocking here would show raw JSON in the browser instead of a proper error page.
-	// API endpoints still enforce origin strictly.
+	// Auth form-POST paths (browser navigations) are secured by admin challenge + Turnstile +
+	// OAuth state — they do NOT enforce the Origin header because:
+	//   1. Browsers send Origin: null after a cross-origin redirect (e.g. auth_error bounce back)
+	//   2. Form submissions use navigate mode, not fetch — CORS enforcement is not meaningful here
+	// API endpoints (/api/*) still enforce origin strictly via the CORS check below.
 	const AUTH_FORM_PATHS = new Set(['/auth/github/start', '/auth/github/callback', '/auth/logout']);
 	if (!AUTH_FORM_PATHS.has(url.pathname) && !isAllowedOrigin(request, env)) {
 		return publicError(403, env, request);
-	}
-	// For auth form paths: if origin is present but not allowed, redirect back with error
-	// instead of returning raw JSON (which the browser would render as a blank page).
-	if (AUTH_FORM_PATHS.has(url.pathname)) {
-		const origin = request.headers.get('origin');
-		if (origin && !isAllowedOrigin(request, env)) {
-			return adminRedirect(request, env, { auth_error: 'Origin not allowed. Check RAKSARA_SITE_ORIGIN configuration.' });
-		}
 	}
 
 	if (method === 'POST') {
