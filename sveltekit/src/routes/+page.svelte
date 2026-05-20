@@ -4,6 +4,7 @@
 	import { heroTyping } from '$lib/actions/typing';
 	import { assetUrl, formatDate } from '$lib/utils';
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
+	import { buildVersion } from '$lib/metadata';
 
 	let { data }: { data: PageData } = $props();
 	const bundle  = $derived(data.bundle);
@@ -19,7 +20,9 @@
 			?? (heroTitle ? `${heroTitle} — stories, portfolio, gallery, and thoughts.` : 'Raksara homepage')
 	);
 	
-	const galleryCover = '/content/assets/images/gallery-cover.webp';
+	const galleryCover = buildVersion
+		? `/content/assets/images/gallery-cover.webp?v=${buildVersion}`
+		: '/content/assets/images/gallery-cover.webp';
 
 	const postThumbSizes = '(max-width: 480px) 100px, (max-width: 640px) 120px, 180px';
 

@@ -24,6 +24,12 @@ const BASE = '/metadata';
 declare const __BUILD_TS__: string;
 const _v = typeof __BUILD_TS__ !== 'undefined' ? __BUILD_TS__ : '';
 
+/**
+ * The build-time cache-bust token injected by Vite.
+ * Use this to version static asset URLs (images, etc.) after each deploy.
+ */
+export const buildVersion: string = _v;
+
 async function fetchJSON<T>(fetch: typeof globalThis.fetch, path: string): Promise<T> {
   const url = _v ? `${BASE}/${path}?v=${_v}` : `${BASE}/${path}`;
   const res = await fetch(url);
