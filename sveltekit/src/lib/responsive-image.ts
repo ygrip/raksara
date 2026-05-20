@@ -17,6 +17,17 @@ export interface ResponsiveAttrs {
   'data-lqip'?: string;
 }
 
+// __BUILD_TS__ is injected by Vite at build time. Used to cache-bust asset URLs.
+declare const __BUILD_TS__: string;
+const _assetV = typeof __BUILD_TS__ !== 'undefined' ? __BUILD_TS__ : '';
+
+/** Append ?v=<build> to a local URL. Skips external, data, and blob URLs. */
+function withVersion(url: string): string {
+  if (!url || !_assetV) return url;
+  if (/^(https?:)?\/\//i.test(url) || url.startsWith('data:') || url.startsWith('blob:')) return url;
+  return `${url}?v=${_assetV}`;
+}
+
 function normalizeImagePath(raw: string): string {
   let path = String(raw ?? '').trim();
   if (!path) return '';
@@ -25,6 +36,9 @@ function normalizeImagePath(raw: string): string {
   }
   path = path.replace(/^https?:\/\/[^/]+/i, '');
   path = path.replace(/^\/+/, '');
+  // Strip query params / hash before manifest lookup so pre-versioned paths
+  // (e.g. from assetUrl) still resolve correctly against the manifest keys.
+  path = path.replace(/[?#].*$/, '');
   path = path.replace(/^content\/content\//, 'content/');
   if (!path.startsWith('content/') && /^(assets|blog|gallery|pages|portfolio|thoughts)\//.test(path)) {
     path = `content/${path}`;
@@ -46,7 +60,7 @@ export function buildResponsiveAttrs(
   const normalizedPath = normalizeImagePath(imagePath);
   const sizes = options.sizes ?? '(max-width: 832px) calc(100vw - 32px), 800px';
   const attrs: ResponsiveAttrs = {
-    src: publicPath(normalizedPath),
+    src: withVersion(publicPath(normalizedPath)),
     loading: options.eager ? 'eager' : 'lazy',
     decoding: 'async',
   };
@@ -66,10 +80,10 @@ export function buildResponsiveAttrs(
     : allVariants;
   const usableVariants = variants.length ? variants : allVariants.slice(0, 1);
   const includeOriginal = options.includeOriginal ?? !options.maxWidth;
-  attrs.src = publicPath(usableVariants[0]?.path ?? normalizedPath);
+  attrs.src = withVersion(publicPath(usableVariants[0]?.path ?? normalizedPath));
   attrs.srcset = [
-    ...usableVariants.map((v) => `${publicPath(v.path)} ${v.width}w`),
-    ...(includeOriginal ? [`${publicPath(normalizedPath)} ${entry.width}w`] : []),
+    ...usableVariants.map((v) => `${withVersion(publicPath(v.path))} ${v.width}w`),
+    ...(includeOriginal ? [`${withVersion(publicPath(normalizedPath))} ${entry.width}w`] : []),
   ].join(', ');
   attrs.sizes = sizes;
   attrs.width = entry.width;

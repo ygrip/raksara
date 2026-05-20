@@ -18,6 +18,10 @@ export function humanize(slug: string): string {
     .trim();
 }
 
+// __BUILD_TS__ is injected by Vite at build time.
+declare const __BUILD_TS__: string;
+const _assetV = typeof __BUILD_TS__ !== 'undefined' ? __BUILD_TS__ : '';
+
 /** Normalize content asset references for SvelteKit static serving. */
 export function assetUrl(raw: string | undefined | null): string {
   if (!raw) return '';
@@ -28,11 +32,15 @@ export function assetUrl(raw: string | undefined | null): string {
   }
   path = path.replace(/^https?:\/\/[^/]+/i, '');
   path = path.replace(/^\/+/, '');
+  // Strip existing query params/hash before re-versioning to prevent double-?v=
+  // when this function is called on an already-versioned URL (e.g. share.ts pipeline).
+  path = path.replace(/[?#].*$/, '');
   path = path.replace(/^content\/content\//, 'content/');
   if (!path.startsWith('content/') && /^(assets|blog|gallery|pages|portfolio|thoughts)\//.test(path)) {
     path = `content/${path}`;
   }
-  return `/${path}`;
+  const normalized = `/${path}`;
+  return _assetV ? `${normalized}?v=${_assetV}` : normalized;
 }
 
 /**
