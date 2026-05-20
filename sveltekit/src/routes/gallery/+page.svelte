@@ -165,6 +165,15 @@
 	function thumbSource(item: GalleryItem): string {
 		return item.images?.[0]?.src ?? item.image ?? '';
 	}
+	const ogBase = $derived(String(config?.site_url ?? config?.url ?? '').replace(/\/+$/, ''));
+	const galleryCoverImg = $derived(
+		gallery?.find(g => g.image)?.image ??
+		gallery?.find(g => g.images?.[0]?.src)?.images?.[0]?.src ??
+		undefined
+	);
+	const galleryImgUrls = $derived(
+		gallery?.slice(0, 4).map(g => g.image ?? g.images?.[0]?.src ?? '').filter(Boolean) ?? []
+	);
 </script>
 
 <svelte:head>
@@ -172,14 +181,14 @@
 	<meta name="description" content={`Browse ${gallery.length} gallery photos on ${config?.hero_title ?? 'Raksara'}.`} />
 	<meta property="og:title" content="Gallery · {config?.hero_title ?? 'Raksara'}" />
 	<meta property="og:description" content={`Browse ${gallery.length} gallery photos on ${config?.hero_title ?? 'Raksara'}.`} />
-	{@const _ogBase = String(config?.site_url ?? config?.url ?? '').replace(/\/+$/, '')}
-	<meta property="og:image" content="{_ogBase}/og/defaults/gallery-landscape.jpg" />
+
+	<meta property="og:image" content="{ogBase}/og/defaults/gallery-landscape.jpg" />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<meta property="og:image" content="{_ogBase}/og/defaults/gallery-portrait.jpg" />
+	<meta property="og:image" content="{ogBase}/og/defaults/gallery-portrait.jpg" />
 	<meta property="og:image:width" content="1080" />
 	<meta property="og:image:height" content="1350" />
-	<meta name="twitter:image" content="{_ogBase}/og/defaults/gallery-landscape.jpg" />
+	<meta name="twitter:image" content="{ogBase}/og/defaults/gallery-landscape.jpg" />
 </svelte:head>
 
 <div class="page-header">
@@ -187,15 +196,13 @@
 		<h1 class="page-title">Gallery</h1>
 		<p class="page-subtitle">{filteredGallery.length} of {gallery.length} photo{gallery.length !== 1 ? 's' : ''}</p>
 	</div>
-	{@const _galleryCoverImg = gallery?.find(g => g.image)?.image ?? gallery?.find(g => g.images?.[0]?.src)?.images?.[0]?.src ?? undefined}
-	{@const _galleryImgUrls = gallery?.slice(0, 4).map(g => g.image ?? g.images?.[0]?.src ?? '').filter(Boolean) ?? []}
 	<ShareCard
 		title="Gallery"
 		author={config?.author}
 		variant="gallery"
 		pageCount={gallery.length}
-		coverUrl={_galleryCoverImg}
-		galleryImageUrls={_galleryImgUrls}
+		coverUrl={galleryCoverImg}
+		galleryImageUrls={galleryImgUrls}
 	/>
 </div>
 

@@ -31,6 +31,7 @@
 
 	const visible = $derived(sorted.slice(0, page * PAGE_SIZE));
 	const hasMore = $derived(sorted.length > visible.length);
+	const ogBase = $derived(String(config?.site_url ?? config?.url ?? '').replace(/\/+$/, ''));
 
 </script>
 
@@ -39,14 +40,14 @@
 	<meta name="description" content={pageSubtitle ?? `Read short thoughts on ${config?.hero_title ?? 'Raksara'}.`} />
 	<meta property="og:title" content="{pageTitle} · {config?.hero_title ?? 'Raksara'}" />
 	<meta property="og:description" content={pageSubtitle ?? ''} />
-	{@const _ogBase = String(config?.site_url ?? config?.url ?? '').replace(/\/+$/, '')}
-	<meta property="og:image" content="{_ogBase}/og/defaults/thoughts-landscape.jpg" />
+
+	<meta property="og:image" content="{ogBase}/og/defaults/thoughts-landscape.jpg" />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<meta property="og:image" content="{_ogBase}/og/defaults/thoughts-portrait.jpg" />
+	<meta property="og:image" content="{ogBase}/og/defaults/thoughts-portrait.jpg" />
 	<meta property="og:image:width" content="1080" />
 	<meta property="og:image:height" content="1350" />
-	<meta name="twitter:image" content="{_ogBase}/og/defaults/thoughts-landscape.jpg" />
+	<meta name="twitter:image" content="{ogBase}/og/defaults/thoughts-landscape.jpg" />
 </svelte:head>
 
 <div class="page-header">

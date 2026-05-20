@@ -189,6 +189,9 @@
 		if (eggResetTimer) clearTimeout(eggResetTimer);
 		if (eggToastTimer) clearTimeout(eggToastTimer);
 	});
+	const ogBase = $derived(String(config?.site_url ?? config?.url ?? '').replace(/\/+$/, ''));
+	const ogProfileLandscape = $derived(`${ogBase}/og/defaults/profile-landscape.jpg`);
+	const ogProfilePortrait = $derived(`${ogBase}/og/defaults/profile-portrait.jpg`);
 </script>
 
 <svelte:head>
@@ -196,16 +199,13 @@
 	{#if profile?.summary}<meta name="description" content={profile.summary} />{/if}
 	<meta property="og:title" content="{profile?.title ?? 'Profile'} · {config?.title ?? 'Raksara'}" />
 	<meta property="og:description" content={profile?.summary ?? ''} />
-	{@const _ogBase = String(config?.site_url ?? config?.url ?? '').replace(/\/+$/, '')}
-	{@const _ogLandscape = `${_ogBase}/og/defaults/profile-landscape.jpg`}
-	{@const _ogPortrait = `${_ogBase}/og/defaults/profile-portrait.jpg`}
-	<meta property="og:image" content={_ogLandscape} />
+	<meta property="og:image" content={ogProfileLandscape} />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<meta property="og:image" content={_ogPortrait} />
+	<meta property="og:image" content={ogProfilePortrait} />
 	<meta property="og:image:width" content="1080" />
 	<meta property="og:image:height" content="1350" />
-	<meta name="twitter:image" content={_ogLandscape} />
+	<meta name="twitter:image" content={ogProfileLandscape} />
 </svelte:head>
 
 {#if prerenderHtml}

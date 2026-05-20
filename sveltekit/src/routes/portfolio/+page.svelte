@@ -62,6 +62,7 @@
 			return [...map.entries()].map(([label, items]) => ({ label, items }));
 		}
 	});
+	const ogBase = $derived(String(config?.site_url ?? config?.url ?? '').replace(/\/+$/, ''));
 </script>
 
 <svelte:head>
@@ -69,14 +70,14 @@
 	<meta name="description" content={`Explore ${(portfolio ?? []).length} projects in the ${config?.hero_title ?? 'Raksara'} portfolio.`} />
 	<meta property="og:title" content="Portfolio · {config?.hero_title ?? 'Raksara'}" />
 	<meta property="og:description" content={`Explore ${(portfolio ?? []).length} projects in the ${config?.hero_title ?? 'Raksara'} portfolio.`} />
-	{@const _ogBase = String(config?.site_url ?? config?.url ?? '').replace(/\/+$/, '')}
-	<meta property="og:image" content="{_ogBase}/og/defaults/portfolio-landscape.jpg" />
+
+	<meta property="og:image" content="{ogBase}/og/defaults/portfolio-landscape.jpg" />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<meta property="og:image" content="{_ogBase}/og/defaults/portfolio-portrait.jpg" />
+	<meta property="og:image" content="{ogBase}/og/defaults/portfolio-portrait.jpg" />
 	<meta property="og:image:width" content="1080" />
 	<meta property="og:image:height" content="1350" />
-	<meta name="twitter:image" content="{_ogBase}/og/defaults/portfolio-landscape.jpg" />
+	<meta name="twitter:image" content="{ogBase}/og/defaults/portfolio-landscape.jpg" />
 </svelte:head>
 
 <!-- Page header -->
