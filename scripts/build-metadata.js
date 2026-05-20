@@ -13,6 +13,7 @@ const { rollup } = require("rollup");
 const { nodeResolve } = require("@rollup/plugin-node-resolve");
 const commonjs = require("@rollup/plugin-commonjs");
 const { imagesToIco } = require("png-to-ico");
+const { generateOgImages } = require('./og-images');
 
 const REPO_ROOT = path.join(__dirname, "..");
 const LOCAL_CONTENT_LINK = path.join(REPO_ROOT, "content");
@@ -388,6 +389,71 @@ async function buildMetadata() {
     path.join(WEB_DIR, "metadata", "image-manifest.json"),
   );
   await generateGalleryCover(galleryItems);
+
+  // --- OG Image generation ---
+  {
+    const ogSiteUrl = String((siteConfig.site_url || siteConfig.url) || 'readynaz.com').replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    const ogSiteName = String((siteConfig.hero_title || siteConfig.title) || 'Raksara');
+    const ogAccentPalette = getAccentPalette(siteConfig);
+    const ogAccentColor = (ogAccentPalette && (ogAccentPalette.accent || Object.values(ogAccentPalette)[0])) || '#6366f1';
+
+    const ogEntries = [
+      ...posts.map(p => ({ type: 'blog', subtype: p.type || 'article', slug: p.slug, coverPath: p.cover || null })),
+      ...portfolioItems.map(p => ({ type: 'portfolio', subtype: 'portfolio', slug: p.slug, coverPath: p.cover || null })),
+      ...galleryItems.map(g => ({ type: 'gallery', subtype: 'gallery', slug: g.slug, coverPath: g.image || (g.images && g.images[0] && g.images[0].src) || null })),
+      ...thoughts.map(t => ({ type: 'thoughts', subtype: 'thoughts', slug: t.slug, coverPath: null })),
+    ];
+
+    let ogResults = new Map();
+    try {
+      console.log(`[og] Generating OG images for ${ogEntries.length} entries...`);
+      ogResults = await generateOgImages({
+        webDir: WEB_DIR,
+        entries: ogEntries,
+        siteInfo: { siteName: ogSiteName, siteUrl: ogSiteUrl, accentColor: ogAccentColor },
+      });
+      console.log(`[og] OG image generation complete.`);
+    } catch (err) {
+      console.warn('[og] OG image generation failed (non-fatal):', err.message);
+    }
+
+    // Enrich entries with ogImage paths and re-write JSON files
+    function enrichWithOg(items, type) {
+      return items.map(item => {
+        const key = `${type}/${item.slug}`;
+        const og = ogResults.get(key);
+        if (!og) return item;
+        return { ...item, ogImage: og };
+      });
+    }
+
+    const enrichedPosts = enrichWithOg(posts, 'blog');
+    const enrichedPortfolio = enrichWithOg(portfolioItems, 'portfolio');
+    const enrichedGallery = enrichWithOg(galleryItems, 'gallery');
+    const enrichedThoughts = enrichWithOg(thoughts, 'thoughts');
+
+    // Re-write the JSON files with ogImage data included
+    write("posts.json", enrichedPosts);
+    write("portfolio.json", enrichedPortfolio);
+    write("gallery.json", enrichedGallery);
+    write("thoughts.json", enrichedThoughts);
+
+    const sortFnsOg = {
+      latest: (a, b) => new Date(b.date) - new Date(a.date),
+      oldest: (a, b) => new Date(a.date) - new Date(b.date),
+      az: (a, b) => (a.title || "").localeCompare(b.title || ""),
+      za: (a, b) => (b.title || "").localeCompare(a.title || ""),
+    };
+    for (const [variant, fn] of Object.entries(sortFnsOg)) {
+      write(`blog-sorted-${variant}.json`, [...enrichedPosts].sort(fn));
+      write(`portfolio-sorted-${variant}.json`, [...enrichedPortfolio].sort(fn));
+      write(`thoughts-sorted-${variant}.json`, [...enrichedThoughts].sort(fn));
+    }
+
+    copyMetadataToWeb();
+  }
+  // --- End OG Image generation ---
+
   await prerender(posts, thoughts, portfolioItems, galleryItems, siteConfig, imageManifest, pages);
   await generateSeoArtifacts({
     posts,

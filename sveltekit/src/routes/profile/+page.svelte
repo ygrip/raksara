@@ -194,6 +194,16 @@
 <svelte:head>
 	<title>{profile?.title ?? 'Profile'} · {config?.title ?? 'Raksara'}</title>
 	{#if profile?.summary}<meta name="description" content={profile.summary} />{/if}
+	<meta property="og:title" content="{profile?.title ?? 'Profile'} · {config?.title ?? 'Raksara'}" />
+	<meta property="og:description" content={profile?.summary ?? ''} />
+	{#if profile?.cover}
+		<meta property="og:image" content={profile.cover} />
+	{:else}
+		<meta property="og:image" content="/og/defaults/profile-landscape.jpg" />
+	{/if}
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta name="twitter:image" content={profile?.cover ?? '/og/defaults/profile-landscape.jpg'} />
 </svelte:head>
 
 {#if prerenderHtml}

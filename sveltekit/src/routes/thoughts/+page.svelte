@@ -37,6 +37,12 @@
 <svelte:head>
 	<title>{pageTitle} · {config?.hero_title ?? 'Raksara'}</title>
 	<meta name="description" content={pageSubtitle ?? `Read short thoughts on ${config?.hero_title ?? 'Raksara'}.`} />
+	<meta property="og:title" content="{pageTitle} · {config?.hero_title ?? 'Raksara'}" />
+	<meta property="og:description" content={pageSubtitle ?? ''} />
+	<meta property="og:image" content="/og/defaults/thoughts-landscape.jpg" />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta name="twitter:image" content="/og/defaults/thoughts-landscape.jpg" />
 </svelte:head>
 
 <div class="page-header">

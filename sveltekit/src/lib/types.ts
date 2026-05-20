@@ -21,6 +21,7 @@ export interface Post {
   readingMode?: boolean;
   comments_enabled?: boolean;
   status?: 'draft' | 'ongoing' | 'completed';
+  ogImage?: { landscape: string; portrait: string };
 }
 
 export interface PortfolioItem {
@@ -36,6 +37,7 @@ export interface PortfolioItem {
   github?: string;
   demo?: string;
   status?: 'draft' | 'ongoing' | 'completed';
+  ogImage?: { landscape: string; portrait: string };
 }
 
 export interface GalleryImage {
@@ -56,6 +58,7 @@ export interface GalleryItem {
   description?: string;
   tags?: string[];
   category?: string;
+  ogImage?: { landscape: string; portrait: string };
 }
 
 export interface Thought {
@@ -66,6 +69,7 @@ export interface Thought {
   date: string;
   body?: string;
   tags?: string[];
+  ogImage?: { landscape: string; portrait: string };
 }
 
 export interface Page {
@@ -84,6 +88,7 @@ export interface Page {
   medium?: string;
   email?: string;
   metadata?: Array<string | { label?: string; value?: string; url?: string }>;
+  ogImage?: { landscape: string; portrait: string };
 }
 
 export interface DocEntry {

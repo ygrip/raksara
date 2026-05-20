@@ -170,6 +170,12 @@
 <svelte:head>
 	<title>Gallery · {config?.hero_title ?? 'Raksara'}</title>
 	<meta name="description" content={`Browse ${gallery.length} gallery photos on ${config?.hero_title ?? 'Raksara'}.`} />
+	<meta property="og:title" content="Gallery · {config?.hero_title ?? 'Raksara'}" />
+	<meta property="og:description" content={`Browse ${gallery.length} gallery photos on ${config?.hero_title ?? 'Raksara'}.`} />
+	<meta property="og:image" content="/og/defaults/gallery-landscape.jpg" />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta name="twitter:image" content="/og/defaults/gallery-landscape.jpg" />
 </svelte:head>
 
 <div class="page-header">

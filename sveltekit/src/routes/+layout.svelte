@@ -307,6 +307,7 @@
 	<meta property="og:site_name" content={config?.hero_title ?? 'Raksara'} />
 	<meta property="og:type" content="website" />
 	<meta name="twitter:card" content="summary_large_image" />
+	<meta property="og:image" content="/og/defaults/blog-landscape.jpg" />
 	<link id="hljs-dark" rel="stylesheet" href="/vendor/hljs/styles/github-dark.min.css" media={currentTheme === 'light' ? 'not all' : 'all'} />
 	<link id="hljs-light" rel="stylesheet" href="/vendor/hljs/styles/github.min.css" media={currentTheme === 'light' ? 'all' : 'not all'} />
 </svelte:head>

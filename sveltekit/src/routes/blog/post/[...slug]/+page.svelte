@@ -161,9 +161,18 @@
 		<meta property="og:title" content={pageMeta.title} />
 		<meta property="og:description" content={pageMeta.description ?? ''} />
 		<meta property="og:type" content="article" />
-		{#if pageMeta.image}
-			<meta property="og:image" content={pageMeta.image} />
-			<meta name="twitter:image" content={pageMeta.image} />
+		{#if post?.ogImage?.landscape || pageMeta?.image}
+			{@const ogLandscape = post?.ogImage?.landscape ?? pageMeta?.image}
+			{@const ogPortrait = post?.ogImage?.portrait}
+			<meta property="og:image" content={ogLandscape} />
+			<meta property="og:image:width" content="1200" />
+			<meta property="og:image:height" content="630" />
+			{#if ogPortrait}
+				<meta property="og:image" content={ogPortrait} />
+				<meta property="og:image:width" content="1080" />
+				<meta property="og:image:height" content="1350" />
+			{/if}
+			<meta name="twitter:image" content={ogLandscape} />
 		{/if}
 		{#if pageMeta.jsonLd}
 			{@html `<script type="application/ld+json">${JSON.stringify(pageMeta.jsonLd)}</script>`}

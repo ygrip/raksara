@@ -50,9 +50,20 @@
 <svelte:head>
 	<title>{item?.title ?? 'Project'} · {config?.title ?? 'Raksara'}</title>
 	{#if item?.summary}<meta name="description" content={item.summary} />{/if}
-	{#if pageMeta?.image}
-		<meta property="og:image" content={pageMeta.image} />
-		<meta name="twitter:image" content={pageMeta.image} />
+	<meta property="og:title" content={item?.title ?? ''} />
+	<meta property="og:description" content={item?.summary ?? ''} />
+	{#if item?.ogImage?.landscape || pageMeta?.image}
+		{@const ogLandscape = item?.ogImage?.landscape ?? pageMeta?.image}
+		{@const ogPortrait = item?.ogImage?.portrait}
+		<meta property="og:image" content={ogLandscape} />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		{#if ogPortrait}
+			<meta property="og:image" content={ogPortrait} />
+			<meta property="og:image:width" content="1080" />
+			<meta property="og:image:height" content="1350" />
+		{/if}
+		<meta name="twitter:image" content={ogLandscape} />
 	{/if}
 	{#if pageMeta?.jsonLd}
 		{@html `<script type="application/ld+json">${JSON.stringify(pageMeta.jsonLd)}</script>`}
