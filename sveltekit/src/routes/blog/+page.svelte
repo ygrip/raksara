@@ -66,12 +66,11 @@
 	<meta property="og:title" content="Blog · {config?.hero_title ?? 'Raksara'}" />
 	<meta property="og:description" content={`Browse ${(rootPosts ?? []).length} blog posts on ${config?.hero_title ?? 'Raksara'}.`} />
 
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content="{ogBase}/blog/" />
 	<meta property="og:image" content="{ogBase}/og/defaults/blog-landscape.jpg" />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<meta property="og:image" content="{ogBase}/og/defaults/blog-portrait.jpg" />
-	<meta property="og:image:width" content="1080" />
-	<meta property="og:image:height" content="1350" />
 	<meta name="twitter:image" content="{ogBase}/og/defaults/blog-landscape.jpg" />
 </svelte:head>
 

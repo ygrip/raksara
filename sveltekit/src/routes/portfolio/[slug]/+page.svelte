@@ -48,7 +48,7 @@
 </script>
 
 <svelte:head>
-	<title>{item?.title ?? 'Project'} · {config?.title ?? 'Raksara'}</title>
+	<title>{item?.title ?? 'Project'} · {config?.hero_title ?? config?.title ?? 'Raksara'}</title>
 	{#if item?.summary}<meta name="description" content={item.summary} />{/if}
 	<meta property="og:title" content={item?.title ?? ''} />
 	<meta property="og:description" content={item?.summary ?? ''} />

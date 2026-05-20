@@ -37,7 +37,7 @@
 </script>
 
 <svelte:head>
-	<title>{page?.title ?? slug} · {config?.title ?? 'Raksara'}</title>
+	<title>{page?.title ?? slug} · {config?.hero_title ?? config?.title ?? 'Raksara'}</title>
 	{#if page?.summary}<meta name="description" content={page.summary} />{/if}
 </svelte:head>
 

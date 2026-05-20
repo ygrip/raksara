@@ -335,4 +335,294 @@ async function generateOgImages({ webDir, entries, siteInfo }) {
   return results;
 }
 
-module.exports = { generateOgImages, OG_SIZES, OG_DIR_NAME };
+/**
+ * Generate a 1200×630 OG image for the profile page that mirrors the
+ * "share profile" card visual: blurred cover backdrop, circular avatar
+ * centered on the left, name / role / metadata chips on the right.
+ *
+ * @param {Object} params
+ * @param {string} params.webDir  - sveltekit/static directory
+ * @param {{ siteName, siteUrl, accentColor, logoAbsPath }} params.siteInfo
+ * @param {{ name, role, avatarPath, coverPath, metadata }} params.profileData
+ * @returns {Promise<Buffer>}  JPEG buffer
+ */
+async function generateProfileOgImage({ webDir, siteInfo, profileData }) {
+  const W = 1200, H = 630;
+  const { name = '', role = '', avatarPath, coverPath, metadata = [] } = profileData;
+  const { siteName = 'Raksara', siteUrl = '', accentColor = '#6366f1', logoAbsPath = '' } = siteInfo;
+  const accent = accentColor || '#6366f1';
+
+  // ── 1. Load source images ─────────────────────────────────────────────────
+  const [coverBuf, avatarBuf] = await Promise.all([
+    loadSourceImage(coverPath, webDir),
+    loadSourceImage(avatarPath, webDir),
+  ]);
+
+  // ── 2. Backdrop: blurred cover (heavy blur + heavy dark) or gradient ──────
+  let backdrop;
+  if (coverBuf) {
+    backdrop = await sharp(coverBuf)
+      .resize(W, H, { fit: 'cover', position: 'centre' })
+      .blur(32)
+      .modulate({ brightness: 0.28, saturation: 0.55 })
+      .jpeg({ quality: 55 })
+      .toBuffer();
+  } else {
+    const gradSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#030712"/>
+          <stop offset="58%" stop-color="#0f172a"/>
+          <stop offset="100%" stop-color="#020617"/>
+        </linearGradient>
+        <radialGradient id="glow1" cx="20%" cy="18%" r="46%">
+          <stop offset="0%" stop-color="${accent}" stop-opacity="0.28"/>
+          <stop offset="100%" stop-color="transparent" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <rect width="${W}" height="${H}" fill="url(#g)"/>
+      <rect width="${W}" height="${H}" fill="url(#glow1)"/>
+    </svg>`;
+    backdrop = await sharp(Buffer.from(gradSvg)).jpeg({ quality: 82 }).toBuffer();
+  }
+
+  // ── 3. Layout constants ───────────────────────────────────────────────────
+  const m = 20;
+  const cardX = m, cardY = m;
+  const cardW = W - m * 2;   // 1160
+  const cardH = H - m * 2;   // 590
+  const footerH = 76;
+  const contentH = cardH - footerH;   // 514
+  const leftColW = 320;
+  const divX = cardX + leftColW;
+  const rightX = divX + 1;
+  const rightW = cardW - leftColW - 1;
+  const avatarSize = 200;
+  const avatarCX = cardX + Math.round(leftColW / 2);   // 180
+  const avatarCY = cardY + Math.round(contentH / 2);   // 277
+  const cardR = 18;  // card corner radius
+
+  // ── 4. Text layout (right column) ────────────────────────────────────────
+  const chips = (Array.isArray(metadata) ? metadata : []).slice(0, 3).map(item =>
+    typeof item === 'string' ? item : [item.label, item.value].filter(Boolean).join(' : ')
+  );
+  const chipH = 40, chipGap = 12;
+  const textBlockH = 50 + 32 + 22 + chips.length * (chipH + chipGap);
+  const textStartY = cardY + Math.round((contentH - textBlockH) / 2);
+  const nameY = textStartY + 42;
+  const roleY = nameY + 52;
+  const firstChipY = roleY + 38;
+
+  // ── 5. Logo: load SVG and colorize with accent color ─────────────────────
+  let logoPngBuf = null;
+  const logoSize = 38;
+  if (logoAbsPath && fs.existsSync(logoAbsPath)) {
+    try {
+      const logoSvgRaw = fs.readFileSync(logoAbsPath, 'utf-8');
+      // Colorize currentColor → accent, set explicit size
+      const logoColored = logoSvgRaw
+        .replace(/currentColor/g, accent)
+        .replace(/<svg([^>]*)>/, (_, attrs) => {
+          // Inject width/height; preserve viewBox
+          const cleaned = attrs.replace(/\s*(width|height)="[^"]*"/g, '');
+          return `<svg${cleaned} width="${logoSize}" height="${logoSize}">`;
+        });
+      logoPngBuf = await sharp(Buffer.from(logoColored))
+        .resize(logoSize, logoSize)
+        .png()
+        .toBuffer();
+    } catch { /* non-fatal: skip logo */ }
+  }
+
+  // ── 6. Left-column cover: softly blurred + dimmed crop ───────────────────
+  // Composited over the white card to give the avatar a moody photo backdrop.
+  // Clipped to the card's left column with rounded top-left + bottom-left corners.
+  let leftColCoverComposite = null;
+  if (coverBuf) {
+    const lcW = leftColW, lcH = contentH;
+    // Moderate blur (lighter than backdrop) and dim
+    const blurred = await sharp(coverBuf)
+      .resize(lcW, lcH, { fit: 'cover', position: 'centre' })
+      .blur(12)
+      .modulate({ brightness: 0.50, saturation: 0.80 })
+      .jpeg({ quality: 70 })
+      .toBuffer();
+
+    // Clip mask: rounded top-left and bottom-left, square top-right and bottom-right
+    const maskSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${lcW}" height="${lcH}">
+      <path d="M${cardR},0 L${lcW},0 L${lcW},${lcH} L${cardR},${lcH}
+               A${cardR},${cardR} 0 0 1 0,${lcH - cardR}
+               L0,${cardR}
+               A${cardR},${cardR} 0 0 1 ${cardR},0 Z" fill="white"/>
+    </svg>`;
+    const clipped = await sharp(blurred)
+      .composite([{ input: Buffer.from(maskSvg), blend: 'dest-in' }])
+      .png()
+      .toBuffer();
+    leftColCoverComposite = { input: clipped, left: cardX, top: cardY };
+  }
+
+  // ── 7. Build chip SVG elements ────────────────────────────────────────────
+  const rPad = 36;
+  const maxChipW = rightW - rPad * 2;
+  let chipsSvg = '';
+  chips.forEach((text, i) => {
+    const chipW = Math.min(text.length * 11 + 48, maxChipW);
+    const cx2 = rightX + rPad;
+    const cy2 = firstChipY + i * (chipH + chipGap);
+    chipsSvg += `
+      <rect x="${cx2}" y="${cy2}" width="${chipW}" height="${chipH}" rx="${chipH / 2}"
+        fill="#eefdf4" stroke="${accent}" stroke-opacity="0.3" stroke-width="1.5"/>
+      <text x="${cx2 + 24}" y="${cy2 + 26}"
+        font-family="'Helvetica Neue',Helvetica,Arial,sans-serif"
+        font-size="18" font-weight="700" fill="${accent}">${escSvg(text)}</text>`;
+  });
+
+  // ── 8. Logo element for footer SVG ───────────────────────────────────────
+  const logoX = cardX + 14;
+  const logoY = cardY + contentH + Math.round((footerH - logoSize) / 2);
+  const brandX = logoPngBuf ? logoX + logoSize + 12 : cardX + 52;
+  let logoSvgEl = '';
+  if (logoPngBuf) {
+    const b64 = logoPngBuf.toString('base64');
+    logoSvgEl = `<image href="data:image/png;base64,${b64}"
+      x="${logoX}" y="${logoY}" width="${logoSize}" height="${logoSize}"/>`;
+  }
+
+  // ── 9. Composite order ────────────────────────────────────────────────────
+  //  Layer 0  backdrop (blurred cover or gradient)  ← sharp base
+  //  Layer 1  cardBgSvg  — dark overlay + white card + accent stripe
+  //  Layer 2  leftColCoverComposite  — blurred cover clipped to left col
+  //  Layer 3  overlayAndTextSvg  — left-col dark veil, avatar ring, text, footer
+
+  // Layer 1 — card background (no left-col fill; cover layer handles it)
+  const cardBgSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+    <defs>
+      <linearGradient id="acc" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${accent}"/>
+        <stop offset="100%" stop-color="${accent}" stop-opacity="0.75"/>
+      </linearGradient>
+    </defs>
+    <!-- Dark overlay on backdrop -->
+    <rect width="${W}" height="${H}" fill="rgba(2,6,23,0.36)"/>
+    <!-- White card -->
+    <rect x="${cardX}" y="${cardY}" width="${cardW}" height="${cardH}" rx="${cardR}"
+      fill="rgba(255,255,255,0.97)"/>
+    <!-- Accent stripe on left edge -->
+    <rect x="${cardX}" y="${cardY + 22}" width="6" height="${cardH - 44}" rx="3"
+      fill="url(#acc)"/>
+  </svg>`;
+
+  // Layer 3 — dark veil over left col, avatar ring, right-col text, footer
+  const overlayAndTextSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+    <defs>
+      <clipPath id="lc-clip">
+        <path d="M${cardX + cardR},${cardY}
+                 L${divX},${cardY} L${divX},${cardY + contentH}
+                 L${cardX + cardR},${cardY + contentH}
+                 A${cardR},${cardR} 0 0 1 ${cardX},${cardY + contentH - cardR}
+                 L${cardX},${cardY + cardR}
+                 A${cardR},${cardR} 0 0 1 ${cardX + cardR},${cardY} Z"/>
+      </clipPath>
+      <clipPath id="card-clip">
+        <rect x="${cardX}" y="${cardY}" width="${cardW}" height="${cardH}" rx="${cardR}"/>
+      </clipPath>
+    </defs>
+
+    <!-- Left column: dark veil over the blurred cover (or fallback gradient tint) -->
+    ${coverBuf
+      ? `<rect x="${cardX}" y="${cardY}" width="${leftColW}" height="${contentH}"
+           fill="rgba(2,6,23,0.42)" clip-path="url(#lc-clip)"/>`
+      : `<rect x="${cardX}" y="${cardY}" width="${leftColW}" height="${contentH}"
+           fill="rgba(248,250,252,0.82)" clip-path="url(#lc-clip)"/>`}
+
+    <!-- Left/right divider -->
+    <line x1="${divX}" y1="${cardY + 28}" x2="${divX}" y2="${cardY + contentH - 28}"
+      stroke="${coverBuf ? 'rgba(255,255,255,0.15)' : 'rgba(226,232,240,0.9)'}"
+      stroke-width="1"/>
+
+    <!-- Avatar white ring -->
+    <circle cx="${avatarCX}" cy="${avatarCY}" r="${avatarSize / 2 + 9}" fill="white" fill-opacity="0.95"/>
+    <circle cx="${avatarCX}" cy="${avatarCY}" r="${avatarSize / 2 + 5}"
+      fill="${accent}" fill-opacity="0.14"/>
+
+    <!-- Name -->
+    <text x="${rightX + rPad}" y="${nameY}"
+      font-family="'Helvetica Neue',Helvetica,Arial,sans-serif"
+      font-size="42" font-weight="800" fill="#111827">${escSvg(name)}</text>
+
+    <!-- Role -->
+    <text x="${rightX + rPad}" y="${roleY}"
+      font-family="'Helvetica Neue',Helvetica,Arial,sans-serif"
+      font-size="22" font-weight="500" fill="#64748b">${escSvg(role)}</text>
+
+    <!-- Chips -->
+    ${chipsSvg}
+
+    <!-- Footer background (full width, including left col bottom) -->
+    <rect x="${cardX}" y="${cardY + contentH}" width="${cardW}" height="${footerH}"
+      fill="rgba(248,250,252,0.92)" clip-path="url(#card-clip)"/>
+    <line x1="${cardX}" y1="${cardY + contentH}" x2="${cardX + cardW}" y2="${cardY + contentH}"
+      stroke="rgba(226,232,240,0.8)" stroke-width="1"/>
+
+    <!-- Footer: logo (embedded PNG) -->
+    ${logoSvgEl}
+
+    <!-- Footer: site brand name -->
+    <text x="${brandX}" y="${cardY + contentH + 47}"
+      font-family="'Helvetica Neue',Helvetica,Arial,sans-serif"
+      font-size="26" font-weight="800" fill="#0f172a">${escSvg(siteName)}</text>
+
+    <!-- Footer: site URL (right-aligned) -->
+    <text x="${cardX + cardW - 36}" y="${cardY + contentH + 47}"
+      font-family="'Helvetica Neue',Helvetica,Arial,sans-serif"
+      font-size="16" font-weight="400" fill="#94a3b8" text-anchor="end">${escSvg(siteUrl)}</text>
+  </svg>`;
+
+  // ── 10. Circular avatar ────────────────────────────────────────────────────
+  const aSize = avatarSize;
+  let avatarComposite;
+  if (avatarBuf) {
+    const maskSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${aSize}" height="${aSize}">
+      <circle cx="${aSize / 2}" cy="${aSize / 2}" r="${aSize / 2}" fill="white"/>
+    </svg>`;
+    const circularAvatar = await sharp(avatarBuf)
+      .resize(aSize, aSize, { fit: 'cover', position: 'centre' })
+      .composite([{ input: Buffer.from(maskSvg), blend: 'dest-in' }])
+      .png()
+      .toBuffer();
+    avatarComposite = {
+      input: circularAvatar,
+      left: Math.round(avatarCX - aSize / 2),
+      top: Math.round(avatarCY - aSize / 2),
+    };
+  } else {
+    const initial = escSvg((name || 'R').charAt(0).toUpperCase());
+    const fallbackSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${aSize}" height="${aSize}">
+      <circle cx="${aSize / 2}" cy="${aSize / 2}" r="${aSize / 2}" fill="${accent}"/>
+      <text x="${aSize / 2}" y="${aSize / 2 + 22}"
+        font-family="'Helvetica Neue',Helvetica,Arial,sans-serif"
+        font-size="80" font-weight="800" fill="white" text-anchor="middle">${initial}</text>
+    </svg>`;
+    avatarComposite = {
+      input: await sharp(Buffer.from(fallbackSvg)).png().toBuffer(),
+      left: Math.round(avatarCX - aSize / 2),
+      top: Math.round(avatarCY - aSize / 2),
+    };
+  }
+
+  // ── 11. Final composite ───────────────────────────────────────────────────
+  const composites = [
+    { input: Buffer.from(cardBgSvg), top: 0, left: 0 },
+    ...(leftColCoverComposite ? [leftColCoverComposite] : []),
+    { input: Buffer.from(overlayAndTextSvg), top: 0, left: 0 },
+    avatarComposite,
+  ];
+
+  return sharp(backdrop)
+    .composite(composites)
+    .jpeg({ quality: 86, progressive: true, mozjpeg: true })
+    .toBuffer();
+}
+
+module.exports = { generateOgImages, generateProfileOgImage, OG_SIZES, OG_DIR_NAME };

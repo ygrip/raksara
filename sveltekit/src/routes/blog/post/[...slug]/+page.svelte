@@ -155,7 +155,7 @@
 </script>
 
 <svelte:head>
-	<title>{post?.title ?? 'Post'} · {config?.title ?? 'Raksara'}</title>
+	<title>{post?.title ?? 'Post'} · {config?.hero_title ?? config?.title ?? 'Raksara'}</title>
 	<meta name="description" content={post?.summary ?? config?.description ?? config?.hero_subtitle ?? 'Read this post on Raksara.'} />
 	{#if pageMeta}
 		<meta property="og:title" content={pageMeta.title} />

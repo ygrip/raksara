@@ -71,12 +71,11 @@
 	<meta property="og:title" content="Portfolio · {config?.hero_title ?? 'Raksara'}" />
 	<meta property="og:description" content={`Explore ${(portfolio ?? []).length} projects in the ${config?.hero_title ?? 'Raksara'} portfolio.`} />
 
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content="{ogBase}/portfolio/" />
 	<meta property="og:image" content="{ogBase}/og/defaults/portfolio-landscape.jpg" />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<meta property="og:image" content="{ogBase}/og/defaults/portfolio-portrait.jpg" />
-	<meta property="og:image:width" content="1080" />
-	<meta property="og:image:height" content="1350" />
 	<meta name="twitter:image" content="{ogBase}/og/defaults/portfolio-landscape.jpg" />
 </svelte:head>
 

@@ -13,7 +13,7 @@ const { rollup } = require("rollup");
 const { nodeResolve } = require("@rollup/plugin-node-resolve");
 const commonjs = require("@rollup/plugin-commonjs");
 const { imagesToIco } = require("png-to-ico");
-const { generateOgImages } = require('./og-images');
+const { generateOgImages, generateProfileOgImage } = require('./og-images');
 
 const REPO_ROOT = path.join(__dirname, "..");
 const LOCAL_CONTENT_LINK = path.join(REPO_ROOT, "content");
@@ -479,6 +479,43 @@ async function buildMetadata() {
       }
     }
     console.log("  ✓ Synced enriched metadata JSON to sveltekit/static/metadata/");
+
+    // ── Profile OG image ───────────────────────────────────────────────────
+    // Generate a dedicated 1200×630 profile OG image using avatar + cover so
+    // social platforms show the person's photo rather than the generic default.
+    try {
+      const profilePage = (pages || []).find((p) => p.slug === 'profile');
+      if (profilePage && profilePage.path) {
+        const profileMdPath = path.join(REPO_ROOT, profilePage.path);
+        if (fs.existsSync(profileMdPath)) {
+          const rawMd = fs.readFileSync(profileMdPath, 'utf-8');
+          const fm = matter(rawMd).data;
+          const profileOgBuf = await generateProfileOgImage({
+            webDir: WEB_DIR,
+            siteInfo: {
+              siteName: ogSiteName,
+              siteUrl: ogSiteUrl,
+              accentColor: ogAccentColor,
+              logoAbsPath: getLocalAssetAbsolutePath(siteConfig && siteConfig.logo),
+            },
+            profileData: {
+              name: fm.title || ogSiteName,
+              role: fm.role || '',
+              avatarPath: fm.avatar || null,
+              coverPath: fm.cover || null,
+              metadata: fm.metadata || [],
+            },
+          });
+          const profileOgDir = path.join(WEB_DIR, 'og');
+          fs.mkdirSync(profileOgDir, { recursive: true });
+          const profileOgPath = path.join(profileOgDir, 'profile.jpg');
+          fs.writeFileSync(profileOgPath, profileOgBuf);
+          console.log('  ✓ Generated profile OG image → og/profile.jpg');
+        }
+      }
+    } catch (profileOgErr) {
+      console.warn('[og] Profile OG image generation failed (non-fatal):', profileOgErr.message);
+    }
   }
   // --- End OG Image generation ---
 

@@ -174,6 +174,13 @@
 	const galleryImgUrls = $derived(
 		gallery?.slice(0, 4).map(g => g.image ?? g.images?.[0]?.src ?? '').filter(Boolean) ?? []
 	);
+	/** First gallery image as absolute URL for OG — falls back to generated default. */
+	const ogGalleryImage = $derived((() => {
+		const img = galleryCoverImg;
+		if (!img) return `${ogBase}/og/defaults/gallery-landscape.jpg`;
+		if (img.startsWith('http')) return img;
+		return `${ogBase}${img.startsWith('/') ? img : `/${img}`}`;
+	})());
 </script>
 
 <svelte:head>
@@ -181,14 +188,12 @@
 	<meta name="description" content={`Browse ${gallery.length} gallery photos on ${config?.hero_title ?? 'Raksara'}.`} />
 	<meta property="og:title" content="Gallery · {config?.hero_title ?? 'Raksara'}" />
 	<meta property="og:description" content={`Browse ${gallery.length} gallery photos on ${config?.hero_title ?? 'Raksara'}.`} />
-
-	<meta property="og:image" content="{ogBase}/og/defaults/gallery-landscape.jpg" />
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content="{ogBase}/gallery/" />
+	<meta property="og:image" content={ogGalleryImage} />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<meta property="og:image" content="{ogBase}/og/defaults/gallery-portrait.jpg" />
-	<meta property="og:image:width" content="1080" />
-	<meta property="og:image:height" content="1350" />
-	<meta name="twitter:image" content="{ogBase}/og/defaults/gallery-landscape.jpg" />
+	<meta name="twitter:image" content={ogGalleryImage} />
 </svelte:head>
 
 <div class="page-header">

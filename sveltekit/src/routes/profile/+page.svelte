@@ -190,22 +190,24 @@
 		if (eggToastTimer) clearTimeout(eggToastTimer);
 	});
 	const ogBase = $derived(String(config?.site_url ?? config?.url ?? '').replace(/\/+$/, ''));
-	const ogProfileLandscape = $derived(`${ogBase}/og/defaults/profile-landscape.jpg`);
-	const ogProfilePortrait = $derived(`${ogBase}/og/defaults/profile-portrait.jpg`);
+	/**
+	 * Use the build-generated profile OG image (avatar + name card, 1200×630).
+	 * Falls back to the type-default if the build hasn't produced it yet.
+	 */
+	const ogProfileImage = $derived(
+		ogBase ? `${ogBase}/og/profile.jpg` : '/og/profile.jpg'
+	);
 </script>
 
 <svelte:head>
-	<title>{profile?.title ?? 'Profile'} · {config?.title ?? 'Raksara'}</title>
-	{#if profile?.summary}<meta name="description" content={profile.summary} />{/if}
-	<meta property="og:title" content="{profile?.title ?? 'Profile'} · {config?.title ?? 'Raksara'}" />
+	<title>{profile?.title ?? 'Profile'} · {config?.hero_title ?? config?.title ?? 'Raksara'}</title>
+	<meta name="description" content={profile?.summary ?? ''} />
+	<meta property="og:title" content="{profile?.title ?? 'Profile'} · {config?.hero_title ?? config?.title ?? 'Raksara'}" />
 	<meta property="og:description" content={profile?.summary ?? ''} />
-	<meta property="og:image" content={ogProfileLandscape} />
-	<meta property="og:image:width" content="1200" />
-	<meta property="og:image:height" content="630" />
-	<meta property="og:image" content={ogProfilePortrait} />
-	<meta property="og:image:width" content="1080" />
-	<meta property="og:image:height" content="1350" />
-	<meta name="twitter:image" content={ogProfileLandscape} />
+	<meta property="og:type" content="profile" />
+	<meta property="og:url" content="{ogBase}/profile/" />
+	<meta property="og:image" content={ogProfileImage} />
+	<meta name="twitter:image" content={ogProfileImage} />
 </svelte:head>
 
 {#if prerenderHtml}

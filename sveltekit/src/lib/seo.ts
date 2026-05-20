@@ -22,6 +22,11 @@ function resolveUrl(path: string, siteUrl?: string): string {
   return `${base}${path.startsWith('/') ? path : '/' + path}`;
 }
 
+/** Resolve brand/site name from config (hero_title takes priority over title). */
+function brandName(config: SiteConfig): string {
+  return config.hero_title ?? config.title ?? 'Raksara';
+}
+
 /** Build PageMeta for a blog post or portfolio item. */
 export function buildPostMeta(
   post: Post | PortfolioItem,
@@ -29,8 +34,9 @@ export function buildPostMeta(
   slug: string
 ): PageMeta {
   const isPost = post.section === 'blog';
-  const url = resolveUrl(isPost ? `/blog/post/${slug}` : `/portfolio/${slug}`, config.url);
-  const image = post.cover ? resolveUrl(post.cover, config.url) : undefined;
+  const siteUrl = config.site_url ?? config.url;
+  const url = resolveUrl(isPost ? `/blog/post/${slug}` : `/portfolio/${slug}`, siteUrl);
+  const image = post.cover ? resolveUrl(post.cover, siteUrl) : undefined;
 
   const jsonLd = JSON.stringify({
     '@context': 'https://schema.org',
@@ -45,7 +51,7 @@ export function buildPostMeta(
   });
 
   return {
-    title: `${post.title} — ${config.title}`,
+    title: `${post.title} — ${brandName(config)}`,
     description: post.summary ?? config.description ?? '',
     url,
     image,
@@ -67,7 +73,8 @@ export function buildPageMeta(
   },
   config: SiteConfig
 ): PageMeta {
-  const title = opts.title ? `${opts.title} — ${config.title}` : config.title;
+  const brand = brandName(config);
+  const title = opts.title ? `${opts.title} — ${brand}` : brand;
   const description = opts.description ?? config.description ?? '';
   const url = resolveUrl(opts.path ?? '/', config.url);
   return {
