@@ -50,7 +50,7 @@ jobs:
             --var GITHUB_OWNER:${{ vars.GH_OWNER }}
             --var GITHUB_REPO:${{ vars.GH_REPO }}
             --var GITHUB_DEFAULT_BRANCH:${{ vars.GH_DEFAULT_BRANCH }}
-            --var CONTENT_ROOT:${{ vars.CONTENT_ROOT || 'content' }}
+            --var CONTENT_ROOT:${{ vars.CONTENT_ROOT }}
             --var RAKSARA_SITE_ORIGIN:${{ vars.RAKSARA_SITE_ORIGIN }}
             --var ADMIN_MOCK_MODE:false
             --var ADMIN_READ_RATE_LIMIT_PER_MINUTE:${{ vars.ADMIN_READ_RATE_LIMIT_PER_MINUTE || '60' }}

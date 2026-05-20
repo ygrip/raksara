@@ -23,7 +23,7 @@ function loadLocalAdminConfig(contentRoot) {
 	return null;
 }
 
-const contentRoot = process.env.CONTENT_ROOT || 'content';
+const contentRoot = process.env.CONTENT_ROOT ?? '';
 const inlineAdminConfig = process.env.ADMIN_LOCAL_CONFIG || '';
 const fileAdminConfig = inlineAdminConfig ? null : loadLocalAdminConfig(contentRoot);
 

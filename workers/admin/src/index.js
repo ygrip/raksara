@@ -649,8 +649,10 @@ async function fetchRepositoryAdminConfig(env) {
 	const owner = env.GITHUB_OWNER;
 	const repo = env.GITHUB_REPO;
 	const ref = env.GITHUB_DEFAULT_BRANCH || 'main';
-	const contentRoot = String(env.CONTENT_ROOT || 'content').replace(/^\/+|\/+$/g, '');
-	const candidates = [`/${contentRoot}/raksara.yml`, '/raksara.yml'];
+	const contentRoot = String(env.CONTENT_ROOT ?? '').replace(/^\/+|\/+$/g, '');
+	// Probe contentRoot/raksara.yml first (if set), then root raksara.yml.
+	// Dedup so an empty contentRoot doesn't try the same path twice.
+	const candidates = [...new Set([contentRoot ? `${contentRoot}/raksara.yml` : 'raksara.yml', 'raksara.yml'])];
 	for (const candidate of candidates) {
 		try {
 			const encodedPath = candidate
@@ -699,14 +701,16 @@ function safeSlug(value) {
 		.replace(/-{2,}/g, '-');
 }
 
-function safeRepositoryPath(value) {
+function safeRepositoryPath(value, contentRoot = '') {
 	const path = String(value || '')
 		.trim()
 		.replace(/\\/g, '/')
 		.replace(/^\/+/, '')
 		.replace(/\/{2,}/g, '/');
 	if (!path || path.includes('\0') || path.split('/').includes('..')) return '';
-	if (!path.startsWith('content/')) return '';
+	// When contentRoot is set (e.g. 'content'), require that prefix.
+	// When empty (content repo root), any safe path is valid.
+	if (contentRoot && !path.startsWith(contentRoot + '/')) return '';
 	return path;
 }
 
@@ -719,9 +723,9 @@ function byteLengthForContent(content, encoding = 'utf-8') {
 	return new TextEncoder().encode(String(content || '')).byteLength;
 }
 
-function normalizeFileOperation(file, fallbackRole = 'asset') {
+function normalizeFileOperation(file, fallbackRole = 'asset', contentRoot = '') {
 	if (!file || typeof file !== 'object' || Array.isArray(file)) return null;
-	const path = safeRepositoryPath(file.path);
+	const path = safeRepositoryPath(file.path, contentRoot);
 	const encoding = file.encoding === 'base64' ? 'base64' : 'utf-8';
 	const content = typeof file.content === 'string' ? file.content : '';
 	const bytes = byteLengthForContent(content, encoding);
@@ -742,7 +746,7 @@ function fileExtensionFromPath(path) {
 	return match?.[1] || '';
 }
 
-function normalizeAssetOperation(asset) {
+function normalizeAssetOperation(asset, contentRoot = '') {
 	if (!asset || typeof asset !== 'object' || Array.isArray(asset)) return null;
 	return normalizeFileOperation(
 		{
@@ -752,7 +756,8 @@ function normalizeAssetOperation(asset) {
 			role: 'asset',
 			mediaType: asset.mediaType
 		},
-		'asset'
+		'asset',
+		contentRoot
 	);
 }
 
@@ -772,6 +777,8 @@ function getSecurityLimits(adminConfig) {
 }
 
 function collectFileOperations(env, payload, adminConfig = null) {
+	const contentRoot = String(env.CONTENT_ROOT ?? '').replace(/^\/+|\/+$/g, '');
+	const assetPrefix = contentRoot ? `${contentRoot}/assets/` : 'assets/';
 	const limits = getSecurityLimits(adminConfig);
 	const markdownPath = filePathForPayload(env, payload);
 	const files = [
@@ -787,7 +794,7 @@ function collectFileOperations(env, payload, adminConfig = null) {
 
 	if (Array.isArray(payload.assets)) {
 		for (const asset of payload.assets) {
-			const operation = normalizeAssetOperation(asset);
+			const operation = normalizeAssetOperation(asset, contentRoot);
 			if (!operation) throw new Error('Asset files must include a safe content path and base64 content.');
 			files.push(operation);
 		}
@@ -795,7 +802,7 @@ function collectFileOperations(env, payload, adminConfig = null) {
 
 	if (Array.isArray(payload.files)) {
 		for (const file of payload.files) {
-			const operation = normalizeFileOperation(file, 'metadata');
+			const operation = normalizeFileOperation(file, 'metadata', contentRoot);
 			if (!operation) throw new Error('Additional files must include a safe content path and content.');
 			files.push(operation);
 		}
@@ -810,7 +817,7 @@ function collectFileOperations(env, payload, adminConfig = null) {
 		if (file.role === 'content' && file.bytes > limits.maxMarkdownBytes) throw new Error(`Markdown file is too large: ${file.path}`);
 		if (file.role === 'asset') {
 			assetCount += 1;
-			if (!file.path.startsWith('content/assets/')) throw new Error(`Asset path is not allowed: ${file.path}`);
+			if (!file.path.startsWith(assetPrefix)) throw new Error(`Asset path is not allowed: ${file.path}`);
 			if (file.bytes > limits.maxAssetBytes) throw new Error(`Asset file is too large: ${file.path}`);
 			const extension = fileExtensionFromPath(file.path);
 			if (!limits.allowedAssetExtensions.has(extension)) throw new Error(`Asset extension is not allowed: ${file.path}`);
@@ -822,7 +829,7 @@ function collectFileOperations(env, payload, adminConfig = null) {
 	return files;
 }
 
-function extractContentAssetReferences(markdown) {
+function extractContentAssetReferences(markdown, assetPrefix = 'assets/') {
 	const refs = new Set();
 	const text = String(markdown || '');
 	const patterns = [
@@ -834,15 +841,15 @@ function extractContentAssetReferences(markdown) {
 	for (const pattern of patterns) {
 		for (const match of text.matchAll(pattern)) {
 			const value = String(match[1] || '').split(/[?#]/)[0].replace(/^\/+/, '');
-			if (value.startsWith('content/assets/')) refs.add(value);
+			if (value.startsWith(assetPrefix)) refs.add(value);
 		}
 	}
 	return refs;
 }
 
-function validateAssetReferences(payload, files) {
+function validateAssetReferences(payload, files, assetPrefix = 'assets/') {
 	const newAssetPaths = new Set(files.filter((file) => file.role === 'asset').map((file) => file.path));
-	const references = extractContentAssetReferences(payload.markdown);
+	const references = extractContentAssetReferences(payload.markdown, assetPrefix);
 	const missingNewAssets = [];
 	for (const reference of references) {
 		const inSubmittedAssets = newAssetPaths.has(reference);
@@ -1005,11 +1012,11 @@ function validateCreatePayload(payload, adminConfig = null) {
 }
 
 function filePathForPayload(env, payload) {
-	const contentRoot = String(env.CONTENT_ROOT || 'content').replace(/^\/+|\/+$/g, '');
+	const contentRoot = String(env.CONTENT_ROOT ?? '').replace(/^\/+|\/+$/g, '');
 	const type = String(payload.type);
 	const slug = safeSlug(payload.slug);
 	const folder = type === 'pages' ? 'pages' : type;
-	return `${contentRoot}/${folder}/${slug}.md`;
+	return contentRoot ? `${contentRoot}/${folder}/${slug}.md` : `${folder}/${slug}.md`;
 }
 
 function mockPullRequests() {
@@ -1076,7 +1083,9 @@ async function handleCreatePr(request, env) {
 	let files;
 	try {
 		files = collectFileOperations(env, payload, adminConfig);
-		validateAssetReferences(payload, files);
+		const contentRoot = String(env.CONTENT_ROOT ?? '').replace(/^\/+|\/+$/g, '');
+		const assetPrefix = contentRoot ? `${contentRoot}/assets/` : 'assets/';
+		validateAssetReferences(payload, files, assetPrefix);
 	} catch (err) {
 		return publicError(422, env, request);
 	}
@@ -1232,9 +1241,11 @@ async function route(request, env) {
 				else if (latest.state === 'CHANGES_REQUESTED') reviewStatus = 'changes_requested';
 			}
 			// Classify files
+			const _contentRoot = String(env.CONTENT_ROOT ?? '').replace(/^\/+|\/+$/g, '');
+			const _assetPrefix = _contentRoot ? `${_contentRoot}/assets/` : 'assets/';
 			const classifiedFiles = Array.isArray(files) ? files.map((f) => {
 				const p = f.filename || '';
-				const role = p.endsWith('.md') ? 'content' : p.startsWith('content/assets/') ? 'asset' : 'other';
+				const role = p.endsWith('.md') ? 'content' : p.startsWith(_assetPrefix) ? 'asset' : 'other';
 				return { path: p, role };
 			}) : [];
 			// Fetch markdown content from first .md file
