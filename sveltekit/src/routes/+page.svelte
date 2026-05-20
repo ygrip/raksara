@@ -18,12 +18,8 @@
 			?? heroSubtitle
 			?? (heroTitle ? `${heroTitle} — stories, portfolio, gallery, and thoughts.` : 'Raksara homepage')
 	);
-	// Use the first available gallery image as the cover (no hardcoded path that may not exist)
-	const galleryCover = $derived(
-		gallery?.find(g => g.image)?.image ??
-		gallery?.find(g => g.images?.[0]?.src)?.images?.[0]?.src ??
-		null
-	);
+	
+	const galleryCover = '/content/assets/images/gallery-cover.webp';
 
 	const postThumbSizes = '(max-width: 480px) 100px, (max-width: 640px) 120px, 180px';
 

@@ -1406,7 +1406,7 @@ async function route(request, env) {
 			if (!author) {
 				const allowed = adminConfig.allowedAuthors.map((entry) => entry.githubUsername).join(', ');
 				throw new Error(
-					`GitHub user "${githubUser.login}" is not allowed for this admin. Allowed users: ${allowed || '(none configured)'}.`
+					`GitHub user "${githubUser.login}" is not allowed for this admin.`
 				);
 			}
 
