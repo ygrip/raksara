@@ -49,20 +49,41 @@ jobs:
         run: npm ci
         working-directory: sveltekit
 
-      - name: Restore image variant cache
+      # image-manifest.json is in metadata/ (not in the content dir), so it survives
+      # the copyMetadataToWeb() rm-rf. generateResponsiveImages() uses it for
+      # hash-based skip logic. Cache the generated responsive images in the content
+      # repo checkout path so copyMetadataToWeb() carries them into sveltekit/static/content/
+      # before generateResponsiveImages() runs (making allExist=true → skip).
+      - name: Restore image manifest cache
         uses: actions/cache@v4
         with:
-          path: |
-            sveltekit/static/content/.raksara-responsive
-            metadata/image-manifest.json
+          path: metadata/image-manifest.json
           key: raksara-images-${{ hashFiles('content/assets/**') }}
-          restore-keys: |
-            raksara-images-
+          restore-keys: raksara-images-
+
+      - name: Restore responsive image variant cache
+        uses: actions/cache@v4
+        with:
+          path: content/.raksara-responsive
+          key: raksara-responsive-${{ hashFiles('content/assets/**') }}
+          restore-keys: raksara-responsive-
 
       - name: Build metadata and static assets
         env:
           SITE_URL: ${{ vars.SITE_URL }}
         run: npm run build:metadata
+
+      # Sync generated responsive images back to content/.raksara-responsive so the
+      # cache action (above) saves them. On the next run the cache will be restored to
+      # content/.raksara-responsive, copyMetadataToWeb() will copy them into
+      # sveltekit/static/content/, and generateResponsiveImages() will skip them.
+      - name: Save responsive images for next cache
+        run: |
+          if [ -d sveltekit/static/content/.raksara-responsive ]; then
+            mkdir -p content/.raksara-responsive
+            rsync -a --delete sveltekit/static/content/.raksara-responsive/. content/.raksara-responsive/
+            echo "Synced $(find content/.raksara-responsive -type f | wc -l) responsive image variants to cache"
+          fi
 
       - name: Build SvelteKit
         env:
