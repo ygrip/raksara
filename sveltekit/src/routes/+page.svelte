@@ -18,7 +18,12 @@
 			?? heroSubtitle
 			?? (heroTitle ? `${heroTitle} — stories, portfolio, gallery, and thoughts.` : 'Raksara homepage')
 	);
-	const galleryCover = '/content/assets/images/gallery-cover.webp';
+	// Use the first available gallery image as the cover (no hardcoded path that may not exist)
+	const galleryCover = $derived(
+		gallery?.find(g => g.image)?.image ??
+		gallery?.find(g => g.images?.[0]?.src)?.images?.[0]?.src ??
+		null
+	);
 
 	const postThumbSizes = '(max-width: 480px) 100px, (max-width: 640px) 120px, 180px';
 
@@ -166,7 +171,7 @@
 
 <!-- Gallery stack widget -->
 {#if gallery && gallery.length > 0}
-	{@const stackSources = [galleryCover, galleryCover, galleryCover]}
+	{@const stackSources = galleryCover ? [galleryCover, galleryCover, galleryCover] : gallery.slice(0, 3).map(g => g.image ?? g.images?.[0]?.src ?? '')}
 	{#if stackSources.length}
 		<div class="home-section">
 			<div class="gallery-window">

@@ -398,7 +398,11 @@ async function buildMetadata() {
   let enrichedThoughts = thoughts;
 
   {
-    const ogSiteUrl = String((siteConfig.site_url || siteConfig.url) || 'readynaz.com').replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    // Full site URL (with protocol) for making OG image paths absolute.
+    // WhatsApp / LinkedIn / Twitter all require absolute https:// URLs.
+    const ogSiteRoot = String((siteConfig.site_url || siteConfig.url) || '').replace(/\/+$/, '');
+    // Hostname-only version used inside generated SVG images
+    const ogSiteUrl = ogSiteRoot.replace(/^https?:\/\//, '');
     const ogSiteName = String((siteConfig.hero_title || siteConfig.title) || 'Raksara');
     const ogAccentPalette = getAccentPalette(siteConfig);
     const ogAccentColor = (ogAccentPalette && (ogAccentPalette.accent || Object.values(ogAccentPalette)[0])) || '#6366f1';
@@ -423,11 +427,18 @@ async function buildMetadata() {
       console.warn('[og] OG image generation failed (non-fatal):', err.message);
     }
 
-    // Enrich entries with ogImage paths
+    // Enrich entries with ogImage paths (absolute URLs for social sharing)
+    function toAbsoluteOg(og) {
+      if (!og || !ogSiteRoot) return og;
+      return {
+        landscape: og.landscape ? `${ogSiteRoot}${og.landscape}` : og.landscape,
+        portrait: og.portrait ? `${ogSiteRoot}${og.portrait}` : og.portrait,
+      };
+    }
     function enrichWithOg(items, type) {
       return items.map(item => {
         const key = `${type}/${item.slug}`;
-        const og = ogResults.get(key);
+        const og = toAbsoluteOg(ogResults.get(key));
         if (!og) return item;
         return { ...item, ogImage: og };
       });

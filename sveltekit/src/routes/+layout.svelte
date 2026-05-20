@@ -28,6 +28,10 @@
 	const adsenseId = $derived(config ? getAdsenseId(config) : '');
 	const currentPath = $derived($page.url.pathname);
 	const canonicalHref = $derived(buildCanonicalHref(currentPath));
+	// Used for absolute OG image URLs (WhatsApp / social platforms require https://)
+	const siteRoot = $derived(
+		String(config?.site_url || config?.url || $page.url.origin).replace(/\/+$/, '')
+	);
 	const siteDescription = $derived(
 		config?.description?.trim()
 			|| config?.hero_subtitle?.trim()
@@ -307,7 +311,9 @@
 	<meta property="og:site_name" content={config?.hero_title ?? 'Raksara'} />
 	<meta property="og:type" content="website" />
 	<meta name="twitter:card" content="summary_large_image" />
-	<meta property="og:image" content="/og/defaults/blog-landscape.jpg" />
+	<meta property="og:image" content="{siteRoot}/og/defaults/blog-landscape.jpg" />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
 	<link id="hljs-dark" rel="stylesheet" href="/vendor/hljs/styles/github-dark.min.css" media={currentTheme === 'light' ? 'not all' : 'all'} />
 	<link id="hljs-light" rel="stylesheet" href="/vendor/hljs/styles/github.min.css" media={currentTheme === 'light' ? 'all' : 'not all'} />
 </svelte:head>

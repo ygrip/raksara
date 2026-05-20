@@ -73,6 +73,19 @@
 	let catDropdownOpen = $state(false);
 	let catInputEl: HTMLInputElement | null = $state(null);
 
+	// Directory picker (blog only)
+	let selectedDir = $state('');
+	let dirInput = $state('');
+	let dirDropdownOpen = $state(false);
+	let dirInputEl: HTMLInputElement | null = $state(null);
+
+	// Component picker popup
+	let componentPickerOpen = $state(false);
+	let compSearch = $state('');
+
+	// Multi-step form
+	let formStep = $state<1 | 2>(1);
+
 	// URL field errors
 	let githubError = $state('');
 	let demoError = $state('');
@@ -115,7 +128,8 @@
 			return matchesSearch && matchesStatus;
 		})
 	);
-	const currentSlug = $derived(slugifyAdmin(contentForm.slug || contentForm.title));
+	const baseSlugDerived = $derived(slugifyAdmin(contentForm.slug || contentForm.title));
+	const currentSlug = $derived(selectedDir ? `${selectedDir}/${baseSlugDerived}` : baseSlugDerived);
 	const slugExists = $derived(!!currentSlug && data.existingSlugs.includes(currentSlug));
 	const showPrevNextField = $derived(hasPrevNextField(contentForm));
 	const navItemsForType = $derived(
@@ -159,6 +173,20 @@
 		data.existingCategories
 			.filter((c) => !catInput.trim() || c.toLowerCase().includes(catInput.trim().toLowerCase()))
 			.slice(0, 10)
+	);
+
+	const filteredDirs = $derived(
+		data.blogDirKeys
+			.filter((d) => !dirInput.trim() || d.toLowerCase().includes(dirInput.trim().toLowerCase()))
+			.slice(0, 14)
+	);
+
+	const filteredCompsSearch = $derived(
+		filteredComponents.filter((c) =>
+			!compSearch.trim() ||
+			c.label.toLowerCase().includes(compSearch.trim().toLowerCase()) ||
+			c.description.toLowerCase().includes(compSearch.trim().toLowerCase())
+		)
 	);
 
 	const PORTFOLIO_STATUSES = [
@@ -378,6 +406,8 @@
 		contentForm.type = (event.currentTarget as HTMLSelectElement).value;
 		// Reset subtype for non-blog
 		if (contentForm.type !== 'blog') contentForm.subtype = '';
+		// Reset dir for non-blog
+		if (contentForm.type !== 'blog') selectedDir = '';
 		// Reset cover for types that don't support it
 		if (!hasCoverField(contentForm)) contentForm.coverAsset = undefined;
 		// Reset prev/next for types that don't support it
@@ -440,6 +470,52 @@
 		} else if (event.key === 'Escape') {
 			catDropdownOpen = false;
 		}
+	}
+
+	// Directory picker (blog)
+	function selectDir(dir: string) {
+		selectedDir = dir;
+		dirInput = '';
+		dirDropdownOpen = false;
+	}
+
+	function clearDir() {
+		selectedDir = '';
+		dirInput = '';
+	}
+
+	function handleDirKeydown(event: KeyboardEvent) {
+		if (event.key === 'Enter') {
+			event.preventDefault();
+			const val = dirInput.trim();
+			if (val) {
+				selectedDir = slugifyAdmin(val);
+				dirInput = '';
+				dirDropdownOpen = false;
+				dirInputEl?.blur();
+			}
+		} else if (event.key === 'Backspace' && !dirInput && selectedDir) {
+			clearDir();
+		} else if (event.key === 'Escape') {
+			dirDropdownOpen = false;
+		}
+	}
+
+	// Multi-step form helpers
+	function cancelForm() {
+		contentForm = createDefaultContentForm();
+		contentAssets = [];
+		selectedDir = '';
+		formStep = 1;
+		formError = '';
+		createResult = '';
+		createError = '';
+	}
+
+	function goNextStep() {
+		if (!contentForm.title.trim()) { formError = 'Title is required.'; return; }
+		formError = '';
+		formStep = 2;
 	}
 
 	// Assets
@@ -1193,7 +1269,7 @@
 			showApiToast('error', 'Sign in with GitHub before creating a content PR.');
 			return;
 		}
-		if (!contentPayload.title || !contentPayload.slug) {
+		if (!contentForm.title.trim()) {
 			formError = 'Title is required.';
 			return;
 		}
@@ -1206,19 +1282,21 @@
 		if (githubError || demoError) return;
 		isCreatingPr = true;
 		try {
-			const result = await adminClient.createContentPr(activeWorkerUrl, contentPayload, {
+			// Build full slug with optional directory prefix
+			const baseSlug = slugifyAdmin(contentForm.slug || contentForm.title);
+			const fullSlug = selectedDir ? `${selectedDir}/${baseSlug}` : baseSlug;
+			const payload = buildContentPrPayload({ ...contentForm, slug: fullSlug }, contentAssets, contentForm.coverAsset);
+			const result = await adminClient.createContentPr(activeWorkerUrl, payload, {
 				adminChallenge,
 				csrfToken
 			});
 			showApiToast('success', `Created PR #${result.pullRequest.number}: ${result.pullRequest.url}`);
-			createResult = '';
-			contentForm = createDefaultContentForm();
-			contentAssets = [];
 			tagInput = '';
 			catInput = '';
 			prSearchQuery = '';
 			prStatusFilter = 'all';
 			prsLoaded = false;
+			cancelForm();
 			if (activeTab === 'prs') await loadPrs();
 		} catch (error) {
 			showApiError('Unable to create content PR', error, 'We could not create the content PR.');
@@ -1255,6 +1333,16 @@
 		requestAnimationFrame(() => navPickerSearchEl?.focus());
 		function onKey(e: KeyboardEvent) {
 			if (e.key === 'Escape') navPickerOpen = null;
+		}
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	});
+
+	// Close component picker on Escape
+	$effect(() => {
+		if (!componentPickerOpen) return;
+		function onKey(e: KeyboardEvent) {
+			if (e.key === 'Escape') { componentPickerOpen = false; compSearch = ''; }
 		}
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
@@ -1541,7 +1629,46 @@
 				{/if}
 			</div>
 		{:else}
+		<!-- Step indicator -->
+		<div class="form-steps" role="navigation" aria-label="Form steps">
+			<button
+				type="button"
+				class="form-step-btn"
+				class:form-step-active={formStep === 1}
+				class:form-step-done={formStep === 2}
+				onclick={() => (formStep = 1)}
+				aria-current={formStep === 1 ? 'step' : undefined}
+			>
+				<span class="form-step-num" aria-hidden="true">
+					{#if formStep === 2}
+						<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+					{:else}
+						1
+					{/if}
+				</span>
+				<span class="form-step-label">Details</span>
+			</button>
+			<div class="form-step-track" aria-hidden="true">
+				<div class="form-step-track-fill" class:filled={formStep === 2}></div>
+			</div>
+			<button
+				type="button"
+				class="form-step-btn"
+				class:form-step-active={formStep === 2}
+				onclick={() => { if (contentForm.title.trim()) formStep = 2; }}
+				aria-current={formStep === 2 ? 'step' : undefined}
+				disabled={!contentForm.title.trim()}
+				title={!contentForm.title.trim() ? 'Enter a title first' : undefined}
+			>
+				<span class="form-step-num" aria-hidden="true">2</span>
+				<span class="form-step-label">Content</span>
+			</button>
+		</div>
+
 		<form class="content-form" onsubmit={(e) => e.preventDefault()}>
+
+			<!-- ── STEP 1: Details ── -->
+			{#if formStep === 1}
 
 			<!-- Type + Subtype (blog only) + Title -->
 			<div class="form-row" class:form-row-3={contentForm.type === 'blog'}>
@@ -1569,6 +1696,47 @@
 					<input value={contentForm.title} oninput={updateTitle} placeholder="New article title" />
 				</label>
 			</div>
+
+			<!-- Directory picker (blog only) -->
+			{#if contentForm.type === 'blog'}
+				<div class="field-group full">
+					<span class="field-label">Directory</span>
+					<div class="chip-field">
+						{#if selectedDir}
+							<span class="chip chip-dir">
+								{selectedDir}
+								<button
+									type="button"
+									class="chip-remove"
+									onclick={(e) => { e.stopPropagation(); clearDir(); }}
+									aria-label="Remove directory"
+								>×</button>
+							</span>
+						{/if}
+						{#if !selectedDir}
+							<input
+								bind:this={dirInputEl}
+								bind:value={dirInput}
+								class="chip-input"
+								placeholder="Pick or type a directory path..."
+								onfocus={() => (dirDropdownOpen = true)}
+								onblur={() => setTimeout(() => (dirDropdownOpen = false), 160)}
+								onkeydown={handleDirKeydown}
+								autocomplete="off"
+							/>
+						{/if}
+					</div>
+					{#if dirDropdownOpen && filteredDirs.length}
+						<div class="chip-dropdown">
+							{#each filteredDirs as dir}
+								<button type="button" class="chip-option" onmousedown={(e) => { e.preventDefault(); selectDir(dir); }}>
+									{dir}
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			{/if}
 
 			<!-- Slug preview -->
 			{#if currentSlug}
@@ -1742,6 +1910,66 @@
 				</label>
 			{/if}
 
+			<!-- Prev / next navigation (blog and pages only) -->
+			{#if showPrevNextField}
+				<div class="form-row prev-next-row full">
+					<!-- Previous page trigger -->
+					<div class="nav-field-wrap">
+						<span class="field-label">Previous Page</span>
+						{#if contentForm.prevPage}
+							<div class="nav-selected-chip">
+								<div class="nav-chip-info">
+									<span class="nav-chip-title">{contentForm.prevPage.title}</span>
+									<code class="nav-chip-slug">{contentForm.prevPage.slug}</code>
+								</div>
+								<button type="button" class="nav-chip-remove" onclick={() => (contentForm.prevPage = null)} aria-label="Remove previous page">×</button>
+							</div>
+						{:else}
+							<button type="button" class="nav-pick-trigger" onclick={() => (navPickerOpen = 'prev')}>
+								<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+								Search &amp; select…
+							</button>
+						{/if}
+					</div>
+
+					<!-- Next page trigger -->
+					<div class="nav-field-wrap">
+						<span class="field-label">Next Page</span>
+						{#if contentForm.nextPage}
+							<div class="nav-selected-chip">
+								<div class="nav-chip-info">
+									<span class="nav-chip-title">{contentForm.nextPage.title}</span>
+									<code class="nav-chip-slug">{contentForm.nextPage.slug}</code>
+								</div>
+								<button type="button" class="nav-chip-remove" onclick={() => (contentForm.nextPage = null)} aria-label="Remove next page">×</button>
+							</div>
+						{:else}
+							<button type="button" class="nav-pick-trigger" onclick={() => (navPickerOpen = 'next')}>
+								<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+								Search &amp; select…
+							</button>
+						{/if}
+					</div>
+				</div>
+			{/if}
+
+			<!-- Step 1 Footer -->
+			<div class="form-footer full">
+				<button type="button" class="btn-outline button-reset" onclick={cancelForm}>Cancel</button>
+				<button
+					type="button"
+					class="btn-primary button-reset"
+					onclick={goNextStep}
+					disabled={!contentForm.title.trim()}
+				>
+					Next
+					<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+				</button>
+			</div>
+
+			<!-- ── STEP 2: Content ── -->
+			{:else}
+
 			<!-- Cover image (blog article, portfolio, pages) -->
 			{#if data.admin.features.allowAssetUpload && showCoverField}
 				<div class="cover-field full">
@@ -1802,8 +2030,8 @@
 						<button
 							type="button"
 							class="toolbar-toggle"
-							class:active={showComponentToolbar}
-							onclick={() => (showComponentToolbar = !showComponentToolbar)}
+							class:active={componentPickerOpen}
+							onclick={() => { componentPickerOpen = true; compSearch = ''; }}
 							title="Insert component"
 						>
 							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -1817,7 +2045,7 @@
 					{/if}
 				</div>
 
-				<!-- Formatting toolbar (Section A) — always shown in write mode for non-gallery -->
+				<!-- Formatting toolbar — always shown in write mode for non-gallery -->
 				{#if bodyTabMode === 'write' && contentForm.type !== 'gallery'}
 					<div class="fmt-toolbar">
 						<button type="button" class="fmt-btn" title="Bold" onclick={fmtBold}><strong>B</strong></button>
@@ -1846,42 +2074,6 @@
 							<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/><polyline points="21 15 16 10 5 21" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
 							<span>Img</span>
 						</button>
-					</div>
-				{/if}
-
-				<!-- Components toolbar (Section B) -->
-				{#if showComponentToolbar && data.admin.features.allowCustomComponents && filteredComponents.length > 0}
-					<div class="component-toolbar">
-						{#each COMPONENT_GROUPS as group}
-							{@const items = filteredComponents.filter((c) => c.group === group.id)}
-							{#if items.length}
-								<div class="toolbar-group">
-									<span class="toolbar-group-label">{group.label}</span>
-									<div class="toolbar-btns">
-										{#each items as comp}
-											<button
-												type="button"
-												class="toolbar-btn"
-												title={comp.description + '\n\nPreview: ' + comp.preview}
-												onclick={() => {
-													if (comp.id === 'file' && data.admin.features.allowAssetUpload) {
-														fileAttachInputEl?.click();
-													} else if (comp.id === 'video-player') {
-														videoPickerOpen = true;
-														videoPickerUrl = '';
-														videoPickerAlt = '';
-														videoPickerThumb = '';
-														videoPickerThumbAsset = null;
-													} else {
-														insertSnippet(comp.snippet);
-													}
-												}}
-											>{comp.label}</button>
-										{/each}
-									</div>
-								</div>
-							{/if}
-						{/each}
 					</div>
 				{/if}
 
@@ -1956,60 +2148,24 @@
 				<p class="muted full">Asset uploads are disabled by admin config.</p>
 			{/if}
 
-			<!-- Prev / next navigation (blog and pages only) -->
-			{#if showPrevNextField}
-				<div class="form-row prev-next-row full">
-					<!-- Previous page trigger -->
-					<div class="nav-field-wrap">
-						<span class="field-label">Previous Page</span>
-						{#if contentForm.prevPage}
-							<div class="nav-selected-chip">
-								<div class="nav-chip-info">
-									<span class="nav-chip-title">{contentForm.prevPage.title}</span>
-									<code class="nav-chip-slug">{contentForm.prevPage.slug}</code>
-								</div>
-								<button type="button" class="nav-chip-remove" onclick={() => (contentForm.prevPage = null)} aria-label="Remove previous page">×</button>
-							</div>
-						{:else}
-							<button type="button" class="nav-pick-trigger" onclick={() => (navPickerOpen = 'prev')}>
-								<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-								Search &amp; select…
-							</button>
-						{/if}
-					</div>
-
-					<!-- Next page trigger -->
-					<div class="nav-field-wrap">
-						<span class="field-label">Next Page</span>
-						{#if contentForm.nextPage}
-							<div class="nav-selected-chip">
-								<div class="nav-chip-info">
-									<span class="nav-chip-title">{contentForm.nextPage.title}</span>
-									<code class="nav-chip-slug">{contentForm.nextPage.slug}</code>
-								</div>
-								<button type="button" class="nav-chip-remove" onclick={() => (contentForm.nextPage = null)} aria-label="Remove next page">×</button>
-							</div>
-						{:else}
-							<button type="button" class="nav-pick-trigger" onclick={() => (navPickerOpen = 'next')}>
-								<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-								Search &amp; select…
-							</button>
-						{/if}
-					</div>
-				</div>
-			{/if}
-
-			<!-- Footer -->
+			<!-- Step 2 Footer -->
 			<div class="form-footer full">
+				<button type="button" class="btn-outline button-reset" onclick={() => (formStep = 1)}>
+					<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13 8H3M7 12l-4-4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+					Back
+				</button>
+				<button type="button" class="btn-outline button-reset footer-cancel" onclick={cancelForm}>Cancel</button>
 				<button
 					type="button"
 					class="btn-primary button-reset"
 					onclick={createContentPrFromForm}
 					disabled={!workerStatus?.enabled || isCreatingPr}
 				>
-					{isCreatingPr ? 'Creating...' : 'Create Content PR'}
+					{isCreatingPr ? 'Creating…' : 'Create PR'}
 				</button>
 			</div>
+
+			{/if}
 
 			{#if formError}<p class="feedback-error full">{formError}</p>{/if}
 		</form>
@@ -2184,6 +2340,82 @@
 						{/if}
 					</div>
 				{/if}
+			</div>
+		</div>
+	{/if}
+
+	<!-- Component picker popup -->
+	{#if componentPickerOpen}
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="comp-picker-overlay" onclick={(e) => { if (e.target === e.currentTarget) componentPickerOpen = false; }}>
+			<div class="comp-picker" role="dialog" aria-modal="true" aria-label="Insert component">
+				<div class="nav-picker-header">
+					<span class="nav-picker-title">Insert Component</span>
+					<button type="button" class="pr-drawer-close" onclick={() => (componentPickerOpen = false)} aria-label="Close">
+						<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+							<path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+						</svg>
+					</button>
+				</div>
+				<div class="nav-picker-search-wrap">
+					<svg class="nav-picker-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+						<circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+						<path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+					</svg>
+					<input
+						type="text"
+						class="nav-picker-input"
+						placeholder="Search components..."
+						bind:value={compSearch}
+						autocomplete="off"
+					/>
+					{#if compSearch}
+						<button type="button" class="nav-picker-clear" onclick={() => (compSearch = '')} aria-label="Clear">×</button>
+					{/if}
+				</div>
+				<div class="nav-picker-list">
+					{#each COMPONENT_GROUPS as group}
+						{@const items = filteredCompsSearch.filter((c) => c.group === group.id)}
+						{#if items.length}
+							<div class="comp-picker-group">
+								<span class="toolbar-group-label">{group.label}</span>
+								{#each items as comp}
+									<button
+										type="button"
+										class="comp-picker-item"
+										onclick={() => {
+											if (comp.id === 'file' && data.admin.features.allowAssetUpload) {
+												fileAttachInputEl?.click();
+											} else if (comp.id === 'video-player') {
+												videoPickerOpen = true;
+												videoPickerUrl = '';
+												videoPickerAlt = '';
+												videoPickerThumb = '';
+												videoPickerThumbAsset = null;
+											} else {
+												insertSnippet(comp.snippet);
+											}
+											componentPickerOpen = false;
+											compSearch = '';
+										}}
+									>
+										<div class="comp-picker-item-info">
+											<strong class="comp-picker-item-label">{comp.label}</strong>
+											<span class="comp-picker-item-desc">{comp.description}</span>
+										</div>
+										<code class="comp-picker-item-snippet">{comp.snippet.replace(/\\n/g, ' ').slice(0, 48)}{comp.snippet.length > 48 ? '…' : ''}</code>
+									</button>
+								{/each}
+							</div>
+						{/if}
+					{/each}
+					{#if filteredCompsSearch.length === 0}
+						<div class="nav-picker-empty">
+							<p>No components match "<strong>{compSearch}</strong>"</p>
+						</div>
+					{/if}
+				</div>
 			</div>
 		</div>
 	{/if}
@@ -3016,6 +3248,7 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
+		gap: 6px;
 		min-height: 40px;
 		padding: 0 20px;
 		border-radius: var(--radius-md);
@@ -3024,6 +3257,7 @@
 		font-weight: 700;
 		font-size: 14px;
 		white-space: nowrap;
+		border: 0;
 	}
 
 	.button-reset {
@@ -3034,9 +3268,35 @@
 
 	.button-reset:disabled {
 		cursor: not-allowed;
-		opacity: 0.5;
+		opacity: 0.45;
 	}
 
+	/* Uniform outline button — same height as btn-primary */
+	.btn-outline {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		min-height: 40px;
+		padding: 0 16px;
+		border-radius: var(--radius-md);
+		border: 1px solid var(--border-color);
+		background: transparent;
+		color: var(--text-secondary);
+		font-size: 13px;
+		font-weight: 600;
+		cursor: pointer;
+		white-space: nowrap;
+		transition: border-color 0.12s, color 0.12s, background 0.12s;
+	}
+
+	.btn-outline:hover {
+		border-color: var(--accent-border);
+		color: var(--text-primary);
+		background: color-mix(in srgb, var(--accent) 5%, transparent);
+	}
+
+	/* Legacy ghost — kept for non-footer uses (remove asset, etc.) */
 	.btn-ghost {
 		min-height: 30px;
 		padding: 0 10px;
@@ -3185,8 +3445,15 @@
 	.form-footer {
 		display: flex;
 		align-items: center;
-		justify-content: flex-end;
-		padding-top: 4px;
+		gap: 8px;
+		padding-top: 8px;
+		border-top: 1px solid var(--border-color);
+		margin-top: 4px;
+	}
+
+	/* First button in footer anchors left; everything else groups right */
+	.form-footer > *:first-child {
+		margin-right: auto;
 	}
 
 	/* ── Feedback ────────────────────────────────────────────── */
@@ -3473,52 +3740,12 @@
 		color: var(--text-primary);
 	}
 
-	.component-toolbar {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 10px;
-		padding: 10px 12px;
-		border-bottom: 1px solid var(--border-color);
-		background: color-mix(in srgb, var(--bg-glass) 60%, transparent);
-	}
-
-	.toolbar-group {
-		display: flex;
-		flex-direction: column;
-		gap: 5px;
-	}
-
 	.toolbar-group-label {
 		font-size: 10px;
 		font-weight: 800;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
 		color: var(--text-tertiary);
-	}
-
-	.toolbar-btns {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 4px;
-	}
-
-	.toolbar-btn {
-		padding: 3px 9px;
-		border: 1px solid var(--border-color);
-		border-radius: 6px;
-		background: var(--bg-card);
-		color: var(--text-secondary);
-		font: inherit;
-		font-size: 12px;
-		cursor: pointer;
-		transition: background 0.12s, border-color 0.12s, color 0.12s;
-		white-space: nowrap;
-	}
-
-	.toolbar-btn:hover {
-		background: var(--accent-subtle);
-		border-color: var(--accent-border);
-		color: var(--text-primary);
 	}
 
 	.body-textarea {
@@ -4731,7 +4958,268 @@
 		white-space: nowrap;
 	}
 
-	/* Preview: video player card */
+	/* ── Dark mode input contrast ────────────────────────────── */
+	.content-form input,
+	.content-form select,
+	.content-form textarea {
+		background: color-mix(in srgb, var(--bg-card) 85%, var(--bg-glass));
+		border: 1px solid color-mix(in srgb, var(--border-color) 120%, transparent);
+	}
+
+	:global([data-theme="light"]) .content-form input,
+	:global([data-theme="light"]) .content-form select,
+	:global([data-theme="light"]) .content-form textarea {
+		background: #fff;
+		border-color: #d1d5db;
+	}
+
+	.chip-field {
+		background: color-mix(in srgb, var(--bg-card) 85%, var(--bg-glass));
+	}
+
+	:global([data-theme="light"]) .chip-field {
+		background: #fff;
+	}
+
+	.chip-dropdown {
+		background: color-mix(in srgb, var(--bg-card) 95%, transparent);
+	}
+
+	:global([data-theme="light"]) .chip-dropdown {
+		background: #fff;
+	}
+
+	/* ── Step indicator ──────────────────────────────────────── */
+	/* ── Form step indicator ────────────────────────────────── */
+	.form-steps {
+		display: flex;
+		align-items: center;
+		gap: 0;
+		padding: 14px 24px 12px;
+		background: color-mix(in srgb, var(--bg-glass) 60%, transparent);
+		border-bottom: 1px solid var(--border-color);
+		border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+		/* bleed edge-to-edge within the admin-card (24px padding on each side) */
+		margin: -22px -24px 20px;
+	}
+
+	.form-step-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 9px;
+		padding: 4px 8px;
+		border: none;
+		background: transparent;
+		cursor: pointer;
+		color: var(--text-tertiary);
+		font: inherit;
+		font-size: 13px;
+		font-weight: 600;
+		border-radius: var(--radius-md);
+		transition: color 0.15s;
+		flex-shrink: 0;
+	}
+
+	.form-step-btn:disabled {
+		cursor: default;
+		opacity: 0.5;
+	}
+
+	.form-step-btn.form-step-active {
+		color: var(--text-primary);
+	}
+
+	.form-step-btn.form-step-done {
+		color: color-mix(in srgb, var(--accent) 80%, var(--text-secondary));
+	}
+
+	.form-step-num {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 26px;
+		height: 26px;
+		border-radius: 999px;
+		border: 2px solid var(--border-color);
+		font-size: 11px;
+		font-weight: 800;
+		flex-shrink: 0;
+		transition: border-color 0.2s, background 0.2s, color 0.2s;
+		background: var(--bg-card);
+	}
+
+	.form-step-btn.form-step-active .form-step-num {
+		border-color: var(--accent);
+		background: var(--accent);
+		color: #fff;
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+	}
+
+	.form-step-btn.form-step-done .form-step-num {
+		border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+		background: color-mix(in srgb, var(--accent) 15%, transparent);
+		color: var(--accent);
+	}
+
+	.form-step-label {
+		font-size: 12px;
+		font-weight: 700;
+		letter-spacing: 0.02em;
+		text-transform: uppercase;
+	}
+
+	/* The track between steps */
+	.form-step-track {
+		flex: 1;
+		height: 2px;
+		background: var(--border-color);
+		border-radius: 2px;
+		margin: 0 8px;
+		overflow: hidden;
+	}
+
+	.form-step-track-fill {
+		height: 100%;
+		width: 0%;
+		background: var(--accent);
+		border-radius: 2px;
+		transition: width 0.3s ease;
+	}
+
+	.form-step-track-fill.filled {
+		width: 100%;
+	}
+
+	/* ── Directory chip variant ──────────────────────────────── */
+	.chip-dir {
+		background: color-mix(in srgb, #22c55e 12%, transparent);
+		border-color: color-mix(in srgb, #22c55e 35%, transparent);
+		color: var(--text-primary);
+	}
+
+	/* ── Prev/next mobile fix ────────────────────────────────── */
+	.prev-next-row {
+		grid-template-columns: 1fr 1fr;
+		align-items: start;
+	}
+
+	@media (max-width: 480px) {
+		.prev-next-row {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	.nav-pick-trigger {
+		font-size: 12px;
+		padding: 6px 10px;
+	}
+
+	.nav-selected-chip {
+		padding: 7px 10px;
+	}
+
+	.nav-chip-title {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	/* ── Component picker popup ──────────────────────────────── */
+	.comp-picker-overlay {
+		position: fixed;
+		inset: 0;
+		z-index: 90;
+		background: rgba(0, 0, 0, 0.65);
+		backdrop-filter: blur(6px);
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		padding: 16px;
+	}
+
+	.comp-picker {
+		display: flex;
+		flex-direction: column;
+		width: min(480px, 100%);
+		height: min(72vh, 560px);
+		background: var(--bg-card);
+		border: 1px solid var(--border-glass);
+		border-radius: 18px;
+		box-shadow: var(--shadow-glass), 0 24px 80px rgba(0, 0, 0, 0.45);
+		overflow: clip;
+		animation: modal-pop-in 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+	}
+
+	.comp-picker-group {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding: 8px 6px 4px;
+	}
+
+	.comp-picker-group .toolbar-group-label {
+		padding: 0 8px;
+		margin-bottom: 4px;
+	}
+
+	.comp-picker-item {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		width: 100%;
+		padding: 10px 12px;
+		border: none;
+		border-radius: 10px;
+		background: transparent;
+		cursor: pointer;
+		text-align: left;
+		transition: background 0.1s;
+	}
+
+	.comp-picker-item:hover {
+		background: color-mix(in srgb, var(--accent) 10%, transparent);
+	}
+
+	.comp-picker-item-info {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
+		flex-wrap: wrap;
+	}
+
+	.comp-picker-item-label {
+		font-size: 13px;
+		font-weight: 700;
+		color: var(--text-primary);
+	}
+
+	.comp-picker-item-desc {
+		font-size: 12px;
+		color: var(--text-secondary);
+	}
+
+	.comp-picker-item-snippet {
+		font-size: 11px;
+		color: var(--text-tertiary);
+		font-family: var(--font-mono, monospace);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	@media (max-width: 580px) {
+		.comp-picker-overlay {
+			padding: 0;
+			align-items: flex-end;
+		}
+		.comp-picker {
+			width: 100%;
+			height: 85dvh;
+			border-radius: 20px 20px 0 0;
+		}
+	}
+
+	/* ── Preview: video player card */
 	.pi-video-player {
 		margin: 8px 0;
 	}

@@ -1,12 +1,12 @@
 import type { PageLoad } from './$types';
-import { loadConfig, loadDocs, loadGallery, loadPages, loadPortfolio, loadPosts, loadThoughts, loadTags, loadCategories } from '$lib/metadata';
+import { loadConfig, loadDocs, loadGallery, loadPages, loadPortfolio, loadPosts, loadThoughts, loadTags, loadCategories, loadBlogDirs } from '$lib/metadata';
 import { adminContentTypes } from '$lib/admin/custom-components';
 import { resolveAdminConfig } from '$lib/admin/admin-config';
 
 export const prerender = true;
 
 export const load: PageLoad = async ({ fetch }) => {
-	const [config, posts, portfolio, gallery, thoughts, pages, docs, tagsMap, categoriesMap] = await Promise.all([
+	const [config, posts, portfolio, gallery, thoughts, pages, docs, tagsMap, categoriesMap, blogDirs] = await Promise.all([
 		loadConfig(fetch).catch(() => null),
 		loadPosts(fetch).catch(() => []),
 		loadPortfolio(fetch).catch(() => []),
@@ -15,7 +15,8 @@ export const load: PageLoad = async ({ fetch }) => {
 		loadPages(fetch).catch(() => []),
 		loadDocs(fetch).catch(() => []),
 		loadTags(fetch).catch(() => ({} as Record<string, number>)),
-		loadCategories(fetch).catch(() => ({} as Record<string, number>))
+		loadCategories(fetch).catch(() => ({} as Record<string, number>)),
+		loadBlogDirs(fetch).catch(() => ({} as Record<string, { subdirs: string[]; posts: string[] }>))
 	]);
 
 	// Tags sorted by frequency desc
@@ -44,6 +45,9 @@ export const load: PageLoad = async ({ fetch }) => {
 		...docs.map((p) => ({ title: p.title, slug: p.slug, section: 'pages' as const }))
 	];
 
+	// Blog directories (keys where key !== '') for directory picker
+	const blogDirKeys = Object.keys(blogDirs).filter((k) => k !== '');
+
 	return {
 		admin: resolveAdminConfig(config),
 		contentTypes: adminContentTypes,
@@ -51,6 +55,7 @@ export const load: PageLoad = async ({ fetch }) => {
 		existingCategories,
 		existingSlugs: [...existingSlugs],
 		navItems,
+		blogDirKeys,
 		counts: {
 			blog: posts.length,
 			portfolio: portfolio.length,

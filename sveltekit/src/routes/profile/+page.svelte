@@ -196,14 +196,16 @@
 	{#if profile?.summary}<meta name="description" content={profile.summary} />{/if}
 	<meta property="og:title" content="{profile?.title ?? 'Profile'} · {config?.title ?? 'Raksara'}" />
 	<meta property="og:description" content={profile?.summary ?? ''} />
-	{#if profile?.cover}
-		<meta property="og:image" content={profile.cover} />
-	{:else}
-		<meta property="og:image" content="/og/defaults/profile-landscape.jpg" />
-	{/if}
+	{@const _ogBase = String(config?.site_url ?? config?.url ?? '').replace(/\/+$/, '')}
+	{@const _ogLandscape = `${_ogBase}/og/defaults/profile-landscape.jpg`}
+	{@const _ogPortrait = `${_ogBase}/og/defaults/profile-portrait.jpg`}
+	<meta property="og:image" content={_ogLandscape} />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<meta name="twitter:image" content={profile?.cover ?? '/og/defaults/profile-landscape.jpg'} />
+	<meta property="og:image" content={_ogPortrait} />
+	<meta property="og:image:width" content="1080" />
+	<meta property="og:image:height" content="1350" />
+	<meta name="twitter:image" content={_ogLandscape} />
 </svelte:head>
 
 {#if prerenderHtml}

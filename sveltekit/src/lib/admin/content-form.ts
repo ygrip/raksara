@@ -33,9 +33,15 @@ export function slugifyAdmin(value: string) {
 	return value
 		.trim()
 		.toLowerCase()
-		.replace(/[^a-z0-9-]+/g, '-')
-		.replace(/^-+|-+$/g, '')
-		.replace(/-{2,}/g, '-');
+		.split('/')
+		.map(segment =>
+			segment
+				.replace(/[^a-z0-9-]+/g, '-')
+				.replace(/^-+|-+$/g, '')
+				.replace(/-{2,}/g, '-')
+		)
+		.filter(Boolean)
+		.join('/');
 }
 
 export function createDefaultContentForm(): AdminContentFormState {

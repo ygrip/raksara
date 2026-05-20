@@ -9,6 +9,8 @@ const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const https = require('https');
+const http = require('http');
 
 const OG_SIZES = {
   landscape: { width: 1200, height: 630 },
@@ -159,20 +161,71 @@ function escSvg(str) {
  * Load a source image from a content path, resolving relative paths from WEB_DIR.
  * Returns a buffer or null if not found.
  */
+/**
+ * Download an image from an external http/https URL.
+ * Returns a buffer or null on failure. Follows up to 3 redirects.
+ */
+function fetchExternalImage(url, redirectsLeft = 3) {
+  return new Promise((resolve) => {
+    const client = url.startsWith('https') ? https : http;
+    const req = client.get(url, { timeout: 10000 }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirectsLeft > 0) {
+        resolve(fetchExternalImage(res.headers.location, redirectsLeft - 1));
+        return;
+      }
+      if (res.statusCode !== 200) { resolve(null); return; }
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+      res.on('error', () => resolve(null));
+    });
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+  });
+}
+
+/**
+ * Load a source image from a content path or external URL, resolving local
+ * paths relative to webDir. Returns a buffer or null if not found/readable.
+ */
 async function loadSourceImage(coverPath, webDir) {
   if (!coverPath) return null;
-  // Strip leading slash
-  const bare = String(coverPath).replace(/^\/+/, '');
-  const fullPath = path.join(webDir, bare);
-  if (!fs.existsSync(fullPath)) return null;
-  try {
-    const buf = fs.readFileSync(fullPath);
-    // Validate it's a readable image
-    await sharp(buf).metadata();
-    return buf;
-  } catch {
-    return null;
+
+  // External URL — download at build time so OG generation uses the real image
+  if (/^https?:\/\//i.test(coverPath)) {
+    try {
+      const buf = await fetchExternalImage(coverPath);
+      if (!buf) return null;
+      await sharp(buf).metadata(); // validate it's a real image
+      return buf;
+    } catch {
+      return null;
+    }
   }
+
+  const bare = String(coverPath).replace(/^\/+/, '');
+
+  // Try multiple candidate paths to handle both legacy (content/ prefix) and
+  // new-style admin uploads (no content/ prefix) gracefully.
+  const candidates = [
+    path.join(webDir, bare),
+    // New admin: cover stored as /assets/... → look under content/
+    !bare.startsWith('content/') ? path.join(webDir, 'content', bare) : null,
+    // Legacy double-nesting guard: content/content/assets/...
+    bare.startsWith('content/content/') ? path.join(webDir, bare.replace(/^content\//, '')) : null,
+  ].filter(Boolean);
+
+  for (const fullPath of candidates) {
+    if (!fs.existsSync(fullPath)) continue;
+    try {
+      const buf = fs.readFileSync(fullPath);
+      await sharp(buf).metadata();
+      return buf;
+    } catch {
+      // Not a valid image at this path, try next
+    }
+  }
+  return null;
 }
 
 /**
