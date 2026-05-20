@@ -1,11 +1,11 @@
 // src/routes/tags/+page.ts
 import type { PageLoad } from './$types';
+import { loadTags } from '$lib/metadata';
 
 export const prerender = false;
 
 export const load: PageLoad = async ({ fetch }) => {
-  const res = await fetch('/metadata/tags.json');
-  const tags: Record<string, number> = res.ok ? await res.json() : {};
+  const tags = await loadTags(fetch).catch(() => ({} as Record<string, number>));
   const sorted = Object.entries(tags).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   return { tags: sorted };
 };

@@ -3,6 +3,7 @@
 import type { PageLoad } from './$types';
 import { stripYamlFrontmatter } from '$lib/utils';
 import { error } from '@sveltejs/kit';
+import { loadPosts, loadBlogDirs, loadImageManifest } from '$lib/metadata';
 
 type PostNav = { title: string; href: string };
 
@@ -39,18 +40,17 @@ export const load: PageLoad = async ({ params, fetch }) => {
   const markdown = stripYamlFrontmatter(raw);
 
   // Load post metadata to get title/cover etc.
-  const postsRes = await fetch('/metadata/posts.json');
-  const allPosts: import('$lib/types').Post[] = postsRes.ok ? await postsRes.json() : [];
+  const [allPosts, blogDirs, imageManifest] = await Promise.all([
+    loadPosts(fetch).catch(() => [] as import('$lib/types').Post[]),
+    loadBlogDirs(fetch).catch(() => ({})),
+    loadImageManifest(fetch).catch(() => null),
+  ]);
   const post = allPosts.find((p) => p.slug === slug) ?? null;
   if (!post || !raw) {
     throw error(404, 'Post not found');
   }
   const nextPage = routeFromNav((post as unknown as { next_page?: unknown } | null)?.next_page);
   const previousPage = routeFromNav((post as unknown as { previous_page?: unknown } | null)?.previous_page);
-  const dirsRes = await fetch('/metadata/blog-dirs.json');
-  const blogDirs = dirsRes.ok ? await dirsRes.json() : {};
-  const imageManifestRes = await fetch('/metadata/image-manifest.json');
-  const imageManifest = imageManifestRes.ok ? await imageManifestRes.json() : null;
 
   return { slug, markdown, post, allPosts, blogDirs, nextPage, previousPage, imageManifest };
 };

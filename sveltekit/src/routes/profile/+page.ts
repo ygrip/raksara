@@ -1,6 +1,6 @@
 // src/routes/profile/+page.ts
 import type { PageLoad } from './$types';
-import { loadPages } from '$lib/metadata';
+import { loadPages, loadProfilePrerender } from '$lib/metadata';
 
 export const prerender = true;
 
@@ -9,8 +9,7 @@ export const load: PageLoad = async ({ fetch }) => {
   const profile = pages.find((p) => p.slug === 'profile') ?? null;
   
   // Try to load profile prerender data
-  const prerenderRes = await fetch('/metadata/profile-prerender.json');
-  const prerenderData = prerenderRes.ok ? await prerenderRes.json() : null;
+  const prerenderData = await loadProfilePrerender(fetch).catch(() => null);
   
   return { 
     profile, 

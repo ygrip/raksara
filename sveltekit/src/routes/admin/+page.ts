@@ -1,5 +1,5 @@
 import type { PageLoad } from './$types';
-import { loadConfig, loadDocs, loadGallery, loadPages, loadPortfolio, loadPosts, loadThoughts } from '$lib/metadata';
+import { loadConfig, loadDocs, loadGallery, loadPages, loadPortfolio, loadPosts, loadThoughts, loadTags, loadCategories } from '$lib/metadata';
 import { adminContentTypes } from '$lib/admin/custom-components';
 import { resolveAdminConfig } from '$lib/admin/admin-config';
 
@@ -14,8 +14,8 @@ export const load: PageLoad = async ({ fetch }) => {
 		loadThoughts(fetch).catch(() => []),
 		loadPages(fetch).catch(() => []),
 		loadDocs(fetch).catch(() => []),
-		fetch('/metadata/tags.json').then((r) => r.json() as Promise<Record<string, number>>).catch(() => ({})),
-		fetch('/metadata/categories.json').then((r) => r.json() as Promise<Record<string, number>>).catch(() => ({}))
+		loadTags(fetch).catch(() => ({} as Record<string, number>)),
+		loadCategories(fetch).catch(() => ({} as Record<string, number>))
 	]);
 
 	// Tags sorted by frequency desc

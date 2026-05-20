@@ -6,6 +6,7 @@
 	 */
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { metadataUrl } from '$lib/metadata';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -72,7 +73,7 @@
 			try {
 				const [{ default: MiniSearch }, res] = await Promise.all([
 					import('minisearch'),
-					fetch('/metadata/search-index.json'),
+					fetch(metadataUrl('search-index.json')),
 				] as const);
 				if (!res.ok) throw new Error('Failed to load search index');
 				const serialized = await res.json();

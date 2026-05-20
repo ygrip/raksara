@@ -18,8 +18,15 @@ import type {
 
 const BASE = '/metadata';
 
+// __BUILD_TS__ is injected by Vite at build time (see vite.config.ts).
+// Appending it as a query param busts the browser HTTP cache after each deploy,
+// so new posts and metadata are always fetched fresh without a hard reload.
+declare const __BUILD_TS__: string;
+const _v = typeof __BUILD_TS__ !== 'undefined' ? __BUILD_TS__ : '';
+
 async function fetchJSON<T>(fetch: typeof globalThis.fetch, path: string): Promise<T> {
-  const res = await fetch(`${BASE}/${path}`);
+  const url = _v ? `${BASE}/${path}?v=${_v}` : `${BASE}/${path}`;
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to load ${path}: ${res.status}`);
   return res.json() as Promise<T>;
 }
@@ -74,4 +81,37 @@ export async function loadImageManifest(
   fetch: typeof globalThis.fetch
 ): Promise<ImageManifest> {
   return fetchJSON<ImageManifest>(fetch, 'image-manifest.json');
+}
+
+export async function loadTags(
+  fetch: typeof globalThis.fetch
+): Promise<Record<string, number>> {
+  return fetchJSON<Record<string, number>>(fetch, 'tags.json');
+}
+
+export async function loadCategories(
+  fetch: typeof globalThis.fetch
+): Promise<Record<string, number>> {
+  return fetchJSON<Record<string, number>>(fetch, 'categories.json');
+}
+
+export async function loadSearchIndex(
+  fetch: typeof globalThis.fetch
+): Promise<unknown> {
+  return fetchJSON<unknown>(fetch, 'search-index.json');
+}
+
+export async function loadProfilePrerender(
+  fetch: typeof globalThis.fetch
+): Promise<{ html?: string } | null> {
+  return fetchJSON<{ html?: string }>(fetch, 'profile-prerender.json');
+}
+
+/** Returns the versioned URL for a metadata file — useful for client-side fetches
+ *  that can't use SvelteKit's `fetch` wrapper (e.g. components, workers).
+ *  Falls back to bare URL in dev/SSR where __BUILD_TS__ is unavailable.
+ */
+export function metadataUrl(path: string): string {
+  const v = typeof __BUILD_TS__ !== 'undefined' ? __BUILD_TS__ : '';
+  return v ? `/metadata/${path}?v=${v}` : `/metadata/${path}`;
 }
