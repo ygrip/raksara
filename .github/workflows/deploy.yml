@@ -102,3 +102,16 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Purge Cloudflare cache
+        if: vars.CF_ZONE_ID != ''
+        run: |
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${{ vars.CF_ZONE_ID }}/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CF_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"purge_everything":true}')
+          echo "Cloudflare purge status: $HTTP"
+          if [ "$HTTP" != "200" ]; then
+            echo "::warning::Cloudflare cache purge returned HTTP $HTTP — you may need to purge manually"
+          fi

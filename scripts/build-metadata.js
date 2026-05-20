@@ -553,6 +553,25 @@ function copyDirRecursive(srcDir, destDir) {
   }
 }
 
+// Non-destructive merge: copy files from srcDir into destDir without deleting anything.
+// Used to bubble up legacy nested paths without wiping already-copied content.
+function mergeDirInto(srcDir, destDir) {
+  if (!fs.existsSync(srcDir)) return;
+  fs.mkdirSync(destDir, { recursive: true });
+  for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+    const srcPath = path.join(srcDir, entry.name);
+    const destPath = path.join(destDir, entry.name);
+    if (entry.isDirectory()) {
+      mergeDirInto(srcPath, destPath);
+    } else if (entry.isFile()) {
+      // Only write if the target doesn't already exist (don't overwrite canonical content)
+      if (!fs.existsSync(destPath)) {
+        fs.copyFileSync(srcPath, destPath);
+      }
+    }
+  }
+}
+
 function copyMetadataToWeb() {
   const sveltekitMetaDir = path.join(SVELTEKIT_STATIC_DIR, "metadata");
   fs.mkdirSync(sveltekitMetaDir, { recursive: true });
@@ -565,6 +584,18 @@ function copyMetadataToWeb() {
   if (path.resolve(CONTENT_DIR) !== path.resolve(sveltekitContentDir)) {
     copyDirRecursive(CONTENT_DIR, sveltekitContentDir);
   }
+
+  // Legacy migration: old worker (CONTENT_ROOT='content') wrote files into a
+  // nested content/ subdirectory inside the content repo, so after the copy above
+  // they land at sveltekit/static/content/content/assets/... but the frontend and
+  // build pipeline expect them at sveltekit/static/content/assets/...
+  // Bubble those files up one level non-destructively.
+  const nestedContentDir = path.join(sveltekitContentDir, "content");
+  if (fs.existsSync(nestedContentDir) && fs.statSync(nestedContentDir).isDirectory()) {
+    mergeDirInto(nestedContentDir, sveltekitContentDir);
+    console.log("  ✓ Migrated legacy content/content/ assets to sveltekit/static/content/");
+  }
+
   console.log("  ✓ Copied metadata and content to sveltekit/static/");
 }
 

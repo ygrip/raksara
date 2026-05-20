@@ -2918,6 +2918,12 @@ body {
     object-fit: contain;
     object-position: center;
     border-radius: var(--radius-lg);
+    opacity: 0;
+    transition: opacity 0.35s ease;
+}
+
+.article-cover img.loaded {
+    opacity: 1;
 }
 
 .article-body {

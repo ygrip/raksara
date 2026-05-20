@@ -83,13 +83,16 @@ export function buildAssetPath(type: string, slug: string, fileName: string, ind
 	const baseName = slugifyAdmin(fileName.replace(/\.[^.]+$/, '')) || `asset-${index + 1}`;
 	const safeSlug = slugifyAdmin(slug) || 'draft';
 	const prefix = type === 'gallery' ? 'gallery' : type;
-	return `content/assets/images/${prefix}/${safeSlug}/${String(index + 1).padStart(2, '0')}-${baseName}.${extension}`;
+	// Paths are relative to the content repo root (no leading "content/" — that's the
+	// repo itself). The build pipeline copies the content repo into sveltekit/static/content/,
+	// so assets/images/... becomes /content/assets/images/... at serve time.
+	return `assets/images/${prefix}/${safeSlug}/${String(index + 1).padStart(2, '0')}-${baseName}.${extension}`;
 }
 
 export function buildCoverAssetPath(type: string, slug: string, fileName: string): string {
 	const extension = fileExtension(fileName);
 	const safeSlug = slugifyAdmin(slug) || 'draft';
-	return `content/assets/images/${type}/${safeSlug}/cover.${extension}`;
+	return `assets/images/${type}/${safeSlug}/cover.${extension}`;
 }
 
 /** Path for a ::file attachment asset — goes to content/assets/files/ not images/. */
@@ -97,7 +100,7 @@ export function buildFileAssetPath(slug: string, fileName: string): string {
 	const extension = fileExtension(fileName);
 	const baseName = slugifyAdmin(fileName.replace(/\.[^.]+$/, '')) || 'file';
 	const safeSlug = slugifyAdmin(slug) || 'draft';
-	return `content/assets/files/${safeSlug}/${baseName}.${extension}`;
+	return `assets/files/${safeSlug}/${baseName}.${extension}`;
 }
 
 /**
