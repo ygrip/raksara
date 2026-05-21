@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import { renderMarkdown, initArticleFeatures } from '$lib/markdown';
 	import {
 		adminClient,
 		type AdminAssetUpload,
@@ -83,6 +84,12 @@
 	let componentPickerOpen = $state(false);
 	let compSearch = $state('');
 
+	// Directory picker for ::component and ::chapters directives
+	let componentListDirPickerOpen = $state(false);
+	let componentListDirInput = $state('');
+	let chaptersListDirPickerOpen = $state(false);
+	let chaptersListDirInput = $state('');
+
 	// Multi-step form
 	let formStep = $state<1 | 2>(1);
 
@@ -98,6 +105,12 @@
 	let bodyTabMode = $state<'write' | 'preview'>('write');
 	let showComponentToolbar = $state(false);
 	let bodyTextareaEl: HTMLTextAreaElement | null = $state(null);
+	// Preview containers — used to run initArticleFeatures after full render
+	let bodyPreviewEl: HTMLElement | null = $state(null);
+	let prPreviewEl: HTMLElement | null = $state(null);
+	// Preview HTML — driven by $effect (async renderMarkdown), not $derived
+	let previewHtml = $state('');
+	let prDetailPreviewHtml = $state('');
 	// Inline image file input (hidden)
 	let inlineImageInputEl: HTMLInputElement | null = $state(null);
 	// File attachment input (hidden) — for ::file component uploads
@@ -179,6 +192,26 @@
 		data.blogDirKeys
 			.filter((d) => !dirInput.trim() || d.toLowerCase().includes(dirInput.trim().toLowerCase()))
 			.slice(0, 14)
+	);
+
+	// All content directories (for ::component directive picker)
+	const allContentDirs = $derived(
+		Array.from(new Set([
+			...data.blogDirKeys,
+			'pages', 'pages/doc', 'portfolio', 'gallery', 'thoughts'
+		])).sort()
+	);
+
+	const filteredComponentListDirs = $derived(
+		allContentDirs
+			.filter((d) => !componentListDirInput.trim() || d.toLowerCase().includes(componentListDirInput.trim().toLowerCase()))
+			.slice(0, 20)
+	);
+
+	const filteredChaptersDirs = $derived(
+		data.blogDirKeys
+			.filter((d) => !chaptersListDirInput.trim() || d.toLowerCase().includes(chaptersListDirInput.trim().toLowerCase()))
+			.slice(0, 20)
 	);
 
 	const filteredCompsSearch = $derived(
@@ -1083,7 +1116,22 @@
 					const href = resolvedSrc || `/${filePath.replace(/^\//, '')}`;
 					out.push(`<a class="pi-file-card" href="${esc(href)}" target="_blank" rel="noreferrer"${downloadAttr}><span class="pi-file-ext">${esc(ext)}</span><span class="pi-file-name">${esc(displayName)}</span></a>`);
 				} else {
-					out.push(`<div class="pi-directive">${esc(raw)}</div>`);
+					// Handle other directives with previews
+					const componentM = raw.match(/^::component\(([^)]+)\)/);
+					const chaptersM = raw.match(/^::chapters\(([^)]+)\)/);
+					const tocM = raw.match(/^::toc/);
+
+					if (componentM) {
+						const path = componentM[1];
+						out.push(`<div class="pi-comp-block pi-directive-block">Component List<br/><span class="pi-directive-path">from ${esc(path)}</span></div>`);
+					} else if (chaptersM) {
+						const path = chaptersM[1];
+						out.push(`<div class="pi-comp-block pi-directive-block">Chapters Table<br/><span class="pi-directive-path">from ${esc(path)}</span></div>`);
+					} else if (tocM) {
+						out.push(`<div class="pi-comp-block pi-directive-block">Table of Contents</div>`);
+					} else {
+						out.push(`<div class="pi-directive">${esc(raw)}</div>`);
+					}
 				}
 				continue;
 			}
@@ -1132,13 +1180,133 @@
 		</div>`;
 	}
 
-	const previewHtml = $derived(
-		contentForm.type === 'thoughts'
-			? buildThoughtsPreviewHtml()
-			: contentForm.type === 'gallery'
-				? buildPreviewHtml('', undefined, contentAssets)
-				: buildPreviewHtml(contentForm.body, contentForm.coverAsset, undefined, contentAssets)
-	);
+	/**
+	 * After initArticleFeatures(), scan for component blocks that failed to render
+	 * (chart set to display:none, mermaid never produced an SVG) and replace them
+	 * with the same color-coded fallback blocks used by the lightweight preview.
+	 */
+	function patchFailedPreviewComponents(container: HTMLElement) {
+		const eh = (s: string) =>
+			String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+		// Chart blocks: initCharts() hides failures with display:none
+		container.querySelectorAll<HTMLElement>('.rk-chart-container').forEach((el) => {
+			const isHidden = el.style.display === 'none';
+			const isUnprocessed = !el.querySelector('canvas') && !el.querySelector('.rk-chart-viewport');
+			if (isHidden || isUnprocessed) {
+				const snippet = decodeURIComponent(el.dataset['chartConfig'] ?? '').slice(0, 80).trim();
+				const fb = document.createElement('div');
+				fb.className = 'pi-comp-block pi-chart-block pi-fallback';
+				fb.innerHTML = `<span class="pi-fb-label">Chart Block (Chart.js)</span>${snippet ? `<span class="pi-fb-detail">${eh(snippet)}…</span>` : '<span class="pi-fb-detail">Failed to render — invalid config</span>'}`;
+				el.replaceWith(fb);
+			}
+		});
+
+		// Mermaid blocks: still has raw text, no SVG produced yet
+		container.querySelectorAll<HTMLElement>('.rk-mermaid').forEach((el) => {
+			if (!el.querySelector('svg')) {
+				const source = (el.textContent ?? '').trim().slice(0, 80);
+				const fb = document.createElement('div');
+				fb.className = 'pi-comp-block pi-mermaid-block pi-fallback';
+				fb.innerHTML = `<span class="pi-fb-label">Mermaid Diagram</span>${source ? `<span class="pi-fb-detail">${eh(source)}…</span>` : '<span class="pi-fb-detail">Failed to render — check diagram syntax</span>'}`;
+				el.replaceWith(fb);
+			}
+		});
+	}
+
+	// Async preview rendering via real renderMarkdown() pipeline.
+	// Gallery and thoughts use the lightweight buildPreviewHtml for speed/simplicity.
+	// All other types get full rendering + hydration for accurate custom component previews.
+	$effect(() => {
+		const body = contentForm.body;
+		const type = contentForm.type;
+		const coverAsset = contentForm.coverAsset;
+		const mode = bodyTabMode;
+		const assets = contentAssets.slice(); // snapshot
+
+		if (mode !== 'preview') return;
+
+		if (type === 'thoughts') {
+			previewHtml = buildThoughtsPreviewHtml();
+			return;
+		}
+		if (type === 'gallery') {
+			previewHtml = buildPreviewHtml('', coverAsset, assets);
+			return;
+		}
+
+		// Full renderMarkdown with debounce
+		const timer = setTimeout(async () => {
+			if (!body.trim()) {
+				previewHtml = '';
+				return;
+			}
+			// Substitute staged asset paths (not yet on CDN) with local data URIs
+			let processedBody = body;
+			for (const a of assets) {
+				if (a.contentBase64) {
+					const dataUri = `data:${a.mediaType};base64,${a.contentBase64}`;
+					processedBody = processedBody.split(a.path).join(dataUri);
+					processedBody = processedBody.split(`/${a.path}`).join(dataUri);
+				}
+			}
+			try {
+				const html = await renderMarkdown(processedBody, {
+					context: { posts: data.posts, blogDirs: data.blogDirs }
+				});
+				previewHtml = html;
+				await tick();
+				if (bodyPreviewEl) {
+					await initArticleFeatures(bodyPreviewEl);
+					// Patch any components that failed to render (charts hidden, mermaid unrendered)
+					patchFailedPreviewComponents(bodyPreviewEl);
+					// Mermaid renders async; give it time then patch remaining unfilled blocks
+					const el = bodyPreviewEl;
+					setTimeout(() => patchFailedPreviewComponents(el), 900);
+				}
+			} catch {
+				// Fallback to simple preview on parse errors
+				previewHtml = buildPreviewHtml(body, coverAsset, undefined, assets);
+			}
+		}, 400);
+
+		return () => clearTimeout(timer);
+	});
+
+	// PR detail preview: render with full pipeline so chart/mermaid/video/etc work
+	$effect(() => {
+		const detail = prDetail;
+
+		if (!detail?.contentMarkdown) {
+			prDetailPreviewHtml = '';
+			return;
+		}
+
+		const mdBody = injectBlobsIntoText(
+			detail.contentMarkdown.replace(/^---[\s\S]*?---\s*/m, ''),
+			detail.blobs ?? {}
+		);
+
+		const timer = setTimeout(async () => {
+			try {
+				const html = await renderMarkdown(mdBody, {
+					context: { posts: data.posts, blogDirs: data.blogDirs }
+				});
+				prDetailPreviewHtml = html;
+				await tick();
+				if (prPreviewEl) {
+					await initArticleFeatures(prPreviewEl);
+					patchFailedPreviewComponents(prPreviewEl);
+					const el = prPreviewEl;
+					setTimeout(() => patchFailedPreviewComponents(el), 900);
+				}
+			} catch {
+				prDetailPreviewHtml = buildPreviewHtml(mdBody);
+			}
+		}, 200);
+
+		return () => clearTimeout(timer);
+	});
 
 	const COMPONENT_GROUPS = [
 		{ id: 'directive', label: 'Directive' },
@@ -2098,7 +2266,11 @@
 							: 'Write markdown content here.'}
 					></textarea>
 				{:else}
-					<div class="body-preview" aria-label="Markdown preview">
+					<div
+						bind:this={bodyPreviewEl}
+						class="body-preview article-body"
+						aria-label="Markdown preview"
+					>
 						{#if contentForm.body.trim()}
 							<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 							{@html previewHtml}
@@ -2121,34 +2293,34 @@
 				<div class="asset-list full">
 					{#each contentAssets as asset}
 						<div class="asset-row">
-							<img
-								src={`data:${asset.mediaType};base64,${asset.contentBase64}`}
-								alt={asset.alt || asset.path}
-								loading="lazy"
-							/>
-							<div class="asset-row-main">
+							<div class="asset-row-top">
+								<img
+									src={`data:${asset.mediaType};base64,${asset.contentBase64}`}
+									alt={asset.alt || asset.path}
+									loading="lazy"
+								/>
 								<div class="asset-row-meta">
 									<strong>{asset.path}</strong>
 									<span>{asset.mediaType}</span>
 								</div>
-								<div class="asset-row-fields">
-									<label>
-										<span>Alt</span>
-										<input
-											value={asset.alt || ''}
-											oninput={(event) => updateAssetField(asset.path, 'alt', (event.currentTarget as HTMLInputElement).value)}
-											placeholder="Accessible description"
-										/>
-									</label>
-									<label>
-										<span>Caption</span>
-										<input
-											value={asset.caption || ''}
-											oninput={(event) => updateAssetField(asset.path, 'caption', (event.currentTarget as HTMLInputElement).value)}
-											placeholder="Displayed caption"
-										/>
-									</label>
-								</div>
+							</div>
+							<div class="asset-row-fields">
+								<label>
+									<span>Alt</span>
+									<input
+										value={asset.alt || ''}
+										oninput={(event) => updateAssetField(asset.path, 'alt', (event.currentTarget as HTMLInputElement).value)}
+										placeholder="Accessible description"
+									/>
+								</label>
+								<label>
+									<span>Caption</span>
+									<textarea
+										rows="2"
+										oninput={(event) => updateAssetField(asset.path, 'caption', (event.currentTarget as HTMLTextAreaElement).value)}
+										placeholder="Displayed caption (supports markdown)"
+									>{asset.caption || ''}</textarea>
+								</label>
 							</div>
 							<button type="button" class="btn-ghost" onclick={() => removeAsset(asset.path)}>Remove</button>
 						</div>
@@ -2160,14 +2332,13 @@
 
 			<!-- Step 2 Footer -->
 			<div class="form-footer full">
-				<button type="button" class="btn-outline button-reset" onclick={() => (formStep = 1)}>
+				<button type="button" class="btn-outline button-reset footer-back" onclick={() => (formStep = 1)}>
 					<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13 8H3M7 12l-4-4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 					Back
 				</button>
-				<button type="button" class="btn-outline button-reset footer-cancel" onclick={cancelForm}>Cancel</button>
 				<button
 					type="button"
-					class="btn-primary button-reset"
+					class="btn-primary button-reset footer-submit"
 					onclick={createContentPrFromForm}
 					disabled={!workerStatus?.enabled || isCreatingPr}
 				>
@@ -2227,7 +2398,6 @@
 				{:else if prDetail}
 					{@const fm = parseFrontmatterFields(prDetail.contentMarkdown)}
 					{@const fmTags = parseFrontmatterList(prDetail.contentMarkdown, 'tags')}
-					{@const mdBody = injectBlobsIntoText(prDetail.contentMarkdown.replace(/^---[\s\S]*?---\s*/m, ''), prDetail.blobs ?? {})}
 					{@const prCover = resolveCoverPath(fm.cover || fm.image || '', prDetail.blobs)}
 					<div class="pr-modal-body">
 						<!-- Blobs-skipped warning -->
@@ -2343,8 +2513,9 @@
 											<p class="pr-post-summary">{fm.summary}</p>
 										{/if}
 									</header>
+									<!-- Full renderMarkdown pipeline — same output as actual pages -->
 									<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-									{@html buildPreviewHtml(mdBody)}
+									<div bind:this={prPreviewEl} class="article-body">{@html prDetailPreviewHtml}</div>
 								</div>
 							</div>
 						{/if}
@@ -2403,9 +2574,15 @@
 												videoPickerAlt = '';
 												videoPickerThumb = '';
 												videoPickerThumbAsset = null;
-											} else {
-												insertSnippet(comp.snippet);
-											}
+											} else if (comp.id === 'component-list') {
+													componentListDirPickerOpen = true;
+													componentListDirInput = '';
+												} else if (comp.id === 'chapters') {
+													chaptersListDirPickerOpen = true;
+													chaptersListDirInput = '';
+												} else {
+													insertSnippet(comp.snippet);
+												}
 											componentPickerOpen = false;
 											compSearch = '';
 										}}
@@ -2558,6 +2735,129 @@
 			</div>
 		</div>
 	{/if}
+
+	<!-- Component List directory picker modal -->
+	{#if componentListDirPickerOpen}
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="nav-picker-overlay" onclick={(e) => { if (e.target === e.currentTarget) componentListDirPickerOpen = false; }}>
+			<div class="nav-picker-modal" role="dialog" aria-modal="true" aria-label="Select directory for component list">
+				<div class="nav-picker-header">
+					<span class="nav-picker-title">Select Directory for Component List</span>
+					<button type="button" class="pr-drawer-close" onclick={() => (componentListDirPickerOpen = false)} aria-label="Close">
+						<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+							<path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+						</svg>
+					</button>
+				</div>
+				<div class="nav-picker-search-wrap">
+					<svg class="nav-picker-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+						<circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+						<path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+					</svg>
+					<input
+						type="text"
+						class="nav-picker-input"
+						placeholder="Pick or type a directory path…"
+						bind:value={componentListDirInput}
+						autocomplete="off"
+					/>
+					{#if componentListDirInput}
+						<button type="button" class="nav-picker-clear" onclick={() => (componentListDirInput = '')} aria-label="Clear">×</button>
+					{/if}
+				</div>
+				<div class="nav-picker-list" role="listbox">
+					{#if filteredComponentListDirs.length === 0}
+						<div class="nav-picker-empty">
+							{#if componentListDirInput}
+								<p>No directories match "<strong>{componentListDirInput}</strong>"</p>
+							{:else}
+								<p>No content directories found.</p>
+							{/if}
+						</div>
+					{:else}
+						{#each filteredComponentListDirs as dir}
+							<button
+								type="button"
+								class="nav-picker-item"
+								role="option"
+								aria-selected="false"
+								onclick={() => {
+									insertSnippet(`::component(${dir})`);
+									componentListDirPickerOpen = false;
+								}}
+							>
+								<span class="nav-picker-item-title">{dir}</span>
+								<code class="nav-picker-item-slug">::component({dir})</code>
+							</button>
+						{/each}
+					{/if}
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Chapters directory picker modal -->
+	{#if chaptersListDirPickerOpen}
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="nav-picker-overlay" onclick={(e) => { if (e.target === e.currentTarget) chaptersListDirPickerOpen = false; }}>
+			<div class="nav-picker-modal" role="dialog" aria-modal="true" aria-label="Select blog directory for chapters table">
+				<div class="nav-picker-header">
+					<span class="nav-picker-title">Select Blog Directory for Chapters Table</span>
+					<button type="button" class="pr-drawer-close" onclick={() => (chaptersListDirPickerOpen = false)} aria-label="Close">
+						<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+							<path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+						</svg>
+					</button>
+				</div>
+				<div class="nav-picker-search-wrap">
+					<svg class="nav-picker-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+						<circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+						<path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+					</svg>
+					<input
+						type="text"
+						class="nav-picker-input"
+						placeholder="Pick or type a blog directory path…"
+						bind:value={chaptersListDirInput}
+						autocomplete="off"
+					/>
+					{#if chaptersListDirInput}
+						<button type="button" class="nav-picker-clear" onclick={() => (chaptersListDirInput = '')} aria-label="Clear">×</button>
+					{/if}
+				</div>
+				<div class="nav-picker-list" role="listbox">
+					{#if filteredChaptersDirs.length === 0}
+						<div class="nav-picker-empty">
+							{#if chaptersListDirInput}
+								<p>No blog directories match "<strong>{chaptersListDirInput}</strong>"</p>
+							{:else}
+								<p>No blog directories found.</p>
+							{/if}
+						</div>
+					{:else}
+						{#each filteredChaptersDirs as dir}
+							<button
+								type="button"
+								class="nav-picker-item"
+								role="option"
+								aria-selected="false"
+								onclick={() => {
+									insertSnippet(`::chapters(${dir})`);
+									chaptersListDirPickerOpen = false;
+								}}
+							>
+								<span class="nav-picker-item-title">{dir}</span>
+								<code class="nav-picker-item-slug">::chapters({dir})</code>
+							</button>
+						{/each}
+					{/if}
+				</div>
+			</div>
+		</div>
+	{/if}
+
 </main>
 
 <style>
@@ -3394,25 +3694,42 @@
 
 	.asset-row {
 		display: grid;
-		grid-template-columns: 76px minmax(0, 1fr) auto;
+		grid-template-columns: 1fr auto;
+		grid-template-rows: auto auto;
 		align-items: start;
-		gap: 12px;
+		gap: 10px;
 		border: 1px solid var(--border-color);
 		background: var(--bg-glass);
 		border-radius: var(--radius-md);
 		padding: 10px;
 	}
 
+	/* On desktop: top row = image+meta spanning full width, remove button top-right */
+	.asset-row-top {
+		display: grid;
+		grid-template-columns: 68px minmax(0, 1fr);
+		gap: 10px;
+		align-items: start;
+		grid-column: 1;
+		grid-row: 1;
+	}
+
+	/* Remove button: top-right */
+	.asset-row > .btn-ghost {
+		grid-column: 2;
+		grid-row: 1;
+		align-self: start;
+	}
+
 	.asset-row img {
-		width: 76px;
-		height: 76px;
+		width: 68px;
+		height: 68px;
 		border-radius: 10px;
 		object-fit: cover;
 		border: 1px solid var(--border-color);
 		background: var(--bg-card);
 	}
 
-	.asset-row-main,
 	.asset-row-meta {
 		display: grid;
 		gap: 6px;
@@ -3432,10 +3749,13 @@
 		font-size: 11px;
 	}
 
+	/* Fields: 2-col on desktop, spans full width */
 	.asset-row-fields {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
 		gap: 8px;
+		grid-column: 1 / -1;
+		grid-row: 2;
 	}
 
 	.asset-row-fields label {
@@ -3464,6 +3784,20 @@
 	/* First button in footer anchors left; everything else groups right */
 	.form-footer > *:first-child {
 		margin-right: auto;
+	}
+
+	/* Step 2 footer: Back + Create PR equal-sized */
+	.footer-back,
+	.footer-submit {
+		min-width: 110px;
+		height: 38px;
+		padding: 0 18px;
+		font-size: 14px;
+		font-weight: 600;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
 	}
 
 	/* ── Feedback ────────────────────────────────────────────── */
@@ -3658,21 +3992,39 @@
 		}
 
 		.asset-row {
-			grid-template-columns: 58px minmax(0, 1fr);
+			grid-template-columns: 1fr;
+			gap: 10px;
+		}
+
+		.asset-row-top {
+			display: grid;
+			grid-template-columns: 52px minmax(0, 1fr);
+			gap: 10px;
+			align-items: start;
 		}
 
 		.asset-row img {
-			width: 58px;
-			height: 58px;
-		}
-
-		.asset-row .btn-ghost {
-			grid-column: 1 / -1;
-			width: 100%;
+			width: 52px;
+			height: 52px;
 		}
 
 		.asset-row-fields {
 			grid-template-columns: 1fr;
+		}
+
+		.asset-row-fields label > input,
+		.asset-row-fields label > textarea {
+			font-size: 16px; /* prevent iOS zoom on iPhone */
+		}
+
+		.asset-row .btn-ghost {
+			width: 100%;
+		}
+
+		.footer-back,
+		.footer-submit {
+			flex: 1;
+			min-width: 0;
 		}
 
 		.btn-primary {
@@ -3781,6 +4133,10 @@
 		font-size: 14px;
 		line-height: 1.75;
 		overflow-wrap: break-word;
+		/* Override .article-body layout constraints — preview lives inside admin panel */
+		max-width: none !important;
+		margin-inline: 0 !important;
+		width: 100% !important;
 	}
 
 	.preview-empty {
@@ -3988,6 +4344,38 @@
 	}
 	:global(.pi-chart-block) { border-color: #f59e0b55; color: #f59e0b; background: color-mix(in srgb, #f59e0b 6%, transparent); }
 	:global(.pi-mermaid-block) { border-color: #22c55e55; color: #22c55e; background: color-mix(in srgb, #22c55e 6%, transparent); }
+	:global(.pi-directive-block) {
+		border-color: #8b5cf655;
+		color: #8b5cf6;
+		background: color-mix(in srgb, #8b5cf6 6%, transparent);
+		line-height: 1.4;
+		font-size: 13px;
+	}
+	:global(.pi-directive-path) {
+		display: block;
+		font-size: 11px;
+		opacity: 0.8;
+		font-weight: normal;
+		margin-top: 2px;
+	}
+	/* Fallback blocks for components that failed to initialize */
+	:global(.pi-fallback) {
+		text-align: left;
+		display: grid;
+		gap: 4px;
+	}
+	:global(.pi-fb-label) {
+		font-weight: 700;
+		font-size: 12px;
+	}
+	:global(.pi-fb-detail) {
+		font-size: 11px;
+		font-weight: 400;
+		opacity: 0.75;
+		font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+		white-space: pre-wrap;
+		word-break: break-all;
+	}
 
 	/* Thoughts card preview */
 	:global(.tc-thought-card) {
@@ -4515,6 +4903,12 @@
 	.pr-post-body {
 		padding: 24px 28px 28px;
 	}
+	/* The .article-body div inside PR preview — override layout constraints */
+	.pr-post-body :global(.article-body) {
+		max-width: none !important;
+		margin-inline: 0 !important;
+		width: 100% !important;
+	}
 	.pr-post-header {
 		margin-bottom: 20px;
 		padding-bottom: 16px;
@@ -4936,8 +5330,8 @@
 		padding-top: 4px;
 	}
 
-	/* Preview: file card */
-	.pi-file-card {
+	/* Preview: file card (global — styles injected {@html} content) */
+	:global(.pi-file-card) {
 		display: inline-flex;
 		align-items: center;
 		gap: 8px;
@@ -4952,7 +5346,7 @@
 		overflow: hidden;
 		margin: 4px 0;
 	}
-	.pi-file-ext {
+	:global(.pi-file-ext) {
 		background: var(--accent, #6366f1);
 		color: #fff;
 		font-size: 10px;
@@ -4962,7 +5356,7 @@
 		white-space: nowrap;
 		flex-shrink: 0;
 	}
-	.pi-file-name {
+	:global(.pi-file-name) {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -5229,35 +5623,35 @@
 		}
 	}
 
-	/* ── Preview: video player card */
-	.pi-video-player {
+	/* ── Preview: video player card (global — styles injected {@html} content) */
+	:global(.pi-video-player) {
 		margin: 8px 0;
 	}
-	.pi-video-link {
+	:global(.pi-video-link) {
 		position: relative;
 		display: block;
 		border-radius: 8px;
 		overflow: hidden;
 		max-width: 480px;
 	}
-	.pi-video-thumb {
+	:global(.pi-video-thumb) {
 		width: 100%;
 		display: block;
 		aspect-ratio: 16/9;
 		object-fit: cover;
 	}
-	.pi-video-nothumb {
+	:global(.pi-video-nothumb) {
 		background: var(--surface-2, rgba(255,255,255,0.05));
 		aspect-ratio: 16/9;
 	}
-	.pi-video-overlay {
+	:global(.pi-video-overlay) {
 		position: absolute;
 		inset: 0;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 	}
-	.pi-video-url {
+	:global(.pi-video-url) {
 		font-size: 11px;
 		color: var(--text-secondary);
 		margin: 4px 0 0;

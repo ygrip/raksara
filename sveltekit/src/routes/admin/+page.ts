@@ -56,6 +56,12 @@ export const load: PageLoad = async ({ fetch }) => {
 		existingSlugs: [...existingSlugs],
 		navItems,
 		blogDirKeys,
+		/** Full blog dirs map — used by ::chapters directive in admin preview */
+		blogDirs,
+		/** Posts/pages/docs — used by ::component directive in admin preview */
+		posts,
+		pages,
+		docs,
 		counts: {
 			blog: posts.length,
 			portfolio: portfolio.length,

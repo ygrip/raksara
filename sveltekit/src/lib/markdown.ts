@@ -12,7 +12,7 @@
  *   5. Post-process: sortable tables, hljs, chart.js, mermaid
  */
 
-import type { ImageManifest } from './types';
+import type { ImageManifest, BlogDirs } from './types';
 import { buildResponsiveAttrs, responsiveAttrsToString } from './responsive-image';
 import { assetUrl, formatDate } from './utils';
 
@@ -548,10 +548,11 @@ export interface RenderOptions {
   breaks?: boolean;
   /** Base path for content assets */
   imageManifest?: ImageManifest;
-  /** posts/portfolio/dirs for ::chapters context */
+  /** posts/portfolio/dirs for ::chapters and ::component context */
   context?: {
     posts?: Array<{ slug: string; title: string; date: string; dir?: string; chapter?: string | number; type?: string; cover?: string; summary?: string }>;
-    blogDirs?: Record<string, { subdirs: string[]; posts: string[] }>;
+    /** Accepts full BlogDirs (from metadata) or a simplified slug-only map — both work */
+    blogDirs?: BlogDirs | Record<string, { subdirs: string[]; posts: string[] }>;
   };
   components?: Array<{ title?: string; slug?: string; path?: string; summary?: string; description?: string; icon?: string; status?: string }>;
 }
