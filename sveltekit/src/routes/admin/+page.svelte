@@ -111,6 +111,10 @@
 	// Preview HTML — driven by $effect (async renderMarkdown), not $derived
 	let previewHtml = $state('');
 	let prDetailPreviewHtml = $state('');
+	// PR creation loading overlay
+	let prCreationPhase = $state<'idle' | 'building' | 'uploading' | 'creating' | 'done'>('idle');
+	let prCreationMsgIdx = $state(0);
+	let prCreationMsgTimer: ReturnType<typeof setInterval> | null = null;
 	// Inline image file input (hidden)
 	let inlineImageInputEl: HTMLInputElement | null = $state(null);
 	// File attachment input (hidden) — for ::file component uploads
@@ -953,20 +957,23 @@
 			out.push(`<img class="pi-cover" src="data:${esc(coverAsset.mediaType)};base64,${coverAsset.contentBase64}" alt="${esc(coverAsset.alt || 'Cover')}" />`);
 		}
 
-		// Gallery type: show image grid
+		// Gallery type: render as a real gallery-card so the preview matches /gallery
 		if (galleryAssets && galleryAssets.length > 0) {
-			const gridCols = galleryAssets.length === 1 ? 1 : 2;
-			out.push(`<div class="pi-gallery-grid" style="grid-template-columns:repeat(${gridCols},1fr)">`);
-			if (galleryAssets.length > 1) {
-				out.push(`<div class="pi-gallery-badge">${galleryAssets.length} images</div>`);
-			}
+			const isMulti = galleryAssets.length > 1;
+			const first = galleryAssets[0];
+			const firstSrc = `data:${esc(first.mediaType)};base64,${first.contentBase64}`;
+			// Card with thumb area (like the gallery list card)
+			out.push(`<ul class="gallery-list" style="pointer-events:none">`);
 			for (const img of galleryAssets) {
-				out.push(`<div class="pi-gallery-item">`);
-				out.push(`<img src="data:${esc(img.mediaType)};base64,${img.contentBase64}" alt="${esc(img.alt || '')}" class="pi-gallery-img" />`);
-				if (img.caption) out.push(`<p class="pi-gallery-cap">${esc(img.caption)}</p>`);
-				out.push(`</div>`);
+				const src = `data:${esc(img.mediaType)};base64,${img.contentBase64}`;
+				out.push(`<li class="gallery-card${isMulti ? ' multi-image' : ''}">`);
+				out.push(`<div class="gallery-card-img"><img src="${src}" alt="${esc(img.alt || img.caption || '')}" loading="lazy" /></div>`);
+				out.push(`<div class="gallery-card-info">`);
+				out.push(`<div class="gallery-card-header"><div class="gallery-card-title">${esc(img.alt || '(no title)')}</div></div>`);
+				if (img.caption) out.push(`<div class="gallery-card-caption">${esc(img.caption)}</div>`);
+				out.push(`</div></li>`);
 			}
-			out.push(`</div>`);
+			out.push(`</ul>`);
 			return out.join('');
 		}
 
@@ -1169,15 +1176,22 @@
 		const dateStr = form.date
 			? new Date(form.date + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 			: '';
-		const tagsHtml = form.tags.map((t) => `<span class="tc-tag">${esc(t)}</span>`).join('');
-		return `<div class="tc-thought-card">
-			<p class="tc-thought-body">${esc(form.body)}</p>
-			<div class="tc-thought-meta">
-				<span class="tc-thought-title">${esc(form.title || 'Untitled')}</span>
-				${dateStr ? `<span class="tc-thought-date">${esc(dateStr)}</span>` : ''}
-				${tagsHtml ? `<div class="tc-thought-tags">${tagsHtml}</div>` : ''}
-			</div>
-		</div>`;
+		// Use the real layout.css thought-card classes so the preview matches /thoughts exactly
+		const tagsHtml = form.tags
+			.map((t) => `<a href="#" class="tag" style="padding:2px 8px;font-size:11px" onclick="return false">${esc(t)}</a>`)
+			.join('');
+		const body = form.body.trim() || '(no body yet)';
+		const title = form.title.trim();
+		return `<ul class="thoughts-list" style="pointer-events:none">
+			<li class="thought-card">
+				<p class="thought-body">${esc(body)}</p>
+				<div class="thought-meta">
+					${title ? `<span class="thought-title">${esc(title)}</span><span>·</span>` : ''}
+					${dateStr ? `<span>${esc(dateStr)}</span>` : ''}
+					${tagsHtml}
+				</div>
+			</li>
+		</ul>`;
 	}
 
 	/**
@@ -1329,6 +1343,53 @@
 		return fields;
 	}
 
+	/**
+	 * Parse YAML images list from gallery frontmatter.
+	 * Handles both `image: "/path"` (single) and `images:\n  - src: ...\n    caption: ...` (multi).
+	 */
+	function parseFrontmatterImages(
+		markdown: string,
+		blobs?: Record<string, { base64: string; mediaType: string }>
+	): Array<{ src: string; caption?: string; alt?: string }> {
+		const match = markdown.match(/^---\n([\s\S]*?)\n---/);
+		if (!match) return [];
+		const yaml = match[1];
+
+		// Single-image: `image: "/path"`
+		const singleM = yaml.match(/^image:\s*["']?([^"'\n]+?)["']?\s*$/m);
+		if (singleM) {
+			const src = resolveCoverPath(singleM[1].trim(), blobs);
+			const captionM = yaml.match(/^caption:\s*["']?(.+?)["']?\s*$/m);
+			return [{ src, caption: captionM?.[1]?.trim() }];
+		}
+
+		// Multi-image: `images:` list with nested `src:`, `caption:`, `alt:`
+		const lines = yaml.split('\n');
+		const startIdx = lines.findIndex((l) => /^images:\s*$/.test(l));
+		if (startIdx < 0) return [];
+
+		const imgs: Array<{ src: string; caption?: string; alt?: string }> = [];
+		let cur: { src: string; caption?: string; alt?: string } | null = null;
+		for (let i = startIdx + 1; i < lines.length; i++) {
+			const line = lines[i];
+			if (/^\S/.test(line)) break; // new top-level key
+			const listItemM = line.match(/^\s+-\s+src:\s*["']?([^"'\n]+?)["']?\s*$/);
+			if (listItemM) {
+				if (cur) imgs.push(cur);
+				cur = { src: resolveCoverPath(listItemM[1].trim(), blobs) };
+				continue;
+			}
+			if (cur) {
+				const captM = line.match(/^\s+caption:\s*["']?(.+?)["']?\s*$/);
+				if (captM) { cur.caption = captM[1].trim(); continue; }
+				const altM = line.match(/^\s+alt:\s*["']?(.+?)["']?\s*$/);
+				if (altM) { cur.alt = altM[1].trim(); }
+			}
+		}
+		if (cur) imgs.push(cur);
+		return imgs;
+	}
+
 	/** Parse YAML list values (e.g. `tags:` with `  - item` lines) from frontmatter. */
 	function parseFrontmatterList(markdown: string, key: string): string[] {
 		const match = markdown.match(/^---\n([\s\S]*?)\n---/);
@@ -1441,6 +1502,46 @@
 		if (tab === 'prs' && !prsLoaded) void loadPrs();
 	}
 
+	const PR_CREATION_MESSAGES: Record<NonNullable<typeof prCreationPhase>, string[]> = {
+		idle: [],
+		building: [
+			"Alright, packing everything up! 📦",
+			"Double-checking all the pieces…",
+			"Making sure your content is good to go!",
+			"Getting the payload ready — almost there…",
+		],
+		uploading: [
+			"Sending it over to GitHub ✈️",
+			"Assets are on their way!",
+			"Flying your content to the repo…",
+			"Uploading — won't be long now!",
+		],
+		creating: [
+			"Opening the pull request… 🚀",
+			"Almost there, hang tight!",
+			"GitHub is reviewing the handoff…",
+			"Creating branches, committing files…",
+			"Just a few more seconds, you're doing great!",
+		],
+		done: ["Done! Your PR is live 🎉"],
+	};
+
+	function startPrCreationOverlay() {
+		prCreationPhase = 'building';
+		prCreationMsgIdx = 0;
+		if (prCreationMsgTimer) clearInterval(prCreationMsgTimer);
+		prCreationMsgTimer = setInterval(() => {
+			const msgs = PR_CREATION_MESSAGES[prCreationPhase];
+			if (msgs.length) prCreationMsgIdx = (prCreationMsgIdx + 1) % msgs.length;
+		}, 2200);
+	}
+
+	function stopPrCreationOverlay() {
+		if (prCreationMsgTimer) { clearInterval(prCreationMsgTimer); prCreationMsgTimer = null; }
+		prCreationPhase = 'idle';
+		prCreationMsgIdx = 0;
+	}
+
 	async function createContentPrFromForm() {
 		if (!activeWorkerUrl) return;
 		createResult = '';
@@ -1462,16 +1563,31 @@
 		demoError = validateUrl(contentForm.demo);
 		if (githubError || demoError) return;
 		isCreatingPr = true;
+		startPrCreationOverlay();
+
+		// Prevent accidental navigation while submitting
+		const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+			e.preventDefault();
+			e.returnValue = '';
+		};
+		window.addEventListener('beforeunload', handleBeforeUnload);
+
 		try {
 			// Build full slug with optional directory prefix
 			const baseSlug = slugifyAdmin(contentForm.slug || contentForm.title);
 			const fullSlug = selectedDir ? `${selectedDir}/${baseSlug}` : baseSlug;
+			prCreationPhase = 'uploading';
+			prCreationMsgIdx = 0;
 			const payload = buildContentPrPayload({ ...contentForm, slug: fullSlug }, contentAssets, contentForm.coverAsset);
+			prCreationPhase = 'creating';
+			prCreationMsgIdx = 0;
 			const result = await adminClient.createContentPr(activeWorkerUrl, payload, {
 				adminChallenge,
 				csrfToken
 			});
-			showApiToast('success', `Created PR #${result.pullRequest.number}: ${result.pullRequest.url}`);
+			prCreationPhase = 'done';
+			await new Promise((r) => setTimeout(r, 900));
+			showApiToast('success', `PR #${result.pullRequest.number} created! ${result.pullRequest.url}`);
 			tagInput = '';
 			catInput = '';
 			prSearchQuery = '';
@@ -1483,6 +1599,8 @@
 			showApiError('Unable to create content PR', error, 'We could not create the content PR.');
 		} finally {
 			isCreatingPr = false;
+			stopPrCreationOverlay();
+			window.removeEventListener('beforeunload', handleBeforeUnload);
 		}
 	}
 
@@ -2274,7 +2392,39 @@
 						class="body-preview article-body"
 						aria-label="Markdown preview"
 					>
-						{#if contentForm.body.trim()}
+						{#if previewHtml}
+							{#if contentForm.type === 'portfolio' && bodyTabMode === 'preview'}
+								<!-- Portfolio: render full article header matching /portfolio/[slug] -->
+								<div class="pi-portfolio-header">
+									{#if contentForm.coverAsset?.contentBase64}
+										<img
+											src={`data:${contentForm.coverAsset.mediaType};base64,${contentForm.coverAsset.contentBase64}`}
+											alt={contentForm.coverAsset.alt || contentForm.title}
+											class="pi-portfolio-cover"
+										/>
+									{/if}
+									<h1 class="pi-portfolio-title">{contentForm.title || 'Untitled'}</h1>
+									<div class="article-meta">
+										{#if contentForm.category}<span class="post-card-category">{contentForm.category}</span>{/if}
+										{#if contentForm.status}<span class="status-chip status-{contentForm.status}">{contentForm.status}</span>{/if}
+										{#if contentForm.date}<time>{contentForm.date}</time>{/if}
+										{#each contentForm.tags as tag}<span class="tag">{tag}</span>{/each}
+									</div>
+									{#if contentForm.github || contentForm.demo}
+										<div class="portfolio-detail-links">
+											{#if contentForm.github}
+												<a href={contentForm.github} target="_blank" rel="noopener noreferrer" class="btn-github" onclick={(e) => e.preventDefault()}>
+													<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+													GitHub
+												</a>
+											{/if}
+											{#if contentForm.demo}
+												<a href={contentForm.demo} target="_blank" rel="noopener noreferrer" class="btn-demo" onclick={(e) => e.preventDefault()}>Demo ↗</a>
+											{/if}
+										</div>
+									{/if}
+								</div>
+							{/if}
 							<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 							{@html previewHtml}
 						{:else}
@@ -2494,8 +2644,11 @@
 
 						<!-- Content preview — post-like layout -->
 						{#if prDetail.contentMarkdown}
+							{@const prImages = parseFrontmatterImages(prDetail.contentMarkdown, prDetail.blobs)}
+							{@const isGalleryPr = prImages.length > 0 && !prDetail.contentMarkdown.replace(/^---[\s\S]*?---\s*/m, '').trim()}
+							{@const isPortfolioPr = !!(fm.github || fm.demo || (fm.status && !fm.cover))}
 							<div class="pr-post-preview">
-								{#if prCover}
+								{#if prCover && !isGalleryPr}
 									<img src={prCover} alt={fm.title || 'Cover'} class="pr-post-cover" />
 								{/if}
 								<div class="pr-post-body">
@@ -2504,6 +2657,7 @@
 										<div class="pr-post-meta">
 											{#if fm.date}<time class="pr-post-date">{fm.date}</time>{/if}
 											{#if fm.category}<span class="pr-post-category">{fm.category}</span>{/if}
+											{#if fm.status}<span class="status-chip status-{fm.status}">{fm.status}</span>{/if}
 										</div>
 										{#if fmTags.length}
 											<div class="pr-post-tags">
@@ -2515,10 +2669,43 @@
 										{#if fm.summary}
 											<p class="pr-post-summary">{fm.summary}</p>
 										{/if}
+										{#if fm.github || fm.demo}
+											<div class="portfolio-detail-links">
+												{#if fm.github}
+													<a href={fm.github} target="_blank" rel="noopener noreferrer" class="btn-github">
+														<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+														GitHub
+													</a>
+												{/if}
+												{#if fm.demo}
+													<a href={fm.demo} target="_blank" rel="noopener noreferrer" class="btn-demo">Demo ↗</a>
+												{/if}
+											</div>
+										{/if}
 									</header>
-									<!-- Full renderMarkdown pipeline — same output as actual pages -->
-									<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-									<div bind:this={prPreviewEl} class="article-body">{@html prDetailPreviewHtml}</div>
+
+									{#if isGalleryPr}
+										<!-- Gallery: show image cards matching /gallery page -->
+										<ul class="gallery-list" style="pointer-events:none; margin-top:16px">
+											{#each prImages as img}
+												<li class="gallery-card">
+													<div class="gallery-card-img">
+														<img src={img.src} alt={img.alt || img.caption || fm.title || ''} loading="lazy" />
+													</div>
+													<div class="gallery-card-info">
+														<div class="gallery-card-header">
+															<div class="gallery-card-title">{img.alt || fm.title || ''}</div>
+														</div>
+														{#if img.caption}<div class="gallery-card-caption">{img.caption}</div>{/if}
+													</div>
+												</li>
+											{/each}
+										</ul>
+									{:else}
+										<!-- Full renderMarkdown pipeline — same output as actual pages -->
+										<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+										<div bind:this={prPreviewEl} class="article-body">{@html prDetailPreviewHtml}</div>
+									{/if}
 								</div>
 							</div>
 						{/if}
@@ -2856,6 +3043,37 @@
 							</button>
 						{/each}
 					{/if}
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	<!-- PR Creation Loading Overlay -->
+	{#if prCreationPhase !== 'idle'}
+		{@const phaseLabel = { building: 'Building', uploading: 'Uploading', creating: 'Creating PR', done: 'Done!' }[prCreationPhase] ?? ''}
+		{@const phaseMsg = PR_CREATION_MESSAGES[prCreationPhase][prCreationMsgIdx] ?? ''}
+		<div class="pr-creation-overlay" role="status" aria-live="polite">
+			<div class="pr-creation-card">
+				{#if prCreationPhase !== 'done'}
+					<div class="pr-creation-spinner" aria-hidden="true">
+						<svg viewBox="0 0 50 50" class="pr-spinner-svg">
+							<circle cx="25" cy="25" r="20" fill="none" stroke-width="4" class="pr-spinner-track" />
+							<circle cx="25" cy="25" r="20" fill="none" stroke-width="4" class="pr-spinner-arc" />
+						</svg>
+					</div>
+				{:else}
+					<div class="pr-creation-done-icon" aria-hidden="true">🎉</div>
+				{/if}
+				<div class="pr-creation-phase">{phaseLabel}</div>
+				<div class="pr-creation-msg">{phaseMsg}</div>
+				<div class="pr-creation-steps">
+					{#each (['building', 'uploading', 'creating', 'done'] as const) as step}
+						<span
+							class="pr-creation-step"
+							class:active={prCreationPhase === step}
+							class:complete={['building','uploading','creating','done'].indexOf(prCreationPhase) > ['building','uploading','creating','done'].indexOf(step)}
+						></span>
+					{/each}
 				</div>
 			</div>
 		</div>
@@ -5662,5 +5880,121 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		max-width: 480px;
+	}
+
+	/* ── Portfolio preview header ─────────────────────────────── */
+	.pi-portfolio-header {
+		margin-bottom: 28px;
+		display: grid;
+		gap: 12px;
+	}
+	.pi-portfolio-cover {
+		width: 100%;
+		max-height: 340px;
+		object-fit: cover;
+		border-radius: 10px;
+		display: block;
+	}
+	.pi-portfolio-title {
+		font-size: clamp(1.4rem, 4vw, 2rem);
+		font-weight: 800;
+		line-height: 1.2;
+		margin: 0;
+		color: var(--text-primary);
+	}
+
+	/* ── PR creation loading overlay ─────────────────────────── */
+	.pr-creation-overlay {
+		position: fixed;
+		inset: 0;
+		z-index: 9999;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: color-mix(in srgb, var(--bg) 70%, transparent);
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
+		animation: pr-overlay-in 0.22s ease;
+	}
+	@keyframes pr-overlay-in {
+		from { opacity: 0; }
+		to   { opacity: 1; }
+	}
+	.pr-creation-card {
+		background: var(--bg-card);
+		border: 1px solid var(--border-glass);
+		border-radius: 20px;
+		padding: 40px 48px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 14px;
+		max-width: 340px;
+		width: calc(100% - 32px);
+		box-shadow: 0 24px 64px rgba(0,0,0,0.35);
+		animation: pr-card-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+	}
+	@keyframes pr-card-in {
+		from { transform: scale(0.88) translateY(16px); opacity: 0; }
+		to   { transform: scale(1) translateY(0); opacity: 1; }
+	}
+	.pr-creation-spinner {
+		width: 52px;
+		height: 52px;
+	}
+	.pr-spinner-svg {
+		width: 100%;
+		height: 100%;
+		animation: pr-spin 1.2s linear infinite;
+	}
+	@keyframes pr-spin {
+		from { transform: rotate(0deg); }
+		to   { transform: rotate(360deg); }
+	}
+	.pr-spinner-track {
+		stroke: color-mix(in srgb, var(--accent) 20%, transparent);
+	}
+	.pr-spinner-arc {
+		stroke: var(--accent);
+		stroke-linecap: round;
+		stroke-dasharray: 80 45;
+		stroke-dashoffset: 0;
+	}
+	.pr-creation-done-icon {
+		font-size: 44px;
+		line-height: 1;
+	}
+	.pr-creation-phase {
+		font-size: 15px;
+		font-weight: 700;
+		color: var(--text-primary);
+		letter-spacing: 0.01em;
+	}
+	.pr-creation-msg {
+		font-size: 13px;
+		color: var(--text-secondary);
+		text-align: center;
+		line-height: 1.5;
+		min-height: 2em;
+		transition: opacity 0.3s ease;
+	}
+	.pr-creation-steps {
+		display: flex;
+		gap: 6px;
+		margin-top: 4px;
+	}
+	.pr-creation-step {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: color-mix(in srgb, var(--accent) 20%, var(--border-glass));
+		transition: background 0.3s ease, transform 0.3s ease;
+	}
+	.pr-creation-step.active {
+		background: var(--accent);
+		transform: scale(1.3);
+	}
+	.pr-creation-step.complete {
+		background: color-mix(in srgb, var(--accent) 60%, transparent);
 	}
 </style>
