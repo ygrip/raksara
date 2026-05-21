@@ -1252,7 +1252,9 @@
 			}
 			try {
 				const html = await renderMarkdown(processedBody, {
-					context: { posts: data.posts, blogDirs: data.blogDirs }
+					context: { posts: data.posts, blogDirs: data.blogDirs },
+					// Pass all known content entries so ::component(path) directives resolve
+					components: [...data.posts, ...data.pages, ...data.docs]
 				});
 				previewHtml = html;
 				await tick();
@@ -1290,7 +1292,8 @@
 		const timer = setTimeout(async () => {
 			try {
 				const html = await renderMarkdown(mdBody, {
-					context: { posts: data.posts, blogDirs: data.blogDirs }
+					context: { posts: data.posts, blogDirs: data.blogDirs },
+					components: [...data.posts, ...data.pages, ...data.docs]
 				});
 				prDetailPreviewHtml = html;
 				await tick();

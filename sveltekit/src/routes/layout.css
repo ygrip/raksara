@@ -5140,8 +5140,9 @@ body.gallery-lightbox-open .gallery-lightbox-overlay {
     border: 1px solid var(--border-glass);
     border-radius: var(--radius-lg);
     padding: 22px 24px 18px;
-    margin: 20px 0;
-    max-width: 640px;
+    margin: 16px 0;
+    /* Chat-bubble width: wide enough to read, narrow enough to show alignment */
+    max-width: min(76%, 560px);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -5150,14 +5151,21 @@ body.gallery-lightbox-open .gallery-lightbox-overlay {
     box-shadow: 0 6px 24px var(--accent-glow);
 }
 
+/* Right = "sent" — pushed to the right edge, tail at bottom-right corner */
 .thought-bubble-right {
-    margin-left: 16px;
-    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 4px;
+    margin-left: auto;
+    margin-right: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);
+    /* Subtle accent tint to distinguish from received bubbles */
+    background: color-mix(in srgb, var(--accent) 6%, var(--bg-card));
+    border-color: color-mix(in srgb, var(--accent-border) 50%, var(--border-glass));
 }
 
+/* Left = "received" — anchored to the left edge, tail at bottom-left corner */
 .thought-bubble-left {
-    margin-right: 16px;
-    border-radius: var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);
+    margin-left: 0;
+    margin-right: auto;
+    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 4px;
 }
 
 .thought-bubble-quote {
@@ -5174,11 +5182,14 @@ body.gallery-lightbox-open .gallery-lightbox-overlay {
     user-select: none;
 }
 
+/* Right bubble: decorative quote sits on the left (opening quote of message) */
 .thought-bubble-right .thought-bubble-quote {
     top: 8px;
     left: 14px;
+    right: auto;
 }
 
+/* Left bubble: decorative quote sits on the right (mirrors for received message) */
 .thought-bubble-left .thought-bubble-quote {
     top: 8px;
     right: 14px;

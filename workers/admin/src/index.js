@@ -566,20 +566,24 @@ function validateAssetContentType(content, encoding, extension) {
 	const ext = String(extension || '').toLowerCase();
 	if (!ext) return true;
 
-	// For base64-encoded files, decode the first part to check magic bytes.
+	// For base64-encoded files, decode directly to raw bytes via base64ToBytes.
+	// Never go through TextDecoder/TextEncoder — that round-trip is lossy for
+	// bytes > 0x7F (e.g. JPEG 0xFF D8 FF, PNG 0x89 50 4E 47) and will corrupt
+	// the magic-byte check for those formats.
 	if (encoding === 'base64') {
 		try {
-			const decoded = decodeBase64Content(content.slice(0, 100)); // Check first 100 bytes max
-			const bytes = new TextEncoder().encode(decoded);
+			const compact = String(content || '').replace(/\s/g, '').slice(0, 200);
+			if (!compact) return false;
+			const bytes = base64ToBytes(compact);
 			return validateContentMagicBytes(bytes, ext);
 		} catch {
 			return false; // Invalid base64
 		}
 	}
 
-	// For utf-8 text content, check for text patterns.
+	// For utf-8 text content (e.g. SVG stored as text), encode to bytes for check.
 	const text = String(content || '');
-	return validateContentMagicBytes(new TextEncoder().encode(text), ext);
+	return validateContentMagicBytes(new TextEncoder().encode(text.slice(0, 512)), ext);
 }
 
 /**
@@ -758,6 +762,26 @@ function safeSlug(value) {
 		.replace(/[^a-z0-9-]+/g, '-')
 		.replace(/^-+|-+$/g, '')
 		.replace(/-{2,}/g, '-');
+}
+
+/**
+ * Like safeSlug but allows path segments separated by '/'.
+ * Each segment is sanitised with safeSlug rules.
+ * Used for slugs that may include a directory prefix (e.g. "2024/my-post").
+ */
+function safePathSlug(value) {
+	return String(value || '')
+		.trim()
+		.toLowerCase()
+		.split('/')
+		.map((seg) =>
+			seg
+				.replace(/[^a-z0-9-]+/g, '-')
+				.replace(/^-+|-+$/g, '')
+				.replace(/-{2,}/g, '-')
+		)
+		.filter(Boolean)
+		.join('/');
 }
 
 function safeRepositoryPath(value, contentRoot = '') {
@@ -1065,8 +1089,8 @@ function validateCreatePayload(payload, adminConfig = null) {
 	const type = String(payload.type || '').trim();
 	if (!SUPPORTED_CONTENT_TYPES.has(type)) return 'Unsupported content type.';
 	if (typeof payload.title !== 'string' || !payload.title.trim()) return 'Title is required.';
-	const slug = safeSlug(payload.slug);
-	if (!slug || slug !== payload.slug) return 'Slug must be lowercase kebab-case.';
+	const slug = safePathSlug(payload.slug);
+	if (!slug || slug !== payload.slug) return 'Slug must be a lowercase kebab-case path.';
 	if (typeof payload.markdown !== 'string' || !payload.markdown.trim()) return 'Markdown is required.';
 	try {
 		const files = collectFileOperations({}, payload, adminConfig);
@@ -1080,7 +1104,8 @@ function validateCreatePayload(payload, adminConfig = null) {
 function filePathForPayload(env, payload) {
 	const contentRoot = String(env.CONTENT_ROOT ?? '').replace(/^\/+|\/+$/g, '');
 	const type = String(payload.type);
-	const slug = safeSlug(payload.slug);
+	// safePathSlug preserves directory separators (e.g. "2024/my-post" stays "2024/my-post")
+	const slug = safePathSlug(payload.slug);
 	const folder = type === 'pages' ? 'pages' : type;
 	return contentRoot ? `${contentRoot}/${folder}/${slug}.md` : `${folder}/${slug}.md`;
 }
