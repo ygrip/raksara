@@ -407,16 +407,19 @@ async function buildMetadata() {
     const ogAccentPalette = getAccentPalette(siteConfig);
     const ogAccentColor = (ogAccentPalette && (ogAccentPalette.accent || Object.values(ogAccentPalette)[0])) || '#6366f1';
 
+    // ── gallery and thoughts are excluded from per-entry OG generation ──────
+    // Those detail pages are not crawled by social bots (no public URL in sitemaps),
+    // so spending build time on per-entry images is wasteful.  They receive the
+    // shared type-level default image instead.
     const ogEntries = [
       ...posts.map(p => ({ type: 'blog', subtype: p.type || 'article', slug: p.slug, coverPath: p.cover || null })),
       ...portfolioItems.map(p => ({ type: 'portfolio', subtype: 'portfolio', slug: p.slug, coverPath: p.cover || null })),
-      ...galleryItems.map(g => ({ type: 'gallery', subtype: 'gallery', slug: g.slug, coverPath: g.image || (g.images && g.images[0] && g.images[0].src) || null })),
-      ...thoughts.map(t => ({ type: 'thoughts', subtype: 'thoughts', slug: t.slug, coverPath: null })),
+      // gallery and thoughts: handled separately with default images below
     ];
 
     let ogResults = new Map();
     try {
-      console.log(`[og] Generating OG images for ${ogEntries.length} entries...`);
+      console.log(`[og] Generating OG images for ${ogEntries.length} entries (gallery/thoughts use shared defaults)...`);
       ogResults = await generateOgImages({
         webDir: WEB_DIR,
         entries: ogEntries,
@@ -443,11 +446,21 @@ async function buildMetadata() {
         return { ...item, ogImage: og };
       });
     }
+    /** Point every item in a collection at the shared type-level default OG image. */
+    function enrichWithDefaultOg(items, type) {
+      if (!ogSiteRoot) return items;
+      const og = {
+        landscape: `${ogSiteRoot}/og/defaults/${type}-landscape.jpg`,
+        portrait:  `${ogSiteRoot}/og/defaults/${type}-portrait.jpg`,
+      };
+      return items.map(item => ({ ...item, ogImage: og }));
+    }
 
     enrichedPosts = enrichWithOg(posts, 'blog');
     enrichedPortfolio = enrichWithOg(portfolioItems, 'portfolio');
-    enrichedGallery = enrichWithOg(galleryItems, 'gallery');
-    enrichedThoughts = enrichWithOg(thoughts, 'thoughts');
+    // gallery and thoughts: shared default — no per-entry image
+    enrichedGallery  = enrichWithDefaultOg(galleryItems, 'gallery');
+    enrichedThoughts = enrichWithDefaultOg(thoughts, 'thoughts');
 
     // Re-write the JSON files with ogImage data included
     write("posts.json", enrichedPosts);
@@ -480,9 +493,11 @@ async function buildMetadata() {
     }
     console.log("  ✓ Synced enriched metadata JSON to sveltekit/static/metadata/");
 
-    // ── Profile OG image ───────────────────────────────────────────────────
+    // ── Profile OG image (manifest-cached) ────────────────────────────────
     // Generate a dedicated 1200×630 profile OG image using avatar + cover so
     // social platforms show the person's photo rather than the generic default.
+    // Uses the same .manifest.json written by generateOgImages() above so that
+    // the image is skipped when the profile data hasn't changed.
     try {
       const profilePage = (pages || []).find((p) => p.slug === 'profile');
       if (profilePage && profilePage.path) {
@@ -490,27 +505,52 @@ async function buildMetadata() {
         if (fs.existsSync(profileMdPath)) {
           const rawMd = fs.readFileSync(profileMdPath, 'utf-8');
           const fm = matter(rawMd).data;
-          const profileOgBuf = await generateProfileOgImage({
-            webDir: WEB_DIR,
-            siteInfo: {
-              siteName: ogSiteName,
-              siteUrl: ogSiteUrl,
-              accentColor: ogAccentColor,
-              logoAbsPath: getLocalAssetAbsolutePath(siteConfig && siteConfig.logo),
-            },
-            profileData: {
-              name: fm.title || ogSiteName,
-              role: fm.role || '',
-              avatarPath: fm.avatar || null,
-              coverPath: fm.cover || null,
-              metadata: fm.metadata || [],
-            },
+
+          // Build a hash of the profile inputs so we can skip regeneration when nothing changed.
+          const profileHashInput = JSON.stringify({
+            name:    fm.title  || ogSiteName,
+            role:    fm.role   || '',
+            avatar:  fm.avatar || '',
+            cover:   fm.cover  || '',
+            accent:  ogAccentColor,
+            site:    ogSiteName,
           });
-          const profileOgDir = path.join(WEB_DIR, 'og');
-          fs.mkdirSync(profileOgDir, { recursive: true });
+          const profileOgHash = crypto.createHash('sha1').update(profileHashInput).digest('hex').slice(0, 16);
+
+          const profileOgDir  = path.join(WEB_DIR, 'og');
           const profileOgPath = path.join(profileOgDir, 'profile.jpg');
-          fs.writeFileSync(profileOgPath, profileOgBuf);
-          console.log('  ✓ Generated profile OG image → og/profile.jpg');
+          const ogManifestPath = path.join(profileOgDir, '.manifest.json');
+
+          // Read the manifest that generateOgImages() just wrote (or created fresh)
+          let ogManifest = {};
+          try { ogManifest = JSON.parse(fs.readFileSync(ogManifestPath, 'utf-8')); } catch {}
+
+          if (ogManifest['profile-og'] === profileOgHash && fs.existsSync(profileOgPath)) {
+            console.log('  ✓ Profile OG image cached (no changes) → og/profile.jpg');
+          } else {
+            const profileOgBuf = await generateProfileOgImage({
+              webDir: WEB_DIR,
+              siteInfo: {
+                siteName: ogSiteName,
+                siteUrl: ogSiteUrl,
+                accentColor: ogAccentColor,
+                logoAbsPath: getLocalAssetAbsolutePath(siteConfig && siteConfig.logo),
+              },
+              profileData: {
+                name: fm.title || ogSiteName,
+                role: fm.role || '',
+                avatarPath: fm.avatar || null,
+                coverPath: fm.cover || null,
+                metadata: fm.metadata || [],
+              },
+            });
+            fs.mkdirSync(profileOgDir, { recursive: true });
+            fs.writeFileSync(profileOgPath, profileOgBuf);
+            // Persist the hash so the next build can skip this step
+            ogManifest['profile-og'] = profileOgHash;
+            fs.writeFileSync(ogManifestPath, JSON.stringify(ogManifest, null, 2));
+            console.log('  ✓ Generated profile OG image → og/profile.jpg');
+          }
         }
       }
     } catch (profileOgErr) {

@@ -68,6 +68,18 @@ jobs:
           key: raksara-responsive-${{ hashFiles('content/assets/**') }}
           restore-keys: raksara-responsive-
 
+      # OG images are expensive to generate (sharp blur/composite per entry).
+      # Cache the entire output directory so only new/changed entries are regenerated.
+      # Key includes content markdown + cover assets + the generator script so any
+      # change to those invalidates only the affected entries (manifest-based skip).
+      # restore-keys fallback ensures a partial cache is always preferred over cold start.
+      - name: Restore OG image cache
+        uses: actions/cache@v4
+        with:
+          path: sveltekit/static/og
+          key: raksara-og-${{ hashFiles('content/**/*.md', 'content/assets/**', 'scripts/og-images.js') }}
+          restore-keys: raksara-og-
+
       - name: Build metadata and static assets
         env:
           SITE_URL: ${{ vars.SITE_URL }}

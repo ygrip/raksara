@@ -484,13 +484,25 @@
 	}
 
 	function handleTagKeydown(event: KeyboardEvent) {
-		if (event.key === 'Enter') {
+		if (event.key === 'Enter' || event.key === ',') {
 			event.preventDefault();
-			if (tagInput.trim()) addTag(tagInput.trim());
+			const val = tagInput.trim().replace(/,+$/, '');
+			if (val) addTag(val);
 		} else if (event.key === 'Backspace' && !tagInput && contentForm.tags.length) {
 			contentForm.tags = contentForm.tags.slice(0, -1);
 		} else if (event.key === 'Escape') {
 			tagDropdownOpen = false;
+		}
+	}
+
+	function handleTagInput() {
+		// Auto-commit on typed comma so users can type "tag1, tag2, tag3"
+		if (tagInput.includes(',')) {
+			const parts = tagInput.split(',');
+			for (const p of parts.slice(0, -1)) {
+				if (p.trim()) addTag(p.trim());
+			}
+			tagInput = parts[parts.length - 1].trimStart();
 		}
 	}
 
@@ -904,22 +916,38 @@
 		let result = text;
 		for (const [path, { base64, mediaType }] of Object.entries(blobs)) {
 			const dataUri = `data:${mediaType};base64,${base64}`;
-			// Replace slash-prefixed form first (more specific match)
+			// Replace slash-prefixed form first (most specific match)
 			result = result.split(`/${path}`).join(dataUri);
-			// Then replace bare form (in case some references omit the leading slash)
+			// Bare form
 			result = result.split(path).join(dataUri);
+			// When blob key has 'content/' prefix, also replace the no-prefix form
+			// (frontmatter emits /assets/... but blob key may be content/assets/...)
+			if (path.startsWith('content/')) {
+				const withoutContent = path.slice('content/'.length);
+				result = result.split(`/${withoutContent}`).join(dataUri);
+				result = result.split(withoutContent).join(dataUri);
+			}
 		}
 		return result;
 	}
 
 	/** Resolve a cover-image path from frontmatter against the blob map.
-	 *  frontmatter cover paths have a leading "/" but blob keys are bare GitHub paths. */
+	 *  Tries multiple key forms to handle CONTENT_ROOT = '' vs 'content' configurations:
+	 *  - bare path (leading slash stripped)
+	 *  - with 'content/' prefix added (blob keys include repo root dir when CONTENT_ROOT set)
+	 *  - without 'content/' prefix if already present
+	 *  Returns empty string when unresolved so callers can show a placeholder instead of a 404. */
 	function resolveCoverPath(path: string, blobs?: Record<string, { base64: string; mediaType: string }>): string {
 		if (!path || !blobs) return path;
 		const bare = path.replace(/^\/+/, '');
-		const blob = blobs[bare] ?? blobs[path];
+		const blob =
+			blobs[bare] ??
+			blobs[`content/${bare}`] ??
+			(bare.startsWith('content/') ? blobs[bare.slice('content/'.length)] : undefined) ??
+			blobs[path];
 		if (blob) return `data:${blob.mediaType};base64,${blob.base64}`;
-		return path;
+		// Return empty — callers should show a placeholder, not a broken image URL
+		return '';
 	}
 
 	function buildPreviewHtml(body: string, coverAsset?: AdminAssetUpload, galleryAssets?: AdminAssetUpload[], bodyAssets?: AdminAssetUpload[]): string {
@@ -1169,22 +1197,20 @@
 		return out.join('');
 	}
 
-	function buildThoughtsPreviewHtml(): string {
-		const form = contentForm;
+	/** Wrap a rendered body HTML string in the real thought-card layout. */
+	function wrapThoughtCard(bodyHtml: string, opts: { title?: string; date?: string; tags?: string[] } = {}): string {
 		const esc = (s: string) =>
 			s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-		const dateStr = form.date
-			? new Date(form.date + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+		const title = (opts.title ?? '').trim();
+		const dateStr = opts.date
+			? new Date(opts.date + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 			: '';
-		// Use the real layout.css thought-card classes so the preview matches /thoughts exactly
-		const tagsHtml = form.tags
+		const tagsHtml = (opts.tags ?? [])
 			.map((t) => `<a href="#" class="tag" style="padding:2px 8px;font-size:11px" onclick="return false">${esc(t)}</a>`)
 			.join('');
-		const body = form.body.trim() || '(no body yet)';
-		const title = form.title.trim();
 		return `<ul class="thoughts-list" style="pointer-events:none">
 			<li class="thought-card">
-				<p class="thought-body">${esc(body)}</p>
+				<div class="thought-body">${bodyHtml}</div>
 				<div class="thought-meta">
 					${title ? `<span class="thought-title">${esc(title)}</span><span>·</span>` : ''}
 					${dateStr ? `<span>${esc(dateStr)}</span>` : ''}
@@ -1192,6 +1218,17 @@
 				</div>
 			</li>
 		</ul>`;
+	}
+
+	function buildThoughtsPreviewHtml(): string {
+		const esc = (s: string) =>
+			s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+		const body = contentForm.body.trim() || '(no body yet)';
+		return wrapThoughtCard(`<p>${esc(body)}</p>`, {
+			title: contentForm.title,
+			date: contentForm.date,
+			tags: contentForm.tags
+		});
 	}
 
 	/**
@@ -1240,19 +1277,18 @@
 
 		if (mode !== 'preview') return;
 
-		if (type === 'thoughts') {
-			previewHtml = buildThoughtsPreviewHtml();
-			return;
-		}
 		if (type === 'gallery') {
 			previewHtml = buildPreviewHtml('', coverAsset, assets);
 			return;
 		}
 
-		// Full renderMarkdown with debounce
+		const subtype = contentForm.subtype;
+		const isLiteralLineBreaks = type === 'thoughts' || subtype === 'poem' || subtype === 'novel' || subtype === 'comic';
+
+		// Full renderMarkdown with debounce (all types including thoughts)
 		const timer = setTimeout(async () => {
 			if (!body.trim()) {
-				previewHtml = '';
+				previewHtml = type === 'thoughts' ? buildThoughtsPreviewHtml() : '';
 				return;
 			}
 			// Substitute staged asset paths (not yet on CDN) with local data URIs
@@ -1268,9 +1304,13 @@
 				const html = await renderMarkdown(processedBody, {
 					context: { posts: data.posts, blogDirs: data.blogDirs },
 					// Pass all known content entries so ::component(path) directives resolve
-					components: [...data.posts, ...data.pages, ...data.docs]
+					components: [...data.posts, ...data.pages, ...data.docs, ...data.portfolio],
+					breaks: isLiteralLineBreaks
 				});
-				previewHtml = html;
+				// Thoughts: wrap rendered body in the thought-card layout
+				previewHtml = type === 'thoughts'
+					? wrapThoughtCard(html, { title: contentForm.title, date: contentForm.date, tags: contentForm.tags })
+					: html;
 				await tick();
 				if (bodyPreviewEl) {
 					await initArticleFeatures(bodyPreviewEl);
@@ -1282,7 +1322,9 @@
 				}
 			} catch {
 				// Fallback to simple preview on parse errors
-				previewHtml = buildPreviewHtml(body, coverAsset, undefined, assets);
+				previewHtml = type === 'thoughts'
+					? buildThoughtsPreviewHtml()
+					: buildPreviewHtml(body, coverAsset, undefined, assets);
 			}
 		}, 400);
 
@@ -1307,7 +1349,7 @@
 			try {
 				const html = await renderMarkdown(mdBody, {
 					context: { posts: data.posts, blogDirs: data.blogDirs },
-					components: [...data.posts, ...data.pages, ...data.docs]
+					components: [...data.posts, ...data.pages, ...data.docs, ...data.portfolio]
 				});
 				prDetailPreviewHtml = html;
 				await tick();
@@ -2104,10 +2146,11 @@
 						bind:this={tagInputEl}
 						bind:value={tagInput}
 						class="chip-input"
-						placeholder={contentForm.tags.length ? '' : 'Type or pick tags...'}
+						placeholder={contentForm.tags.length ? '' : 'Type or pick tags, comma-separated...'}
 						onfocus={() => (tagDropdownOpen = true)}
 						onblur={() => setTimeout(() => (tagDropdownOpen = false), 160)}
 						onkeydown={handleTagKeydown}
+						oninput={handleTagInput}
 						autocomplete="off"
 					/>
 				</div>
@@ -2390,6 +2433,9 @@
 					<div
 						bind:this={bodyPreviewEl}
 						class="body-preview article-body"
+						class:article-subtype-poem={contentForm.subtype === 'poem'}
+						class:article-subtype-novel={contentForm.subtype === 'novel'}
+						class:article-subtype-comic={contentForm.subtype === 'comic'}
 						aria-label="Markdown preview"
 					>
 						{#if previewHtml}
@@ -2446,36 +2492,42 @@
 				<div class="asset-list full">
 					{#each contentAssets as asset}
 						<div class="asset-row">
-							<div class="asset-row-top">
-								<img
-									src={`data:${asset.mediaType};base64,${asset.contentBase64}`}
-									alt={asset.alt || asset.path}
-									loading="lazy"
-								/>
-								<div class="asset-row-meta">
-									<strong>{asset.path}</strong>
-									<span>{asset.mediaType}</span>
+							<!-- Header: thumb + file info + remove -->
+							<div class="asset-row-header">
+								<div class="asset-row-thumb-meta">
+									<img
+										src={`data:${asset.mediaType};base64,${asset.contentBase64}`}
+										alt={asset.alt || asset.path}
+										loading="lazy"
+										class="asset-row-thumb"
+									/>
+									<div class="asset-row-meta">
+										<strong class="asset-row-filename">{asset.path.split('/').pop()}</strong>
+										<span class="asset-row-filepath" title={asset.path}>{asset.path}</span>
+										<span class="asset-row-type">{asset.mediaType}</span>
+									</div>
 								</div>
+								<button type="button" class="btn-ghost asset-row-remove" onclick={() => removeAsset(asset.path)}>Remove</button>
 							</div>
+							<!-- Alt + Caption stacked vertically for clarity -->
 							<div class="asset-row-fields">
-								<label>
-									<span>Alt</span>
+								<label class="asset-field">
+									<span class="asset-field-label">Alt text <span class="asset-field-hint">(for screen readers)</span></span>
 									<input
 										value={asset.alt || ''}
 										oninput={(event) => updateAssetField(asset.path, 'alt', (event.currentTarget as HTMLInputElement).value)}
-										placeholder="Accessible description"
+										placeholder="Describe the image for accessibility"
 									/>
 								</label>
-								<label>
-									<span>Caption</span>
+								<label class="asset-field">
+									<span class="asset-field-label">Caption <span class="asset-field-hint">(shown below image, markdown ok)</span></span>
 									<textarea
 										rows="2"
 										oninput={(event) => updateAssetField(asset.path, 'caption', (event.currentTarget as HTMLTextAreaElement).value)}
-										placeholder="Displayed caption (supports markdown)"
+										placeholder="Optional caption displayed below the image"
 									>{asset.caption || ''}</textarea>
 								</label>
 							</div>
-							<button type="button" class="btn-ghost" onclick={() => removeAsset(asset.path)}>Remove</button>
 						</div>
 					{/each}
 				</div>
@@ -2647,6 +2699,7 @@
 							{@const prImages = parseFrontmatterImages(prDetail.contentMarkdown, prDetail.blobs)}
 							{@const isGalleryPr = prImages.length > 0 && !prDetail.contentMarkdown.replace(/^---[\s\S]*?---\s*/m, '').trim()}
 							{@const isPortfolioPr = !!(fm.github || fm.demo || (fm.status && !fm.cover))}
+							{@const isThoughtsPr = prDetail.files.some(f => f.role === 'content' && f.path.includes('/thoughts/'))}
 							<div class="pr-post-preview">
 								{#if prCover && !isGalleryPr}
 									<img src={prCover} alt={fm.title || 'Cover'} class="pr-post-cover" />
@@ -2690,7 +2743,11 @@
 											{#each prImages as img}
 												<li class="gallery-card">
 													<div class="gallery-card-img">
-														<img src={img.src} alt={img.alt || img.caption || fm.title || ''} loading="lazy" />
+														{#if img.src}
+															<img src={img.src} alt={img.alt || img.caption || fm.title || ''} loading="lazy" />
+														{:else}
+															<div class="pi-img-placeholder">Image not available for preview</div>
+														{/if}
 													</div>
 													<div class="gallery-card-info">
 														<div class="gallery-card-header">
@@ -2700,6 +2757,19 @@
 													</div>
 												</li>
 											{/each}
+										</ul>
+									{:else if isThoughtsPr}
+										<!-- Thoughts: wrap rendered body in the real thought-card layout -->
+										<ul class="thoughts-list" style="pointer-events:none; margin-top:16px">
+											<li class="thought-card">
+												<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+												<div bind:this={prPreviewEl} class="thought-body article-body">{@html prDetailPreviewHtml}</div>
+												<div class="thought-meta">
+													{#if fm.title}<span class="thought-title">{fm.title}</span><span>·</span>{/if}
+													{#if fm.date}<span>{fm.date}</span>{/if}
+													{#each fmTags as tag}<span class="tag" style="padding:2px 8px;font-size:11px">{tag}</span>{/each}
+												</div>
+											</li>
 										</ul>
 									{:else}
 										<!-- Full renderMarkdown pipeline — same output as actual pages -->
@@ -3052,6 +3122,7 @@
 	{#if prCreationPhase !== 'idle'}
 		{@const phaseLabel = { building: 'Building', uploading: 'Uploading', creating: 'Creating PR', done: 'Done!' }[prCreationPhase] ?? ''}
 		{@const phaseMsg = PR_CREATION_MESSAGES[prCreationPhase][prCreationMsgIdx] ?? ''}
+		{@const progressPct = { building: 20, uploading: 55, creating: 80, done: 100 }[prCreationPhase] ?? 0}
 		<div class="pr-creation-overlay" role="status" aria-live="polite">
 			<div class="pr-creation-card">
 				{#if prCreationPhase !== 'done'}
@@ -3066,14 +3137,9 @@
 				{/if}
 				<div class="pr-creation-phase">{phaseLabel}</div>
 				<div class="pr-creation-msg">{phaseMsg}</div>
-				<div class="pr-creation-steps">
-					{#each (['building', 'uploading', 'creating', 'done'] as const) as step}
-						<span
-							class="pr-creation-step"
-							class:active={prCreationPhase === step}
-							class:complete={['building','uploading','creating','done'].indexOf(prCreationPhase) > ['building','uploading','creating','done'].indexOf(step)}
-						></span>
-					{/each}
+				<div class="pr-creation-bar-track" aria-hidden="true">
+					<div class="pr-creation-bar-fill" style="width: {progressPct}%"></div>
+					<span class="pr-creation-bar-pct">{progressPct}%</span>
 				</div>
 			</div>
 		</div>
@@ -3913,83 +3979,109 @@
 		gap: 10px;
 	}
 
+	/* Card wrapper: flex column — header on top, fields below */
 	.asset-row {
-		display: grid;
-		grid-template-columns: 1fr auto;
-		grid-template-rows: auto auto;
-		align-items: start;
-		gap: 10px;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
 		border: 1px solid var(--border-color);
 		background: var(--bg-glass);
 		border-radius: var(--radius-md);
-		padding: 10px;
+		padding: 12px;
 	}
 
-	/* On desktop: top row = image+meta spanning full width, remove button top-right */
-	.asset-row-top {
-		display: grid;
-		grid-template-columns: 68px minmax(0, 1fr);
+	/* Header: thumbnail+meta on the left, Remove on the right */
+	.asset-row-header {
+		display: flex;
+		align-items: flex-start;
 		gap: 10px;
-		align-items: start;
-		grid-column: 1;
-		grid-row: 1;
 	}
 
-	/* Remove button: top-right */
-	.asset-row > .btn-ghost {
-		grid-column: 2;
-		grid-row: 1;
-		align-self: start;
+	.asset-row-thumb-meta {
+		display: flex;
+		align-items: flex-start;
+		gap: 10px;
+		flex: 1;
+		min-width: 0;
 	}
 
-	.asset-row img {
-		width: 68px;
-		height: 68px;
-		border-radius: 10px;
+	.asset-row-thumb {
+		width: 64px;
+		height: 64px;
+		flex-shrink: 0;
+		border-radius: 8px;
 		object-fit: cover;
 		border: 1px solid var(--border-color);
 		background: var(--bg-card);
 	}
 
 	.asset-row-meta {
-		display: grid;
-		gap: 6px;
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
 		min-width: 0;
+		padding-top: 2px;
 	}
 
-	.asset-row strong {
+	.asset-row-filename {
+		font-size: 13px;
+		font-weight: 600;
+		color: var(--text-primary);
+		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		white-space: nowrap;
-		color: var(--text-primary);
-		font-size: 13px;
 	}
 
-	.asset-row-meta span {
+	.asset-row-filepath {
+		font-size: 10px;
+		color: var(--text-tertiary);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		opacity: 0.7;
+	}
+
+	.asset-row-type {
+		font-size: 11px;
+		color: var(--text-tertiary);
+	}
+
+	.asset-row-remove {
+		flex-shrink: 0;
+		align-self: flex-start;
+	}
+
+	/* Fields: always stacked vertically, full width */
+	.asset-row-fields {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.asset-field {
+		display: flex;
+		flex-direction: column;
+		gap: 5px;
+	}
+
+	.asset-field-label {
+		font-size: 12px;
+		font-weight: 600;
+		color: var(--text-secondary);
+		line-height: 1.3;
+	}
+
+	.asset-field-hint {
+		font-weight: 400;
 		color: var(--text-tertiary);
 		font-size: 11px;
 	}
 
-	/* Fields: 2-col on desktop, spans full width */
-	.asset-row-fields {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 8px;
-		grid-column: 1 / -1;
-		grid-row: 2;
-	}
-
-	.asset-row-fields label {
-		display: grid;
-		gap: 4px;
-	}
-
-	.asset-row-fields label > span {
-		color: var(--text-tertiary);
-		font-size: 10px;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
+	/* Inputs inside asset fields always fill full width */
+	.asset-field > input,
+	.asset-field > textarea {
+		width: 100%;
+		font-size: 14px; /* 16px on touch to prevent iOS zoom — set below */
 	}
 
 	/* ── Form footer ─────────────────────────────────────────── */
@@ -4212,34 +4304,21 @@
 			grid-template-columns: 1fr;
 		}
 
-		.asset-row {
-			grid-template-columns: 1fr;
-			gap: 10px;
-		}
-
-		.asset-row-top {
-			display: grid;
-			grid-template-columns: 52px minmax(0, 1fr);
-			gap: 10px;
-			align-items: start;
-		}
-
-		.asset-row img {
+		/* Smaller thumb on narrow screens */
+		.asset-row-thumb {
 			width: 52px;
 			height: 52px;
 		}
 
-		.asset-row-fields {
-			grid-template-columns: 1fr;
+		/* 16px prevents iOS auto-zoom on input focus */
+		.asset-field > input,
+		.asset-field > textarea {
+			font-size: 16px;
 		}
 
-		.asset-row-fields label > input,
-		.asset-row-fields label > textarea {
-			font-size: 16px; /* prevent iOS zoom on iPhone */
-		}
-
-		.asset-row .btn-ghost {
-			width: 100%;
+		.asset-row-remove {
+			font-size: 12px;
+			padding: 5px 10px;
 		}
 
 		.footer-back,
@@ -5903,6 +5982,42 @@
 		color: var(--text-primary);
 	}
 
+	/* ── Subtype previews ────────────────────────────────────── */
+	/* Poem: centered, italic, single-line spacing */
+	:global(.article-subtype-poem p) {
+		text-align: center;
+		font-style: italic;
+		line-height: 1.9;
+		margin: 0.2em 0;
+	}
+	:global(.article-subtype-poem h1),
+	:global(.article-subtype-poem h2),
+	:global(.article-subtype-poem h3) {
+		text-align: center;
+	}
+	/* Novel: preserve line breaks, slight indent */
+	:global(.article-subtype-novel p) {
+		line-height: 1.9;
+		margin: 0.5em 0;
+	}
+	/* Comic: give panels a bit of space */
+	:global(.article-subtype-comic p) {
+		line-height: 1.6;
+	}
+
+	/* ── Gallery image placeholder (when blob not in preview) ── */
+	:global(.pi-img-placeholder) {
+		width: 100%;
+		aspect-ratio: 4/3;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: color-mix(in srgb, var(--accent) 6%, var(--bg-card));
+		color: var(--text-tertiary);
+		font-size: 12px;
+		border-radius: 6px;
+	}
+
 	/* ── PR creation loading overlay ─────────────────────────── */
 	.pr-creation-overlay {
 		position: fixed;
@@ -5978,23 +6093,27 @@
 		min-height: 2em;
 		transition: opacity 0.3s ease;
 	}
-	.pr-creation-steps {
-		display: flex;
-		gap: 6px;
-		margin-top: 4px;
+	.pr-creation-bar-track {
+		width: 100%;
+		height: 6px;
+		background: color-mix(in srgb, var(--accent) 14%, var(--border-glass));
+		border-radius: 99px;
+		position: relative;
+		margin-top: 10px;
+		overflow: hidden;
 	}
-	.pr-creation-step {
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		background: color-mix(in srgb, var(--accent) 20%, var(--border-glass));
-		transition: background 0.3s ease, transform 0.3s ease;
+	.pr-creation-bar-fill {
+		height: 100%;
+		border-radius: 99px;
+		background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 70%, var(--gradient-3, #a78bfa)));
+		transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 	}
-	.pr-creation-step.active {
-		background: var(--accent);
-		transform: scale(1.3);
-	}
-	.pr-creation-step.complete {
-		background: color-mix(in srgb, var(--accent) 60%, transparent);
+	.pr-creation-bar-pct {
+		position: absolute;
+		right: 0;
+		top: 10px;
+		font-size: 10px;
+		color: var(--text-tertiary);
+		white-space: nowrap;
 	}
 </style>
