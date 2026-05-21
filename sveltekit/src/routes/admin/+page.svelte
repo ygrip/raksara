@@ -301,17 +301,27 @@
 		};
 	}
 
+	const CHALLENGE_STORAGE_KEY = 'raksara_admin_challenge';
+
 	function getAdminChallengeCookie() {
-		const match = document.cookie.match(/(?:^|;\s*)raksara_admin_challenge=([^;]+)/);
-		return match ? decodeURIComponent(match[1]) : '';
+		// Migrate any legacy cookie value into sessionStorage, then clear the cookie.
+		const legacyMatch = document.cookie.match(/(?:^|;\s*)raksara_admin_challenge=([^;]+)/);
+		if (legacyMatch) {
+			const legacyValue = decodeURIComponent(legacyMatch[1]);
+			try { sessionStorage.setItem(CHALLENGE_STORAGE_KEY, legacyValue); } catch { /* ignore */ }
+			document.cookie = 'raksara_admin_challenge=; Max-Age=0; Path=/; SameSite=Lax';
+			return legacyValue;
+		}
+		try { return sessionStorage.getItem(CHALLENGE_STORAGE_KEY) ?? ''; } catch { return ''; }
 	}
 
 	function setAdminChallengeCookie(value: string) {
-		const secure = !isLocalAdminHost ? '; Secure' : '';
-		document.cookie = `raksara_admin_challenge=${encodeURIComponent(value)}; Max-Age=86400; Path=/; SameSite=Lax${secure}`;
+		try { sessionStorage.setItem(CHALLENGE_STORAGE_KEY, value); } catch { /* ignore */ }
 	}
 
 	function clearAdminChallengeCookie() {
+		try { sessionStorage.removeItem(CHALLENGE_STORAGE_KEY); } catch { /* ignore */ }
+		// Also clear any residual legacy cookie.
 		document.cookie = 'raksara_admin_challenge=; Max-Age=0; Path=/; SameSite=Lax';
 	}
 

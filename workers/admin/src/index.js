@@ -444,7 +444,9 @@ async function githubJson(env, path, init = {}) {
 	const res = await fetch(`https://api.github.com${path}`, { ...init, headers });
 	const data = await res.json().catch(() => null);
 	if (!res.ok) {
-		throw new Error(data?.message || `GitHub API failed with ${res.status}`);
+		// Avoid leaking GitHub API error details (may contain repo metadata).
+		// Only expose status code to help with debugging.
+		throw new Error(`GitHub API request failed (HTTP ${res.status})`);
 	}
 	return data;
 }
@@ -554,6 +556,63 @@ async function verifyTurnstile(request, env, token) {
 function decodeBase64Content(value) {
 	const compact = String(value || '').replace(/\s/g, '');
 	return base64UrlDecodeString(compact.replace(/\+/g, '-').replace(/\//g, '_'));
+}
+
+/**
+ * Validate that file content matches its declared extension.
+ * Checks magic bytes for binary formats and text patterns for text formats.
+ */
+function validateAssetContentType(content, encoding, extension) {
+	const ext = String(extension || '').toLowerCase();
+	if (!ext) return true;
+
+	// For base64-encoded files, decode the first part to check magic bytes.
+	if (encoding === 'base64') {
+		try {
+			const decoded = decodeBase64Content(content.slice(0, 100)); // Check first 100 bytes max
+			const bytes = new TextEncoder().encode(decoded);
+			return validateContentMagicBytes(bytes, ext);
+		} catch {
+			return false; // Invalid base64
+		}
+	}
+
+	// For utf-8 text content, check for text patterns.
+	const text = String(content || '');
+	return validateContentMagicBytes(new TextEncoder().encode(text), ext);
+}
+
+/**
+ * Check file magic bytes / signatures against declared extension.
+ */
+function validateContentMagicBytes(bytes, ext) {
+	const hex = Array.from(bytes.slice(0, 12))
+		.map((b) => b.toString(16).padStart(2, '0'))
+		.join(' ')
+		.toUpperCase();
+
+	switch (ext) {
+		case 'png':
+			// PNG magic: 89 50 4E 47 (‰PNG)
+			return hex.startsWith('89 50 4E 47');
+		case 'jpg':
+		case 'jpeg':
+			// JPEG magic: FF D8 FF
+			return hex.startsWith('FF D8 FF');
+		case 'gif':
+			// GIF magic: 47 49 46 (GIF)
+			return hex.startsWith('47 49 46');
+		case 'webp':
+			// WebP magic: 52 49 46 46 ... 57 45 42 50 (RIFF...WEBP)
+			return hex.startsWith('52 49 46 46') && hex.includes('57 45 42 50');
+		case 'svg':
+			// SVG is text, check for XML or SVG tag
+			const text = new TextDecoder().decode(bytes.slice(0, 512));
+			return /<\?xml|<svg/i.test(text);
+		default:
+			// Unknown extension, allow it.
+			return true;
+	}
 }
 
 const IMAGE_EXTENSIONS = new Set(['webp', 'jpg', 'jpeg', 'png', 'gif', 'svg']);
@@ -821,6 +880,13 @@ function collectFileOperations(env, payload, adminConfig = null) {
 			if (file.bytes > limits.maxAssetBytes) throw new Error(`Asset file is too large: ${file.path}`);
 			const extension = fileExtensionFromPath(file.path);
 			if (!limits.allowedAssetExtensions.has(extension)) throw new Error(`Asset extension is not allowed: ${file.path}`);
+			if (!validateAssetContentType(file.content, file.encoding, extension)) {
+				throw new Error(`Asset content does not match declared file type: ${file.path}`);
+			}
+			if (extension === 'svg') {
+				const svgText = file.encoding === 'base64' ? decodeBase64Content(file.content) : file.content;
+				if (/<script[\s>]/i.test(svgText)) throw new Error(`SVG asset contains disallowed script content: ${file.path}`);
+			}
 		}
 		totalBytes += file.bytes;
 	}
@@ -1093,8 +1159,13 @@ async function handleCreatePr(request, env) {
 	if (!isMockMode(env)) {
 		const missing = getRequiredEnv(env);
 		if (missing.length) return publicError(403, env, request);
-		const result = await createGithubPullRequest(env, payload, files, user);
-		return json(result, { status: 201 }, env, request);
+		try {
+			const result = await createGithubPullRequest(env, payload, files, user);
+			return json(result, { status: 201 }, env, request);
+		} catch (err) {
+			// GitHub API errors should not expose details to the client.
+			return publicError(500, env, request);
+		}
 	}
 
 	const branchName = githubBranchName(payload);
@@ -1343,7 +1414,7 @@ async function route(request, env) {
 		if (isMockMode(env)) {
 			return withCookie(
 				adminRedirect(request, env, { mockLogin: '1' }),
-				readableCookie(ADMIN_CHALLENGE_COOKIE, getAdminChallengeValue(request, body), {
+				cookieSerialize(ADMIN_CHALLENGE_COOKIE, getAdminChallengeValue(request, body), {
 					maxAge: CHALLENGE_TTL_SECONDS,
 					secure: isCookieSecure(env)
 				})
@@ -1372,7 +1443,7 @@ async function route(request, env) {
 		);
 		response = withCookie(
 			response,
-			readableCookie(ADMIN_CHALLENGE_COOKIE, getAdminChallengeValue(request, body), {
+			cookieSerialize(ADMIN_CHALLENGE_COOKIE, getAdminChallengeValue(request, body), {
 				maxAge: CHALLENGE_TTL_SECONDS,
 				secure: isCookieSecure(env)
 			})
@@ -1406,7 +1477,7 @@ async function route(request, env) {
 			if (!author) {
 				const allowed = adminConfig.allowedAuthors.map((entry) => entry.githubUsername).join(', ');
 				throw new Error(
-					`GitHub user "${githubUser.login}" is not allowed for this admin.`
+					`Sign-in failed. Access denied.`
 				);
 			}
 
@@ -1480,7 +1551,7 @@ async function route(request, env) {
 		);
 		response = withCookie(
 			response,
-			readableCookie(ADMIN_CHALLENGE_COOKIE, '', {
+			cookieSerialize(ADMIN_CHALLENGE_COOKIE, '', {
 				maxAge: 0,
 				secure: isCookieSecure(env)
 			})
