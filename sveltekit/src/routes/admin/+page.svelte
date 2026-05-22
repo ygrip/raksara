@@ -1393,7 +1393,9 @@
 		markdown: string,
 		blobs?: Record<string, { base64: string; mediaType: string }>
 	): Array<{ src: string; caption?: string; alt?: string }> {
-		const match = markdown.match(/^---\n([\s\S]*?)\n---/);
+		// Normalise CRLF → LF so the regex works on GitHub API responses
+		const md = markdown.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+		const match = md.match(/^---\n([\s\S]*?)\n---/);
 		if (!match) return [];
 		const yaml = match[1];
 
@@ -1434,7 +1436,8 @@
 
 	/** Parse YAML list values (e.g. `tags:` with `  - item` lines) from frontmatter. */
 	function parseFrontmatterList(markdown: string, key: string): string[] {
-		const match = markdown.match(/^---\n([\s\S]*?)\n---/);
+		const md = markdown.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+		const match = md.match(/^---\n([\s\S]*?)\n---/);
 		if (!match) return [];
 		const results: string[] = [];
 		const lines = match[1].split('\n');

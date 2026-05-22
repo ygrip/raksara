@@ -1355,10 +1355,14 @@ async function route(request, env) {
 				}
 			}
 
-			// Fetch image asset blobs for preview (best-effort, capped)
+			// Fetch image asset blobs for preview (best-effort, capped).
+			// We intentionally do NOT filter by f.role === 'asset' here because the role
+			// depends on CONTENT_ROOT matching the actual path prefix; gallery PRs include
+			// image files that may be classified as 'other' when the prefix doesn't match.
+			// Any image-extension file in the PR is a candidate for preview blobs.
 			const imageFiles = classifiedFiles.filter((f) => {
 				const ext = f.path.split('.').pop()?.toLowerCase() || '';
-				return f.role === 'asset' && IMAGE_EXTENSIONS.has(ext);
+				return IMAGE_EXTENSIONS.has(ext);
 			});
 			const blobsSkipped = imageFiles.length > MAX_PREVIEW_BLOB_FILES;
 			const blobsToFetch = imageFiles.slice(0, MAX_PREVIEW_BLOB_FILES);

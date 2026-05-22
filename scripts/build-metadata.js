@@ -1751,34 +1751,94 @@ function renderHomePagePrerender(posts, thoughts, portfolio, gallery, config, im
 
 async function generateGalleryCover(galleryItems) {
   const outputPath = path.join(WEB_DIR, "content", "assets", "images", "gallery-cover.webp");
+
+  // Resolve an image src string to an absolute path inside CONTENT_DIR.
+  // Handles both admin-created paths ("/assets/images/...") and manually-authored
+  // paths that already include a "content/" prefix ("/content/assets/images/...").
+  function resolveGalleryImagePath(src) {
+    if (!src || src.startsWith("http://") || src.startsWith("https://") || src.startsWith("data:")) return null;
+    let bare = src.replace(/^\/+/, ""); // strip leading slash(es)
+    if (bare.startsWith("content/")) bare = bare.slice("content/".length); // strip CONTENT_ROOT prefix
+    const p = path.join(CONTENT_DIR, bare);
+    return fs.existsSync(p) ? p : null;
+  }
+
+  // Collect one representative image per gallery entry (newest first, up to 4).
   const candidates = [];
   for (const g of galleryItems) {
     if (candidates.length >= 4) break;
     const imgs = g.images && g.images.length > 0 ? g.images : g.image ? [{ src: g.image }] : [];
     if (!imgs.length) continue;
-    const src = imgs[0].src || imgs[0];
-    if (!src || src.startsWith("http://") || src.startsWith("https://")) continue;
-    const absPath = path.join(WEB_DIR, resolvePath(src));
-    if (fs.existsSync(absPath)) candidates.push(absPath);
+    const src = imgs[0].src || (typeof imgs[0] === "string" ? imgs[0] : "");
+    const p = resolveGalleryImagePath(src);
+    if (p) candidates.push(p);
   }
+
   if (!candidates.length) return;
+
+  const size = 280; // half of output dimension
+  const total = size * 2; // 560 × 560 canvas
+  const bg = { r: 18, g: 21, b: 26 };
+  const count = candidates.length;
+
   try {
-    const size = 280;
-    const cells = await Promise.all(
-      candidates.map((p) => sharp(p).resize(size, size, { fit: "cover", position: "centre" }).toBuffer()),
-    );
-    while (cells.length < 4) cells.push(cells[cells.length - 1]);
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-    await sharp({ create: { width: size * 2, height: size * 2, channels: 3, background: { r: 18, g: 21, b: 26 } } })
-      .composite([
-        { input: cells[0], top: 0,    left: 0 },
-        { input: cells[1], top: 0,    left: size },
-        { input: cells[2], top: size, left: 0 },
-        { input: cells[3], top: size, left: size },
-      ])
-      .webp({ quality: 62, effort: 6 })
-      .toFile(outputPath);
-    console.log("  ✓ Generated gallery-cover.webp");
+
+    if (count === 1) {
+      // Single entry: fill the whole canvas
+      const cell = await sharp(candidates[0]).resize(total, total, { fit: "cover", position: "centre" }).toBuffer();
+      await sharp({ create: { width: total, height: total, channels: 3, background: bg } })
+        .composite([{ input: cell, top: 0, left: 0 }])
+        .webp({ quality: 62, effort: 6 })
+        .toFile(outputPath);
+
+    } else if (count === 2) {
+      // Two entries: left / right vertical halves
+      const [c0, c1] = await Promise.all([
+        sharp(candidates[0]).resize(size, total, { fit: "cover", position: "centre" }).toBuffer(),
+        sharp(candidates[1]).resize(size, total, { fit: "cover", position: "centre" }).toBuffer(),
+      ]);
+      await sharp({ create: { width: total, height: total, channels: 3, background: bg } })
+        .composite([
+          { input: c0, top: 0, left: 0 },
+          { input: c1, top: 0, left: size },
+        ])
+        .webp({ quality: 62, effort: 6 })
+        .toFile(outputPath);
+
+    } else if (count === 3) {
+      // Three entries: left half tall + right half split top/bottom
+      const [c0, c1, c2] = await Promise.all([
+        sharp(candidates[0]).resize(size, total, { fit: "cover", position: "centre" }).toBuffer(),
+        sharp(candidates[1]).resize(size, size,  { fit: "cover", position: "centre" }).toBuffer(),
+        sharp(candidates[2]).resize(size, size,  { fit: "cover", position: "centre" }).toBuffer(),
+      ]);
+      await sharp({ create: { width: total, height: total, channels: 3, background: bg } })
+        .composite([
+          { input: c0, top: 0,    left: 0 },
+          { input: c1, top: 0,    left: size },
+          { input: c2, top: size, left: size },
+        ])
+        .webp({ quality: 62, effort: 6 })
+        .toFile(outputPath);
+
+    } else {
+      // Four entries: 2 × 2 grid
+      const cells = await Promise.all(
+        candidates.slice(0, 4).map((p) => sharp(p).resize(size, size, { fit: "cover", position: "centre" }).toBuffer()),
+      );
+      await sharp({ create: { width: total, height: total, channels: 3, background: bg } })
+        .composite([
+          { input: cells[0], top: 0,    left: 0 },
+          { input: cells[1], top: 0,    left: size },
+          { input: cells[2], top: size, left: 0 },
+          { input: cells[3], top: size, left: size },
+        ])
+        .webp({ quality: 62, effort: 6 })
+        .toFile(outputPath);
+    }
+
+    console.log(`  ✓ Generated gallery-cover.webp (${count} image${count !== 1 ? "s" : ""})`);
   } catch (err) {
     console.log("  ⚠ Failed to generate gallery cover:", err.message);
   }
