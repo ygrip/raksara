@@ -107,7 +107,7 @@
 </div>
 
 <div class="post-list">
-	{#each sortedPosts as post (post.slug)}
+	{#each sortedPosts as post, i (post.slug)}
 		<a
 			class="post-card{post.cover ? ' has-thumb' : ''}"
 			href={postHref(post.slug)}
@@ -115,7 +115,7 @@
 			{#if post.cover}
 				{@const postThumbLqip = buildLqipStyle(post.cover, imageManifest)}
 				<div class="post-card-thumb is-loading" class:lqip-shown={!!postThumbLqip} style={postThumbLqip}>
-					<img {...buildResponsiveAttrs(post.cover, imageManifest, { sizes: postThumbSizes, maxWidth: 640 })} alt="" aria-hidden="true" />
+					<img {...buildResponsiveAttrs(post.cover, imageManifest, { sizes: postThumbSizes, eager: i === 0, maxWidth: 640 })} alt="" aria-hidden="true" />
 				</div>
 			{/if}
 			<div class="post-card-body">

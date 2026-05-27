@@ -92,7 +92,7 @@
 		{#if item?.cover}
 			{@const coverLqip = buildLqipStyle(item.cover, imageManifest)}
 			<div class="article-cover is-loading" class:lqip-shown={!!coverLqip} style={coverLqip}>
-				<img {...buildResponsiveAttrs(item.cover, imageManifest, { sizes: articleCoverSizes })} alt={item.title} />
+				<img {...buildResponsiveAttrs(item.cover, imageManifest, { sizes: articleCoverSizes, eager: true })} alt={item.title} />
 			</div>
 		{/if}
 
