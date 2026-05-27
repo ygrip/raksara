@@ -204,6 +204,17 @@
 				const fontName = config.font.trim();
 				const linkId = 'raksara-font';
 				if (!document.getElementById(linkId)) {
+					// Inject preconnect hints only when font is actually used
+					const pre1 = document.createElement('link');
+					pre1.rel = 'preconnect';
+					pre1.href = 'https://fonts.googleapis.com';
+					document.head.appendChild(pre1);
+					const pre2 = document.createElement('link');
+					pre2.rel = 'preconnect';
+					pre2.href = 'https://fonts.gstatic.com';
+					pre2.crossOrigin = 'anonymous';
+					document.head.appendChild(pre2);
+
 					const link = document.createElement('link');
 					link.id = linkId;
 					link.rel = 'stylesheet';
@@ -267,8 +278,8 @@
 				const s = document.createElement('script');
 				s.id = 'adsense-script';
 				s.async = true;
+				s.defer = true;
 				s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseId}`;
-				s.crossOrigin = 'anonymous';
 				s.onerror = () => s.remove();
 				document.head.appendChild(s);
 				['pointerdown', 'scroll', 'keydown'].forEach((ev) =>
