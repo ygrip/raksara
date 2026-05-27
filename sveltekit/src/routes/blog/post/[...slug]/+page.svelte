@@ -2,10 +2,10 @@
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { browser } from '$app/environment';
 	import type { PageData } from './$types';
-	import { renderMarkdown, initArticleFeatures } from '$lib/markdown';
+	import { initArticleFeatures } from '$lib/markdown';
 	import Giscus from '$lib/components/Giscus.svelte';
 	import ShareCard from '$lib/components/ShareCard.svelte';
-	import { shouldShowGiscus, getGiscusConfig, buildPostMeta } from '$lib/seo';
+	import { shouldShowGiscus, getGiscusConfig, buildPostMeta, serializeJsonLd } from '$lib/seo';
 	import { assetUrl, formatDate, humanize } from '$lib/utils';
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
@@ -17,10 +17,12 @@
 	const markdown = $derived(data.markdown);
 	const config = $derived(data.config);
 	const imageManifest = $derived(data.imageManifest ?? null);
+	const prerenderedHtml = $derived(data.renderedHtml ?? '');
 	const articleCoverSizes = '(max-width: 832px) calc(100vw - 32px), 800px';
 
 	let renderedHtml = $state('');
 	let articleEl: HTMLElement | null = null;
+	let featuresInitialized = $state(false);
 
 	// Derived article type
 	const postType = $derived(post?.type ?? 'blog');
@@ -126,31 +128,18 @@
 		sessionStorage.setItem('comicScrollMode', comicScrollMode);
 	}
 
-	function stripLeadingTitle(md: string, title?: string | null): string {
-		if (!title) return md;
-		const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-		return md.replace(new RegExp(`^\\s*#\\s+${escaped}\\s*\\n+`, 'i'), '');
-	}
-
-	$effect(() => {
-		const source = markdown;
-		const title = post?.title;
-		if (!source) {
-			renderedHtml = '';
-			return;
+	// Use prerendered HTML from load (static SEO) and init client features on mount
+	onMount(async () => {
+		renderedHtml = prerenderedHtml;
+		await tick();
+		if (articleEl) {
+			await initArticleFeatures(articleEl);
+			featuresInitialized = true;
 		}
-		(async () => {
-			renderedHtml = await renderMarkdown(stripLeadingTitle(source, title), {
-				context: { posts: allPosts, blogDirs: data.blogDirs },
-				imageManifest: imageManifest ?? undefined,
-			});
-			await tick();
-			if (articleEl) await initArticleFeatures(articleEl);
-			if (location.hash) {
-				const target = document.querySelector(location.hash);
-				if (target) target.scrollIntoView({ behavior: 'smooth' });
-			}
-		})();
+		if (location.hash) {
+			const target = document.querySelector(location.hash);
+			if (target) target.scrollIntoView({ behavior: 'smooth' });
+		}
 	});
 </script>
 
@@ -158,9 +147,20 @@
 	<title>{post?.title ?? 'Post'} · {config?.hero_title ?? config?.title ?? 'Raksara'}</title>
 	<meta name="description" content={post?.summary ?? config?.description ?? config?.hero_subtitle ?? 'Read this post on Raksara.'} />
 	{#if pageMeta}
+		<link rel="canonical" href={pageMeta.url} />
 		<meta property="og:title" content={pageMeta.title} />
 		<meta property="og:description" content={pageMeta.description ?? ''} />
+		<meta property="og:url" content={pageMeta.url} />
 		<meta property="og:type" content="article" />
+		{#if post?.date}
+			<meta property="article:published_time" content={post.date} />
+		{/if}
+		{#if post?.updated || post?.modified || post?.date}
+			<meta property="article:modified_time" content={(post as Record<string, unknown> & { updated?: string; modified?: string }).updated ?? (post as Record<string, unknown> & { updated?: string; modified?: string }).modified ?? post.date} />
+		{/if}
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content={pageMeta.title} />
+		<meta name="twitter:description" content={pageMeta.description ?? ''} />
 		{#if post?.ogImage?.landscape || pageMeta?.image}
 			{@const ogLandscape = post?.ogImage?.landscape ?? pageMeta?.image}
 			{@const ogPortrait = post?.ogImage?.portrait}
@@ -175,7 +175,7 @@
 			<meta name="twitter:image" content={ogLandscape} />
 		{/if}
 		{#if pageMeta.jsonLd}
-			{@html `<script type="application/ld+json">${JSON.stringify(pageMeta.jsonLd)}</script>`}
+			{@html `<script type="application/ld+json">${serializeJsonLd(pageMeta.jsonLd)}</script>`}
 		{/if}
 	{/if}
 </svelte:head>

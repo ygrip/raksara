@@ -4,6 +4,7 @@ import type { PageLoad } from './$types';
 import { stripYamlFrontmatter } from '$lib/utils';
 import { error } from '@sveltejs/kit';
 import { loadPosts, loadBlogDirs, loadImageManifest } from '$lib/metadata';
+import { renderMarkdown } from '$lib/markdown';
 
 type PostNav = { title: string; href: string };
 
@@ -29,6 +30,12 @@ function routeFromNav(value: unknown): PostNav | null {
   };
 }
 
+function stripLeadingTitle(md: string, title?: string | null): string {
+  if (!title) return md;
+  const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return md.replace(new RegExp(`^\\s*#\\s+${escaped}\\s*\\n+`, 'i'), '');
+}
+
 export const prerender = true;
 
 export const load: PageLoad = async ({ params, fetch }) => {
@@ -52,5 +59,11 @@ export const load: PageLoad = async ({ params, fetch }) => {
   const nextPage = routeFromNav((post as unknown as { next_page?: unknown } | null)?.next_page);
   const previousPage = routeFromNav((post as unknown as { previous_page?: unknown } | null)?.previous_page);
 
-  return { slug, markdown, post, allPosts, blogDirs, nextPage, previousPage, imageManifest };
+  // Render markdown to HTML during prerender for SEO (static HTML contains article body)
+  const renderedHtml = await renderMarkdown(stripLeadingTitle(markdown ?? '', post.title), {
+    context: { posts: allPosts, blogDirs },
+    imageManifest: imageManifest ?? undefined,
+  });
+
+  return { slug, markdown, renderedHtml, post, allPosts, blogDirs, nextPage, previousPage, imageManifest };
 };

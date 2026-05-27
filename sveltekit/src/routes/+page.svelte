@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import type { PageData } from './$types';
 	import { heroTyping } from '$lib/actions/typing';
 	import { assetUrl, formatDate } from '$lib/utils';
@@ -18,9 +17,8 @@
 			?? heroSubtitle
 			?? (heroTitle ? `${heroTitle} — stories, portfolio, gallery, and thoughts.` : 'Raksara homepage')
 	);
-	
-	const galleryCover = '/content/assets/images/gallery-cover.webp';
 
+	const galleryCover = '/content/assets/images/gallery-cover.webp';
 	const postThumbSizes = '(max-width: 480px) 100px, (max-width: 640px) 120px, 180px';
 
 	function blogPostHref(slug: string): string {
@@ -29,21 +27,6 @@
 
 	function portfolioHref(slug: string): string {
 		return `/portfolio/${slug}/`;
-	}
-
-	function shouldIgnoreCardClick(event: MouseEvent): boolean {
-		return event.target instanceof Element && Boolean(event.target.closest('a, button'));
-	}
-
-	function openCard(event: MouseEvent, href: string) {
-		if (shouldIgnoreCardClick(event)) return;
-		goto(href);
-	}
-
-	function openCardFromKey(event: KeyboardEvent, href: string) {
-		if (event.key !== 'Enter' && event.key !== ' ') return;
-		event.preventDefault();
-		goto(href);
 	}
 </script>
 
@@ -83,35 +66,32 @@
 		</div>
 		<div class="post-list">
 			{#each bundle.posts.slice(0, 3) as post, i}
-				<div
+				<a
 					class="post-card{post.cover ? ' has-thumb' : ''}"
-					role="link"
-					tabindex="0"
-					onclick={(event) => openCard(event, blogPostHref(post.slug))}
-					onkeydown={(event) => openCardFromKey(event, blogPostHref(post.slug))}
+					href={blogPostHref(post.slug)}
 				>
 					{#if post.cover}
 						{@const postThumbLqip = buildLqipStyle(post.cover, imageManifest)}
 						<div class="post-card-thumb is-loading" class:lqip-shown={!!postThumbLqip} style={postThumbLqip}>
-							<img {...buildResponsiveAttrs(post.cover, imageManifest, { sizes: postThumbSizes, eager: i === 0, maxWidth: 640 })} alt={post.title} />
+							<img {...buildResponsiveAttrs(post.cover, imageManifest, { sizes: postThumbSizes, eager: i === 0, maxWidth: 640 })} alt="" aria-hidden="true" />
 						</div>
 					{/if}
 					<div class="post-card-body">
-						<div class="post-card-title"><a href={blogPostHref(post.slug)} style="color:inherit;text-decoration:none;">{post.title}</a></div>
+						<div class="post-card-title">{post.title}</div>
 						{#if post.summary}
 							<div class="post-card-summary">{post.summary}</div>
 						{/if}
-						<div class="post-card-meta">
-							<span class="post-card-date">{formatDate(post.date)}</span>
+						<div class="post-card-meta" aria-label="Post metadata">
+							<time datetime={post.date}>{formatDate(post.date)}</time>
 							{#if post.category}
-								<a href="/category/{post.category}" class="post-card-category">{post.category}</a>
+								<span class="post-card-category">{post.category}</span>
 							{/if}
 							{#each (post.tags ?? []).slice(0, 2) as tag}
-								<a href="/tag/{tag}" class="tag" style="padding:2px 8px;font-size:11px">{tag}</a>
+								<span class="tag" style="padding:2px 8px;font-size:11px">{tag}</span>
 							{/each}
 						</div>
 					</div>
-				</div>
+				</a>
 			{/each}
 		</div>
 	</div>
@@ -126,15 +106,9 @@
 		</div>
 		<div class="portfolio-grid">
 			{#each bundle.portfolio.slice(0, 4) as item}
-				<div
-					class="portfolio-card"
-					role="link"
-					tabindex="0"
-					onclick={(event) => openCard(event, portfolioHref(item.slug))}
-					onkeydown={(event) => openCardFromKey(event, portfolioHref(item.slug))}
-				>
+				<div class="portfolio-card">
 					<div class="portfolio-card-title">
-						<a href={portfolioHref(item.slug)} style="color:inherit;text-decoration:none;">{item.title}</a>
+						<a href={portfolioHref(item.slug)}>{item.title}</a>
 					</div>
 					{#if item.summary}
 						<div class="portfolio-card-summary">{item.summary}</div>
@@ -149,13 +123,13 @@
 					{#if item.github || item.demo}
 						<div class="portfolio-card-links">
 							{#if item.github}
-								<a href={item.github} target="_blank" rel="noopener" class="btn-github" onclick={(e) => e.stopPropagation()}>
+								<a href={item.github} target="_blank" rel="noopener" class="btn-github">
 									<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
 									GitHub
 								</a>
 							{/if}
 							{#if item.demo}
-								<a href={item.demo} target="_blank" rel="noopener" class="btn-demo" onclick={(e) => e.stopPropagation()}>Demo</a>
+								<a href={item.demo} target="_blank" rel="noopener" class="btn-demo">Demo</a>
 							{/if}
 						</div>
 					{/if}

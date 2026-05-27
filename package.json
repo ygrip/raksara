@@ -9,7 +9,9 @@
     "check:sveltekit": "cd sveltekit && npm run check",
     "dev": "npm run build:metadata && cd sveltekit && npm run dev",
     "dev:sveltekit": "npm run dev",
-    "build": "npm run build:metadata && npm run build:sveltekit"
+    "build": "npm run build:metadata && npm run seo:validate && npm run build:sveltekit && npm run seo:validate:dist",
+    "seo:validate": "node scripts/validate-seo-build.js",
+    "seo:validate:dist": "node scripts/validate-seo-dist.js"
   },
   "keywords": [
     "blog",

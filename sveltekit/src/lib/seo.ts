@@ -5,6 +5,8 @@
 
 import type { SiteConfig, Post, PortfolioItem } from './types';
 
+export type JsonLdObject = Record<string, unknown>;
+
 export interface PageMeta {
   title: string;
   description: string;
@@ -14,7 +16,17 @@ export interface PageMeta {
   author?: string;
   date?: string;
   tags?: string[];
-  jsonLd?: string;
+  jsonLd?: JsonLdObject;
+}
+
+/** Serialize JSON-LD safely for injection into <script type="application/ld+json"> */
+export function serializeJsonLd(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
 }
 
 function resolveUrl(path: string, siteUrl?: string): string {
@@ -38,17 +50,32 @@ export function buildPostMeta(
   const url = resolveUrl(isPost ? `/blog/post/${slug}` : `/portfolio/${slug}`, siteUrl);
   const image = post.cover ? resolveUrl(post.cover, siteUrl) : undefined;
 
-  const jsonLd = JSON.stringify({
+  const authorName = (post as Post & { author?: string }).author ?? config.author ?? '';
+  const updatedDate = (post as Post & { updated?: string; modified?: string }).updated
+    ?? (post as Post & { updated?: string; modified?: string }).modified
+    ?? post.date;
+
+  const jsonLd: JsonLdObject = {
     '@context': 'https://schema.org',
-    '@type': isPost ? 'Article' : 'SoftwareApplication',
+    '@type': isPost ? 'BlogPosting' : 'SoftwareApplication',
     headline: post.title,
     description: post.summary ?? '',
-    author: { '@type': 'Person', name: (post as Post & { author?: string }).author ?? config.author ?? '' },
+    author: [
+      {
+        '@type': 'Person',
+        name: authorName,
+      },
+    ],
     datePublished: post.date,
+    dateModified: updatedDate,
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': url,
+    },
     url,
-    ...(image ? { image } : {}),
+    ...(image ? { image: [image] } : {}),
     ...(post.tags?.length ? { keywords: post.tags.join(', ') } : {}),
-  });
+  };
 
   return {
     title: `${post.title} — ${brandName(config)}`,

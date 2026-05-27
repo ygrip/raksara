@@ -713,7 +713,7 @@ async function generateSeoArtifacts({
   const indexableRoutes = routes.filter((route) => isIndexableRoute(route));
 
   writeWebFile("metadata/prerender-routes.json", `${JSON.stringify(indexableRoutes.map(toPrerenderRoute), null, 2)}\n`);
-  writeWebFile("sitemap.xml", buildSitemapXml(siteUrl, indexableRoutes));
+  writeWebFile("sitemap.xml", buildSitemapXml(siteUrl, indexableRoutes, { posts, portfolioItems }));
   writeWebFile("robots.txt", buildRobotsTxt(siteUrl));
   if (adsenseConfig && adsenseConfig.adsTxtLine) {
     writeWebFile("ads.txt", `${adsenseConfig.adsTxtLine}\n`);
@@ -840,17 +840,18 @@ function collectRoutes({
   return Array.from(routes).sort();
 }
 
-function buildSitemapXml(siteUrl, routes) {
-  const now = new Date().toISOString();
+function buildSitemapXml(siteUrl, routes, context = {}) {
+  const { posts = [], portfolioItems = [] } = context;
   const urls = routes
     .map((route) => {
       // Add trailing slash to all non-root URLs to match the live site's redirect behavior
       const clean = route === "/" ? "" : (route.endsWith("/") ? route : route + "/");
       const priority = getSitemapPriority(route);
+      const lastmod = getContentLastmod(route, { posts, portfolioItems });
       return [
         "  <url>",
         `    <loc>${escapeXml(siteUrl + clean)}</loc>`,
-        `    <lastmod>${now}</lastmod>`,
+        `    <lastmod>${lastmod}</lastmod>`,
         `    <priority>${priority.toFixed(1)}</priority>`,
         "  </url>",
       ].join("\n");
@@ -866,6 +867,39 @@ function buildSitemapXml(siteUrl, routes) {
   ].join("\n");
 }
 
+/** Derive a stable lastmod from content, not build time. */
+function getContentLastmod(route, { posts, portfolioItems }) {
+  if (route.startsWith("/blog/post/")) {
+    const slug = route.replace("/blog/post/", "").replace(/\/+$/, "");
+    const post = posts.find((p) => p.slug === slug);
+    if (post) {
+      return (post.updated || post.modified || post.date || "1970-01-01");
+    }
+  }
+  if (route.startsWith("/portfolio/")) {
+    const slug = route.replace("/portfolio/", "").replace(/\/+$/, "");
+    const item = portfolioItems.find((p) => p.slug === slug);
+    if (item) {
+      return (item.updated || item.modified || item.date || "1970-01-01");
+    }
+  }
+  // For listing/index pages: use newest child date
+  if (route === "/blog" && posts.length > 0) {
+    return posts.reduce((latest, p) => {
+      const d = p.updated || p.modified || p.date || "";
+      return d > latest ? d : latest;
+    }, "1970-01-01");
+  }
+  if (route === "/portfolio" && portfolioItems.length > 0) {
+    return portfolioItems.reduce((latest, p) => {
+      const d = p.updated || p.modified || p.date || "";
+      return d > latest ? d : latest;
+    }, "1970-01-01");
+  }
+  // Fallback for static routes
+  return new Date().toISOString().split("T")[0];
+}
+
 function toPrerenderRoute(route) {
   if (route === "/") return "/";
   return route.endsWith("/") ? route : `${route}/`;
@@ -873,27 +907,20 @@ function toPrerenderRoute(route) {
 
 function buildRobotsTxt(siteUrl) {
   return [
-    "# --- Content Signals ---",
     "User-agent: *",
-    "Content-Signal: search=yes, ai-input=yes, ai-train=no",
-    "",
-    "# --- Default rules ---",
     "Allow: /",
     "",
     "# --- Block low-value / internal pages ---",
     "Disallow: /content/",
     "Disallow: /metadata/",
     "Disallow: /vendor/",
-    "Disallow: /thoughts",
-    "Disallow: /gallery",
     "Disallow: /404.html",
+    "Disallow: /admin/",
     "Disallow: /tags",
     "Disallow: /tag/",
     "Disallow: /categories",
     "Disallow: /category/",
     "Disallow: /blog/dir/",
-    "Disallow: /admin",
-    "Disallow: /admin/",
     "",
     "# --- Block AI crawlers explicitly ---",
     "User-agent: GPTBot",
@@ -905,28 +932,8 @@ function buildRobotsTxt(siteUrl) {
     "User-agent: Google-Extended",
     "Disallow: /",
     "",
-    "User-agent: CCBot",
-    "Disallow: /",
-    "",
-    "User-agent: Bytespider",
-    "Disallow: /",
-    "",
-    "User-agent: Amazonbot",
-    "Disallow: /",
-    "",
-    "User-agent: meta-externalagent",
-    "Disallow: /",
-    "",
-    "User-agent: Applebot-Extended",
-    "Disallow: /",
-    "",
-    "User-agent: CloudflareBrowserRenderingCrawler",
-    "Disallow: /",
-    "",
     "# --- Sitemap ---",
     `Sitemap: ${siteUrl}/sitemap.xml`,
-    "",
-    "Crawl-delay: 5",
     "",
   ].join("\n");
 }

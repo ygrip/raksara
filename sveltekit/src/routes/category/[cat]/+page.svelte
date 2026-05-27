@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import type { PageData } from './$types';
 	import { formatDate } from '$lib/utils';
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
@@ -15,17 +14,6 @@
 
 	function postHref(slug: string): string {
 		return `/blog/post/${slug}/`;
-	}
-
-	function openPostCard(event: MouseEvent, slug: string) {
-		if (event.target instanceof Element && event.target.closest('a, button')) return;
-		goto(postHref(slug));
-	}
-
-	function openPostCardFromKey(event: KeyboardEvent, slug: string) {
-		if (event.key !== 'Enter' && event.key !== ' ') return;
-		event.preventDefault();
-		goto(postHref(slug));
 	}
 </script>
 
@@ -45,23 +33,20 @@
 	<div class="home-section-header"><h2>Posts</h2></div>
 	<div class="post-list" style="margin-bottom: 24px;">
 		{#each posts as post}
-			<div
+			<a
 				class="post-card"
-				role="link"
-				tabindex="0"
-				onclick={(event) => openPostCard(event, post.slug)}
-				onkeydown={(event) => openPostCardFromKey(event, post.slug)}
+				href={postHref(post.slug)}
 			>
-				<div class="post-card-title"><a href={postHref(post.slug)} style="color:inherit;text-decoration:none;">{post.title}</a></div>
+				<div class="post-card-title">{post.title}</div>
 				{#if post.summary}<div class="post-card-summary">{post.summary}</div>{/if}
-				<div class="post-card-meta">
-					<span class="post-card-date">{formatDate(post.date)}</span>
-					{#if post.category}<a href="/category/{post.category}" class="post-card-category">{post.category}</a>{/if}
+				<div class="post-card-meta" aria-label="Post metadata">
+					<time datetime={post.date}>{formatDate(post.date)}</time>
+					{#if post.category}<span class="post-card-category">{post.category}</span>{/if}
 					{#each (post.tags ?? []).slice(0, 3) as tag}
-						<a href="/tag/{tag}" class="tag" style="padding:2px 8px;font-size:11px">{tag}</a>
+						<span class="tag" style="padding:2px 8px;font-size:11px">{tag}</span>
 					{/each}
 				</div>
-			</div>
+			</a>
 		{/each}
 	</div>
 {/if}
@@ -72,20 +57,17 @@
 			{@const gallerySource = item.images?.[0]?.src ?? item.image ?? ''}
 			{@const galleryLqip = buildLqipStyle(gallerySource, imageManifest)}
 			<li class="gallery-card" style={galleryLqip}>
-				<div
+				<a
 					class="gallery-card-img is-loading"
 					class:lqip-shown={!!galleryLqip}
 					style={galleryLqip}
-					role="button"
-					tabindex="0"
-					onclick={() => goto(`/gallery?category=${encodeURIComponent(cat)}`)}
-					onkeydown={(event) => (event.key === 'Enter' || event.key === ' ') && goto(`/gallery?category=${encodeURIComponent(cat)}`)}
+					href="/gallery?category={encodeURIComponent(cat)}"
 					aria-label="Filter gallery by category {cat}"
 				>
 					<img {...buildResponsiveAttrs(gallerySource, imageManifest, { sizes: galleryThumbSizes, maxWidth: 640 })} alt={item.caption ?? item.title} />
-				</div>
+				</a>
 				<div class="gallery-card-info">
-					<div class="gallery-card-title"><a href="/gallery?category={cat}" style="color:inherit;text-decoration:none;">{item.title}</a></div>
+					<div class="gallery-card-title"><a href="/gallery?category={cat}">{item.title}</a></div>
 					{#if item.caption}<div class="gallery-card-caption">{item.caption}</div>{/if}
 					<div class="gallery-card-footer"><div class="gallery-card-date">{formatDate(item.date)}</div></div>
 				</div>

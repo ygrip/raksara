@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import type { PageData } from './$types';
 	import type { Post } from '$lib/types';
 	import { formatDate, humanize } from '$lib/utils';
@@ -16,17 +15,6 @@
 
 	function postHref(slug: string): string {
 		return `/blog/post/${slug}/`;
-	}
-
-	function openPostCard(event: MouseEvent, slug: string) {
-		if (event.target instanceof Element && event.target.closest('a, button')) return;
-		goto(postHref(slug));
-	}
-
-	function openPostCardFromKey(event: KeyboardEvent, slug: string) {
-		if (event.key !== 'Enter' && event.key !== ' ') return;
-		event.preventDefault();
-		goto(postHref(slug));
 	}
 
 	const MAX_CRUMBS = 3;
@@ -120,38 +108,35 @@
 
 <div class="post-list">
 	{#each sortedPosts as post (post.slug)}
-		<div
+		<a
 			class="post-card{post.cover ? ' has-thumb' : ''}"
-			role="link"
-			tabindex="0"
-			onclick={(event) => openPostCard(event, post.slug)}
-			onkeydown={(event) => openPostCardFromKey(event, post.slug)}
+			href={postHref(post.slug)}
 		>
 			{#if post.cover}
 				{@const postThumbLqip = buildLqipStyle(post.cover, imageManifest)}
 				<div class="post-card-thumb is-loading" class:lqip-shown={!!postThumbLqip} style={postThumbLqip}>
-					<img {...buildResponsiveAttrs(post.cover, imageManifest, { sizes: postThumbSizes, maxWidth: 640 })} alt={post.title} />
+					<img {...buildResponsiveAttrs(post.cover, imageManifest, { sizes: postThumbSizes, maxWidth: 640 })} alt="" aria-hidden="true" />
 				</div>
 			{/if}
 			<div class="post-card-body">
-				<div class="post-card-title"><a href={postHref(post.slug)} style="color:inherit;text-decoration:none;">{post.title}</a></div>
+				<div class="post-card-title">{post.title}</div>
 				{#if post.status}
 					<span class="status-chip status-{post.status}">{post.status}</span>
 				{/if}
 				{#if post.summary}
 					<div class="post-card-summary">{post.summary}</div>
 				{/if}
-				<div class="post-card-meta">
-					<span class="post-card-date">{formatDate(post.date)}</span>
+				<div class="post-card-meta" aria-label="Post metadata">
+					<time datetime={post.date}>{formatDate(post.date)}</time>
 					{#if post.category}
-						<a href="/category/{post.category}" class="post-card-category">{post.category}</a>
+						<span class="post-card-category">{post.category}</span>
 					{/if}
 					{#each (post.tags ?? []).slice(0, 3) as tag}
-						<a href="/tag/{tag}" class="tag" style="padding:2px 8px;font-size:11px">{tag}</a>
+						<span class="tag" style="padding:2px 8px;font-size:11px">{tag}</span>
 					{/each}
 				</div>
 			</div>
-		</div>
+		</a>
 	{/each}
 	{#if sortedPosts.length === 0}
 		<div class="empty-state"><p>No posts found.</p></div>

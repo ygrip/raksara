@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import type { PageData } from './$types';
 	import type { PortfolioItem } from '$lib/types';
 	import { formatDate } from '$lib/utils';
@@ -15,17 +14,6 @@
 
 	function portfolioHref(slug: string): string {
 		return `/portfolio/${slug}/`;
-	}
-
-	function openPortfolio(event: MouseEvent, slug: string) {
-		if (event.target instanceof Element && event.target.closest('a, button')) return;
-		goto(portfolioHref(slug));
-	}
-
-	function openPortfolioFromKey(event: KeyboardEvent, slug: string) {
-		if (event.key !== 'Enter' && event.key !== ' ') return;
-		event.preventDefault();
-		goto(portfolioHref(slug));
 	}
 
 	const sorted = $derived.by(() => {
@@ -127,15 +115,9 @@
 			<div class="timeline-year-label">{group.label}</div>
 			{#each group.items as item}
 				<div class="timeline-item">
-					<div
-						class="portfolio-card"
-						role="link"
-						tabindex="0"
-						onclick={(event) => openPortfolio(event, item.slug)}
-						onkeydown={(event) => openPortfolioFromKey(event, item.slug)}
-					>
+					<div class="portfolio-card">
 						<div class="portfolio-card-title">
-							<a href={portfolioHref(item.slug)} style="color:inherit;text-decoration:none;">{item.title}</a>
+							<a href={portfolioHref(item.slug)}>{item.title}</a>
 						</div>
 						{#if item.summary}
 							<div class="portfolio-card-summary">{item.summary}</div>
@@ -155,13 +137,13 @@
 						{#if item.github || item.demo}
 							<div class="portfolio-card-links">
 								{#if item.github}
-									<a href={item.github} target="_blank" rel="noopener" class="btn-github" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
+								<a href={item.github} target="_blank" rel="noopener" class="btn-github">
 										<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
 										GitHub
 									</a>
 								{/if}
 								{#if item.demo}
-									<a href={item.demo} target="_blank" rel="noopener" class="btn-demo" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
+									<a href={item.demo} target="_blank" rel="noopener" class="btn-demo">
 										<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M6 3h7v7M13 3L6 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
 										Demo
 									</a>
