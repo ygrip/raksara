@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "raksara",
+  "project_id": "0fdafacb-e45a-4611-8719-ecc42ec45106"
+}
