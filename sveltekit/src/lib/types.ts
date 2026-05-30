@@ -37,7 +37,50 @@ export interface PortfolioItem {
   github?: string;
   demo?: string;
   status?: 'draft' | 'ongoing' | 'completed';
+  featured?: boolean;
   ogImage?: { landscape: string; portrait: string };
+}
+
+export interface HomePageSectionItem {
+  title?: string;
+  label?: string;
+  href?: string;
+  description?: string;
+  tags?: string[];
+  icon?: string;
+}
+
+export interface HomePageSection {
+  type: 'cards' | 'projects' | 'blog' | 'thoughts' | 'links' | 'gallery' | 'text';
+  id?: string;
+  title?: string;
+  enabled?: boolean;
+  description?: string;
+  limit?: number;
+  featuredOnly?: boolean;
+  categories?: string[];
+  body?: string;
+  items?: HomePageSectionItem[];
+}
+
+export interface HomePageConfig {
+  seo?: {
+    title?: string;
+    description?: string;
+    keywords?: string[];
+  };
+  hero?: {
+    eyebrow?: string;
+    title?: string;
+    subtitle?: string;
+    description?: string;
+    actions?: Array<{
+      label: string;
+      href: string;
+      variant?: 'primary' | 'secondary' | 'ghost';
+    }>;
+  };
+  sections?: HomePageSection[];
 }
 
 export interface GalleryImage {
@@ -144,6 +187,18 @@ export interface SiteConfig {
   social?: Record<string, string>;
   /** Color theme keyword (purple | blue | green …) used as fallback accent */
   color?: string;
+  /** Per-section default OG images (paths relative to site root, or absolute URLs) */
+  og_defaults?: {
+    site?: string;
+    blog?: string;
+    portfolio?: string;
+    profile?: string;
+  };
+  /** Control which AI crawlers are blocked in robots.txt.
+   *  true (default) = built-in blocklist, false = none, string[] = custom list */
+  block_ai_crawlers?: boolean | string[];
+  /** Web manifest background_color (CSS hex). Defaults to #000000 if unset. */
+  manifest_bg_color?: string;
 }
 
 export interface BlogDirEntry {

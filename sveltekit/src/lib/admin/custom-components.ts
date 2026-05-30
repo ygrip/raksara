@@ -11,6 +11,24 @@ export interface AdminCustomComponent {
 
 export const raksaraCustomComponents: AdminCustomComponent[] = [
 	{
+		id: 'cards',
+		label: 'Content Cards',
+		group: 'directive',
+		description: 'Responsive card grid from a content path. Optional limit shows a "Show more" button.',
+		snippet: '::cards(blog/)',
+		preview: 'Renders a 1–3 column card grid sorted by most recent date. Cards show cover image, title, description, and date.',
+		supportedTypes: ['blog', 'portfolio', 'pages']
+	},
+	{
+		id: 'carousels',
+		label: 'Content Carousel',
+		group: 'directive',
+		description: 'Infinite-loop carousel from a content path. Optional limit shows a "Show more" button.',
+		snippet: '::carousels(blog/)',
+		preview: 'Renders a responsive carousel with partial side-cards, auto-advance, swipe, and keyboard support.',
+		supportedTypes: ['blog', 'portfolio', 'pages']
+	},
+	{
 		id: 'component-list',
 		label: 'Component List',
 		group: 'directive',

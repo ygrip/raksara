@@ -13,7 +13,7 @@
  */
 
 import type { ImageManifest, BlogDirs } from './types';
-import { buildResponsiveAttrs, responsiveAttrsToString } from './responsive-image';
+import { buildResponsiveAttrs, buildLqipStyle, responsiveAttrsToString } from './responsive-image';
 import { assetUrl, formatDate } from './utils';
 
 // ── Helpers ────────────────────────────────────────────
@@ -145,6 +145,8 @@ function preprocessFileAttachments(md: string): string {
 
 let _componentStorage: string[] = [];
 let _chaptersStorage: string[] = [];
+let _cardsStorage: string[] = [];
+let _carouselStorage: string[] = [];
 
 function preprocessComponents(md: string): string {
   return md.replace(/::component\s*\(\s*([^)]+?)\s*\)/g, (_m, pathArg: string) => {
@@ -180,6 +182,125 @@ function injectComponents(
       })
       .join('');
     return `<div class="component-list-wrap"><div class="component-list-search-wrap"><input class="component-list-search" type="search" placeholder="Filter components..." aria-label="Filter components" data-list="${listId}"></div><div class="component-list" id="${listId}">${cards}</div></div>`;
+  });
+}
+
+// ── Content Cards & Carousels ─────────────────────────
+
+type ContentEntry = {
+  title?: string; slug?: string; path?: string; section?: string;
+  summary?: string; description?: string; cover?: string; date?: string;
+};
+
+function resolveEntryHref(entry: ContentEntry): string {
+  const slug = entry.slug || '';
+  if (entry.section === 'blog' || entry.path?.startsWith('content/blog/')) return `/blog/post/${slug}/`;
+  if (entry.section === 'portfolio' || entry.path?.startsWith('content/portfolio/')) return `/portfolio/${slug}/`;
+  return `/${slug}/`;
+}
+
+function resolveSectionHref(pathArg: string): string {
+  const clean = pathArg.replace(/^\/|\/$/g, '');
+  if (clean === 'blog' || clean.startsWith('blog/')) return '/blog/';
+  if (clean === 'portfolio' || clean.startsWith('portfolio/')) return '/portfolio/';
+  return `/${clean}/`;
+}
+
+function sortEntriesByDate(entries: ContentEntry[]): ContentEntry[] {
+  return [...entries].sort((a, b) => {
+    const da = (a as Record<string, string>)['updated'] || (a as Record<string, string>)['modified'] || a.date || '';
+    const db = (b as Record<string, string>)['updated'] || (b as Record<string, string>)['modified'] || b.date || '';
+    return db.localeCompare(da);
+  });
+}
+
+function buildContentImageHtml(entry: ContentEntry, manifest: ImageManifest | undefined, sizes: string, cls: string): string {
+  const cover = entry.cover;
+  if (!cover) return '';
+  const title = escapeHtml(entry.title || '');
+  const lqipStyle = manifest ? buildLqipStyle(cover, manifest) : undefined;
+  const imgAttrs = responsiveAttrsToString(buildResponsiveAttrs(cover, manifest ?? null, { sizes, maxWidth: 640 }));
+  const lqipClass = lqipStyle ? ' lqip-shown' : '';
+  const styleAttr = lqipStyle ? ` style="${escapeHtml(lqipStyle)}"` : '';
+  return `<div class="${cls} is-loading${lqipClass}"${styleAttr}><img ${imgAttrs} alt="${title}" /></div>`;
+}
+
+function resolveCardEntries(context: RenderOptions['context'], pathArg: string): ContentEntry[] {
+  const prefix = `content/${pathArg.replace(/^\/|\/$/g, '')}/`;
+  const all: ContentEntry[] = [
+    ...((context?.posts ?? []) as ContentEntry[]),
+    ...((context?.portfolioItems ?? []) as ContentEntry[]),
+  ];
+  return sortEntriesByDate(all.filter((e) => e.path?.startsWith(prefix)));
+}
+
+// ::cards ─────────────────────────────────────────────
+
+function preprocessCards(md: string): string {
+  return md.replace(/::cards\s*\(\s*([^,)]+?)(?:\s*,\s*(\d+))?\s*\)/g, (_m, pathArg: string, limitArg?: string) => {
+    _cardsStorage.push(JSON.stringify({ path: pathArg.trim(), limit: limitArg ? parseInt(limitArg, 10) : null }));
+    return `[[RAKSARA_CARDS:${_cardsStorage.length - 1}]]`;
+  });
+}
+
+function injectCards(html: string, context: RenderOptions['context'], imageManifest?: ImageManifest): string {
+  if (_cardsStorage.length === 0) return html;
+  return html.replace(/(?:<p>)?\[\[RAKSARA_CARDS:(\d+)\]\](?:<\/p>)?/g, (_match, indexStr) => {
+    const stored = JSON.parse(_cardsStorage[parseInt(indexStr, 10)] ?? '{}') as { path?: string; limit?: number | null };
+    const pathArg = stored.path ?? '';
+    const limit = stored.limit ?? null;
+    const all = resolveCardEntries(context, pathArg);
+    if (!all.length) return '';
+    const showMore = limit !== null && all.length > limit;
+    const visible = limit !== null ? all.slice(0, limit) : all;
+    const sizes = '(max-width: 640px) calc(100vw - 3rem), (max-width: 1024px) calc(50vw - 2rem), calc(33vw - 2rem)';
+    const cards = visible.map((entry) => {
+      const href = escapeHtml(resolveEntryHref(entry));
+      const title = escapeHtml(entry.title || 'Untitled');
+      const desc = escapeHtml(entry.summary || entry.description || '');
+      const date = entry.date ? escapeHtml(formatDate(entry.date)) : '';
+      const imgHtml = buildContentImageHtml(entry, imageManifest, sizes, 'content-card-img');
+      return `<a href="${href}" class="content-card">${imgHtml}<div class="content-card-body"><div class="content-card-title">${title}</div>${desc ? `<p class="content-card-desc">${desc}</p>` : ''}${date ? `<div class="content-card-date">${date}</div>` : ''}</div></a>`;
+    }).join('');
+    const sectionHref = escapeHtml(resolveSectionHref(pathArg));
+    const moreHtml = showMore ? `<div class="content-cards-more"><a href="${sectionHref}" class="content-cards-more-btn">Show more →</a></div>` : '';
+    return `<div class="content-cards-grid">${cards}</div>${moreHtml}`;
+  });
+}
+
+// ::carousels ─────────────────────────────────────────
+
+function preprocessCarousels(md: string): string {
+  return md.replace(/::carousels?\s*\(\s*([^,)]+?)(?:\s*,\s*(\d+))?\s*\)/g, (_m, pathArg: string, limitArg?: string) => {
+    _carouselStorage.push(JSON.stringify({ path: pathArg.trim(), limit: limitArg ? parseInt(limitArg, 10) : null }));
+    return `[[RAKSARA_CAROUSEL:${_carouselStorage.length - 1}]]`;
+  });
+}
+
+function injectCarousels(html: string, context: RenderOptions['context'], imageManifest?: ImageManifest): string {
+  if (_carouselStorage.length === 0) return html;
+  return html.replace(/(?:<p>)?\[\[RAKSARA_CAROUSEL:(\d+)\]\](?:<\/p>)?/g, (_match, indexStr) => {
+    const stored = JSON.parse(_carouselStorage[parseInt(indexStr, 10)] ?? '{}') as { path?: string; limit?: number | null };
+    const pathArg = stored.path ?? '';
+    const limit = stored.limit ?? null;
+    const all = resolveCardEntries(context, pathArg);
+    if (!all.length) return '';
+    const showMore = limit !== null && all.length > limit;
+    const visible = limit !== null ? all.slice(0, limit) : all;
+    const carouselId = `carousel-${Math.random().toString(36).slice(2, 9)}`;
+    const imgSizes = '(max-width: 640px) 85vw, 62vw';
+    const slides = visible.map((entry) => {
+      const href = escapeHtml(resolveEntryHref(entry));
+      const title = escapeHtml(entry.title || 'Untitled');
+      const desc = escapeHtml(entry.summary || entry.description || '');
+      const date = entry.date ? escapeHtml(formatDate(entry.date)) : '';
+      const imgHtml = buildContentImageHtml(entry, imageManifest, imgSizes, 'content-carousel-img');
+      const noImgClass = entry.cover ? '' : ' no-image';
+      return `<div class="content-carousel-slide${noImgClass}" data-href="${href}" role="group" aria-label="${title}" tabindex="0">${imgHtml}<div class="content-carousel-body"><div class="content-carousel-title">${title}</div>${desc ? `<p class="content-carousel-desc">${desc}</p>` : ''}${date ? `<div class="content-carousel-date">${date}</div>` : ''}</div></div>`;
+    }).join('');
+    const sectionHref = escapeHtml(resolveSectionHref(pathArg));
+    const moreHtml = showMore ? `<div class="content-carousel-more"><a href="${sectionHref}" class="content-cards-more-btn">Show more →</a></div>` : '';
+    return `<div class="content-carousel" id="${carouselId}" data-interval="5000" role="region" aria-label="Content carousel" tabindex="0"><div class="content-carousel-stage"><div class="content-carousel-track">${slides}</div><button class="content-carousel-btn content-carousel-prev" aria-label="Previous slide"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button><button class="content-carousel-btn content-carousel-next" aria-label="Next slide"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button></div>${moreHtml}</div>`;
   });
 }
 
@@ -548,11 +669,12 @@ export interface RenderOptions {
   breaks?: boolean;
   /** Base path for content assets */
   imageManifest?: ImageManifest;
-  /** posts/portfolio/dirs for ::chapters and ::component context */
+  /** posts/portfolio/dirs for ::chapters, ::component, ::cards, ::carousels context */
   context?: {
-    posts?: Array<{ slug: string; title: string; date: string; dir?: string; chapter?: string | number; type?: string; cover?: string; summary?: string }>;
+    posts?: Array<{ slug: string; title: string; date: string; dir?: string; chapter?: string | number; type?: string; cover?: string; summary?: string; path?: string; section?: string }>;
     /** Accepts full BlogDirs (from metadata) or a simplified slug-only map — both work */
     blogDirs?: BlogDirs | Record<string, { subdirs: string[]; posts: string[] }>;
+    portfolioItems?: Array<{ slug: string; title: string; date: string; cover?: string; summary?: string; path?: string; section?: string }>;
   };
   components?: Array<{ title?: string; slug?: string; path?: string; summary?: string; description?: string; icon?: string; status?: string }>;
 }
@@ -572,6 +694,8 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
   _thoughtStorage = [];
   _componentStorage = [];
   _chaptersStorage = [];
+  _cardsStorage = [];
+  _carouselStorage = [];
   _chartStorage = [];
   _mermaidBlocks = [];
 
@@ -640,9 +764,13 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
             preprocessPanels(
               preprocessToc(
                 preprocessChapters(
-                  preprocessComponents(
-                    preprocessThoughts(
-                      preprocessFileAttachments(vaulted)
+                  preprocessCarousels(
+                    preprocessCards(
+                      preprocessComponents(
+                        preprocessThoughts(
+                          preprocessFileAttachments(vaulted)
+                        )
+                      )
                     )
                   )
                 )
@@ -664,12 +792,20 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
         injectChips(
           injectContainers(
             injectPanels(
-              injectChapters(
-                injectComponents(
-                  injectToc(rawHtml),
-                  opts.components
+              injectCarousels(
+                injectCards(
+                  injectChapters(
+                    injectComponents(
+                      injectToc(rawHtml),
+                      opts.components
+                    ),
+                    opts.context
+                  ),
+                  opts.context,
+                  opts.imageManifest
                 ),
-                opts.context
+                opts.context,
+                opts.imageManifest
               ),
               markedParse
             ),
@@ -1079,12 +1215,108 @@ export async function initArticleFeatures(container: HTMLElement): Promise<void>
   initTocBlocks(container);
   initComponentLists(container);
   initChaptersTables(container);
+  initCarousels(container);
   await Promise.all([
     initHighlight(container),
     initCharts(container),
     initMermaid(container),
     initFileAttachmentSizes(container),
   ]);
+}
+
+function initCarousels(container: HTMLElement): void {
+  container.querySelectorAll<HTMLElement>('.content-carousel:not([data-carousel-init])').forEach((carousel) => {
+    carousel.dataset['carouselInit'] = '1';
+    const track = carousel.querySelector<HTMLElement>('.content-carousel-track');
+    const stage = carousel.querySelector<HTMLElement>('.content-carousel-stage');
+    const slides = Array.from(carousel.querySelectorAll<HTMLElement>('.content-carousel-slide'));
+    const prevBtn = carousel.querySelector<HTMLButtonElement>('.content-carousel-prev');
+    const nextBtn = carousel.querySelector<HTMLButtonElement>('.content-carousel-next');
+    const autoInterval = parseInt(carousel.dataset['interval'] || '5000', 10);
+
+    if (!track || !stage || slides.length === 0) return;
+
+    // Single slide — just make it clickable
+    if (slides.length === 1) {
+      slides[0].addEventListener('click', () => {
+        const href = slides[0]?.dataset['href'];
+        if (href) window.location.href = href;
+      });
+      slides[0].classList.add('active');
+      return;
+    }
+
+    let current = 0;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    function update(animated = true) {
+      const sw = slides[0]?.offsetWidth ?? 0;
+      const gap = parseFloat(getComputedStyle(track!).gap || '0') || 0;
+      const cw = stage!.offsetWidth;
+      const offset = -(current * (sw + gap)) + cw / 2 - sw / 2;
+      track!.style.transition = animated ? 'transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)' : 'none';
+      track!.style.transform = `translateX(${offset}px)`;
+      slides.forEach((s, i) => {
+        s.classList.toggle('active', i === current);
+        s.setAttribute('aria-current', i === current ? 'true' : 'false');
+      });
+    }
+
+    function goTo(idx: number, animated = true) {
+      current = ((idx % slides.length) + slides.length) % slides.length;
+      update(animated);
+    }
+
+    function startAuto() {
+      stopAuto();
+      timer = setInterval(() => goTo(current + 1), autoInterval);
+    }
+
+    function stopAuto() {
+      if (timer !== null) { clearInterval(timer); timer = null; }
+    }
+
+    slides.forEach((slide, i) => {
+      slide.addEventListener('click', () => {
+        if (i === current) {
+          const href = slide.dataset['href'];
+          if (href) window.location.href = href;
+        } else {
+          goTo(i); stopAuto(); startAuto();
+        }
+      });
+      slide.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); slide.click(); }
+      });
+    });
+
+    prevBtn?.addEventListener('click', (e) => { e.stopPropagation(); goTo(current - 1); stopAuto(); startAuto(); });
+    nextBtn?.addEventListener('click', (e) => { e.stopPropagation(); goTo(current + 1); stopAuto(); startAuto(); });
+
+    stage.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; }, { passive: true });
+    stage.addEventListener('touchend', (e) => {
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) { goTo(dx < 0 ? current + 1 : current - 1); stopAuto(); startAuto(); }
+    }, { passive: true });
+
+    carousel.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(current - 1); stopAuto(); startAuto(); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); goTo(current + 1); stopAuto(); startAuto(); }
+    });
+
+    carousel.addEventListener('mouseenter', stopAuto);
+    carousel.addEventListener('mouseleave', startAuto);
+    carousel.addEventListener('focusin', stopAuto);
+    carousel.addEventListener('focusout', startAuto);
+
+    window.addEventListener('resize', () => update(false), { passive: true });
+
+    update(false);
+    startAuto();
+  });
 }
 
 function initProgressBars(container: HTMLElement): void {
@@ -1119,7 +1351,7 @@ function initProgressBars(container: HTMLElement): void {
 
 function initArticleImages(container: HTMLElement): void {
   container.querySelectorAll<HTMLImageElement>('img').forEach((img) => {
-    const shell = img.closest<HTMLElement>('.is-loading, .post-card-thumb, .gallery-card-img, .gallery-stack-card, .article-cover, .poem-cover, .img-skeleton');
+    const shell = img.closest<HTMLElement>('.is-loading, .post-card-thumb, .gallery-card-img, .gallery-stack-card, .article-cover, .poem-cover, .img-skeleton, .content-card-img, .content-carousel-img');
     const lqip = img.dataset['lqip'];
     if (shell && lqip && !shell.classList.contains('lqip-shown')) {
       shell.style.setProperty('--lqip-url', `url("${lqip}")`);

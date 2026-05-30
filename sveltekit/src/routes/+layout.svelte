@@ -5,7 +5,7 @@
 	import { goto } from '$app/navigation';
 	import type { LayoutData } from './$types';
 	import SearchOverlay from '$lib/components/SearchOverlay.svelte';
-	import { getAdsenseId } from '$lib/seo';
+	import { getAdsenseId, getGiscusConfig } from '$lib/seo';
 	import { assetUrl } from '$lib/utils';
 
 	let { children, data }: { children: import('svelte').Snippet; data: LayoutData } = $props();
@@ -26,18 +26,20 @@
 
 	const nav = $derived(config?.nav ?? defaultNav);
 	const adsenseId = $derived(config ? getAdsenseId(config) : '');
+	const giscusEnabled = $derived(config ? (getGiscusConfig(config)?.enabled ?? false) : false);
 	const currentPath = $derived($page.url.pathname);
 	const canonicalHref = $derived(buildCanonicalHref(currentPath));
 	// Used for absolute OG image URLs (WhatsApp / social platforms require https://)
 	const siteRoot = $derived(
 		String(config?.site_url || config?.url || $page.url.origin).replace(/\/+$/, '')
 	);
+	const defaultOgImage = $derived(resolveDefaultOgImage(currentPath, siteRoot, config?.og_defaults));
 	const siteDescription = $derived(
 		config?.description?.trim()
 			|| config?.hero_subtitle?.trim()
-			|| (config?.hero_title
-				? `${config.hero_title} — stories, portfolio, gallery, and thoughts.`
-				: 'Raksara — stories, portfolio, gallery, and thoughts.')
+			|| config?.hero_title?.trim()
+			|| config?.title?.trim()
+			|| ''
 	);
 
 	function isActiveLink(href: string): boolean {
@@ -45,6 +47,22 @@
 		const normalizedPath = currentPath === '/' ? '/' : currentPath.replace(/\/$/, '');
 		if (normalizedHref === '/') return normalizedPath === '/';
 		return normalizedPath === normalizedHref || normalizedPath.startsWith(normalizedHref + '/');
+	}
+
+	function resolveDefaultOgImage(
+		path: string,
+		root: string,
+		ogDefaults?: { site?: string; blog?: string; portfolio?: string; profile?: string }
+	): string {
+		if (!ogDefaults) return '';
+		const resolve = (p: string) => /^https?:\/\//i.test(p) ? p : `${root}/${p.replace(/^\/+/, '')}`;
+		const siteDefault = ogDefaults.site ? resolve(ogDefaults.site) : '';
+		if (path.startsWith('/blog')) return ogDefaults.blog ? resolve(ogDefaults.blog) : siteDefault;
+		if (path.startsWith('/portfolio')) return ogDefaults.portfolio ? resolve(ogDefaults.portfolio) : siteDefault;
+		if (path === '/profile' || path.startsWith('/profile/') || path === '/about' || path.startsWith('/about/')) {
+			return ogDefaults.profile ? resolve(ogDefaults.profile) : siteDefault;
+		}
+		return siteDefault;
 	}
 
 	function buildCanonicalHref(pathname: string): string {
@@ -316,15 +334,28 @@
 <svelte:head>
 	{@html `<script>${earlyThemeScript()}</script>`}
 	{@html `<style id="raksara-config-palette">${paletteStyle()}</style>`}
-	<title>{config?.hero_title ?? 'Raksara'}</title>
+	<!-- DNS prefetch / preconnect for third-party origins -->
+	{#if config?.font}
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+	{/if}
+	{#if adsenseId}
+		<link rel="dns-prefetch" href="https://pagead2.googlesyndication.com" />
+	{/if}
+	{#if giscusEnabled}
+		<link rel="dns-prefetch" href="https://giscus.app" />
+	{/if}
+	<title>{config?.hero_title ?? config?.title ?? ''}</title>
 	<meta name="description" content={siteDescription} />
 	<link rel="canonical" href={canonicalHref} />
-	<meta property="og:site_name" content={config?.hero_title ?? 'Raksara'} />
+	<meta property="og:site_name" content={config?.hero_title ?? config?.title ?? ''} />
 	<meta property="og:type" content="website" />
 	<meta name="twitter:card" content="summary_large_image" />
-	<meta property="og:image" content="{siteRoot}/og/defaults/blog-landscape.jpg" />
-	<meta property="og:image:width" content="1200" />
-	<meta property="og:image:height" content="630" />
+	{#if defaultOgImage}
+		<meta property="og:image" content={defaultOgImage} />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+	{/if}
 	<link id="hljs-dark" rel="stylesheet" href="/vendor/hljs/styles/github-dark.min.css" media={currentTheme === 'light' ? 'not all' : 'all'} />
 	<link id="hljs-light" rel="stylesheet" href="/vendor/hljs/styles/github.min.css" media={currentTheme === 'light' ? 'all' : 'not all'} />
 </svelte:head>
@@ -358,7 +389,7 @@
 	</button>
 	<a href="/" class="logo" onclick={(event) => navigateSidebar(event, '/')}>
 		<span class="logo-icon" aria-hidden={!!config?.logo}><span id="site-logo-img-mobile"></span></span>
-		<span class="logo-text">{config?.hero_title ?? 'Raksara'}</span>
+		<span class="logo-text">{config?.hero_title ?? config?.title ?? ''}</span>
 	</a>
 	<button class="icon-btn mobile-theme-toggle" onclick={toggleTheme} aria-label="Toggle theme">
 		<svg class="icon-sun" width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3.5" stroke="currentColor" stroke-width="1.2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
@@ -373,7 +404,7 @@
 			<a href="/" class="logo" onclick={(event) => navigateSidebar(event, '/')}>
 				<!-- BL-014: SVG logo placeholder; JS fills it if config.logo is set -->
 				<span class="logo-icon"><span id="site-logo-img"></span></span>
-					<span class="logo-text">{config?.hero_title ?? 'Raksara'}</span>
+					<span class="logo-text">{config?.hero_title ?? config?.title ?? ''}</span>
 			</a>
 			<div class="sidebar-header-actions">
 				<button id="theme-toggle" class="icon-btn" onclick={toggleTheme} aria-label="Toggle theme">

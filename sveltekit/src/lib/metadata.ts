@@ -14,6 +14,7 @@ import type {
   BlogDirs,
   ImageManifest,
   HomeBundle,
+  HomePageConfig,
 } from './types';
 
 const BASE = '/metadata';
@@ -111,6 +112,10 @@ export async function loadProfilePrerender(
   fetch: typeof globalThis.fetch
 ): Promise<{ html?: string } | null> {
   return fetchJSON<{ html?: string }>(fetch, 'profile-prerender.json');
+}
+
+export async function loadHomePageConfig(fetch: typeof globalThis.fetch): Promise<HomePageConfig | null> {
+  return fetchJSON<HomePageConfig>(fetch, 'homepage.json').catch(() => null);
 }
 
 /** Returns the versioned URL for a metadata file — useful for client-side fetches

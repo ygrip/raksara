@@ -11,11 +11,13 @@ Raksara keeps the engine in this repository and the content in a separate reposi
 - Portfolio pages with GitHub/demo links and project status
 - Gallery list with image lightbox, per-image URLs, captions, filtering, and share cards
 - Profile page with cover, avatar, metadata chips, animation, and share support
-- Custom Markdown components: panels, containers, chips, sortable tables, charts, progress bars, videos, files, table of contents, and chapters tables
+- Custom Markdown components: panels, containers, chips, sortable tables, charts, progress bars, videos, files, table of contents, chapters tables, responsive card grids (`::cards`), and infinite-loop carousels (`::carousels`)
+- Homepage fully configurable from `homepage.yaml` in the content repo — hero eyebrow/title/subtitle/description/CTA buttons, ordered sections (blog, projects, cards, links, gallery, thoughts, text), per-section category filtering and limits
 - Highlight.js code blocks with copy, expand/collapse, and mobile-friendly controls
 - Giscus comments for blog and portfolio detail pages
-- Light/dark theme and configurable accent color from `raksara.yml`
-- Generated metadata, search index, SEO artifacts, responsive images, favicons, and static vendor assets
+- Light/dark theme and configurable accent color from `config.json`
+- Generated metadata, search index, SEO artifacts (sitemap with image extensions, robots.txt, JSON-LD), responsive images, favicons, and static vendor assets
+- WebSite + Person JSON-LD structured data on homepage; BreadcrumbList + BlogPosting/SoftwareApplication on content pages
 
 ## Repository Layout
 

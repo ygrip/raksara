@@ -4,7 +4,7 @@
 	import { renderMarkdown, initArticleFeatures } from '$lib/markdown';
 	import Giscus from '$lib/components/Giscus.svelte';
 	import ShareCard from '$lib/components/ShareCard.svelte';
-	import { shouldShowGiscus, getGiscusConfig, buildPostMeta } from '$lib/seo';
+	import { shouldShowGiscus, getGiscusConfig, buildPostMeta, buildBreadcrumbSchema, serializeJsonLd } from '$lib/seo';
 	import { assetUrl, formatDate } from '$lib/utils';
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
@@ -22,6 +22,18 @@
 	const giscusConfig = $derived(config ? getGiscusConfig(config) : null);
 	const showGiscus = $derived(config ? shouldShowGiscus(config, 'portfolio') : false);
 	const pageMeta = $derived(item && config ? buildPostMeta(item as unknown as import('$lib/types').Post, config, item.slug) : null);
+	const breadcrumbJsonLd = $derived(
+		item && config
+			? buildBreadcrumbSchema(
+					[
+						{ name: 'Home', url: '/' },
+						{ name: 'Portfolio', url: '/portfolio/' },
+						{ name: item.title, url: `/portfolio/${item.slug}/` },
+					],
+					String(config.site_url ?? config.url ?? '')
+				)
+			: null
+	);
 
 	function stripLeadingTitle(md: string, title?: string | null): string {
 		if (!title) return md;
@@ -48,7 +60,7 @@
 </script>
 
 <svelte:head>
-	<title>{item?.title ?? 'Project'} · {config?.hero_title ?? config?.title ?? 'Raksara'}</title>
+	<title>{item?.title ?? 'Project'} · {config?.hero_title ?? config?.title ?? ''}</title>
 	{#if item?.summary}<meta name="description" content={item.summary} />{/if}
 	<meta property="og:title" content={item?.title ?? ''} />
 	<meta property="og:description" content={item?.summary ?? ''} />
@@ -66,7 +78,10 @@
 		<meta name="twitter:image" content={ogLandscape} />
 	{/if}
 	{#if pageMeta?.jsonLd}
-		{@html `<script type="application/ld+json">${JSON.stringify(pageMeta.jsonLd)}</script>`}
+		{@html `<script type="application/ld+json">${serializeJsonLd(pageMeta.jsonLd)}</script>`}
+	{/if}
+	{#if breadcrumbJsonLd}
+		{@html `<script type="application/ld+json">${serializeJsonLd(breadcrumbJsonLd)}</script>`}
 	{/if}
 </svelte:head>
 

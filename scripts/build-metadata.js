@@ -403,7 +403,7 @@ async function buildMetadata() {
     const ogSiteRoot = String((siteConfig.site_url || siteConfig.url) || '').replace(/\/+$/, '');
     // Hostname-only version used inside generated SVG images
     const ogSiteUrl = ogSiteRoot.replace(/^https?:\/\//, '');
-    const ogSiteName = String((siteConfig.hero_title || siteConfig.title) || 'Raksara');
+    const ogSiteName = String((siteConfig.hero_title || siteConfig.title) || '');
     const ogAccentPalette = getAccentPalette(siteConfig);
     const ogAccentColor = (ogAccentPalette && (ogAccentPalette.accent || Object.values(ogAccentPalette)[0])) || '#6366f1';
 
@@ -572,6 +572,8 @@ async function buildMetadata() {
     siteConfig,
   });
 
+  await generateHomepageJson();
+
   console.log(`  Posts:      ${posts.length}`);
   console.log(`  Portfolio:  ${portfolioItems.length}`);
   console.log(`  Gallery:    ${galleryItems.length}`);
@@ -580,6 +582,24 @@ async function buildMetadata() {
   console.log(`  Tags:       ${Object.keys(tags).length}`);
   console.log(`  Categories: ${Object.keys(categories).length}`);
   console.log("\nMetadata build complete.");
+}
+
+async function generateHomepageJson() {
+  const candidates = [
+    path.join(CONTENT_DIR, "homepage.yaml"),
+    path.join(CONTENT_DIR, "homepage.yml"),
+  ];
+  const file = candidates.find((f) => fs.existsSync(f));
+  if (!file) return;
+  try {
+    const raw = fs.readFileSync(file, "utf-8");
+    const parsed = yaml.load(raw);
+    if (!parsed || typeof parsed !== "object") return;
+    writeWebFile("metadata/homepage.json", JSON.stringify(parsed, null, 2));
+    console.log("  ✓ Generated homepage.json from homepage.yaml");
+  } catch (err) {
+    console.warn("  ⚠ Could not parse homepage.yaml:", err.message);
+  }
 }
 
 function buildBlogDirs(posts) {
@@ -714,7 +734,7 @@ async function generateSeoArtifacts({
 
   writeWebFile("metadata/prerender-routes.json", `${JSON.stringify(indexableRoutes.map(toPrerenderRoute), null, 2)}\n`);
   writeWebFile("sitemap.xml", buildSitemapXml(siteUrl, indexableRoutes, { posts, portfolioItems }));
-  writeWebFile("robots.txt", buildRobotsTxt(siteUrl));
+  writeWebFile("robots.txt", buildRobotsTxt(siteUrl, siteConfig));
   if (adsenseConfig && adsenseConfig.adsTxtLine) {
     writeWebFile("ads.txt", `${adsenseConfig.adsTxtLine}\n`);
   } else {
@@ -842,25 +862,66 @@ function collectRoutes({
 
 function buildSitemapXml(siteUrl, routes, context = {}) {
   const { posts = [], portfolioItems = [] } = context;
+
+  const postCoverMap = new Map(
+    posts.filter((p) => p.cover).map((p) => [p.slug, p.cover])
+  );
+  const portfolioCoverMap = new Map(
+    portfolioItems.filter((p) => p.cover).map((p) => [p.slug, p.cover])
+  );
+
+  let hasImages = false;
+
   const urls = routes
     .map((route) => {
-      // Add trailing slash to all non-root URLs to match the live site's redirect behavior
-      const clean = route === "/" ? "" : (route.endsWith("/") ? route : route + "/");
+      // Root gets a trailing slash; all other URLs also get trailing slash
+      const clean = route === "/" ? "/" : (route.endsWith("/") ? route : route + "/");
       const priority = getSitemapPriority(route);
       const lastmod = getContentLastmod(route, { posts, portfolioItems });
-      return [
+
+      const urlLines = [
         "  <url>",
         `    <loc>${escapeXml(siteUrl + clean)}</loc>`,
         `    <lastmod>${lastmod}</lastmod>`,
         `    <priority>${priority.toFixed(1)}</priority>`,
-        "  </url>",
-      ].join("\n");
+      ];
+
+      if (route.startsWith("/blog/post/")) {
+        const slug = route.replace("/blog/post/", "").replace(/\/+$/, "");
+        const cover = postCoverMap.get(slug);
+        if (cover) {
+          hasImages = true;
+          urlLines.push(
+            "    <image:image>",
+            `      <image:loc>${escapeXml(resolveSiteAssetUrl(siteUrl, cover))}</image:loc>`,
+            "    </image:image>"
+          );
+        }
+      } else if (route.startsWith("/portfolio/")) {
+        const slug = route.replace("/portfolio/", "").replace(/\/+$/, "");
+        const cover = portfolioCoverMap.get(slug);
+        if (cover) {
+          hasImages = true;
+          urlLines.push(
+            "    <image:image>",
+            `      <image:loc>${escapeXml(resolveSiteAssetUrl(siteUrl, cover))}</image:loc>`,
+            "    </image:image>"
+          );
+        }
+      }
+
+      urlLines.push("  </url>");
+      return urlLines.join("\n");
     })
     .join("\n");
 
+  const urlsetOpen = hasImages
+    ? '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"\n        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">'
+    : '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
+
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    urlsetOpen,
     urls,
     "</urlset>",
     "",
@@ -905,47 +966,73 @@ function toPrerenderRoute(route) {
   return route.endsWith("/") ? route : `${route}/`;
 }
 
-function buildRobotsTxt(siteUrl) {
+const DEFAULT_AI_CRAWLER_BLOCKLIST = [
+  "GPTBot",
+  "ClaudeBot",
+  "Google-Extended",
+  "CCBot",
+  "Bytespider",
+  "Amazonbot",
+  "meta-externalagent",
+  "Applebot-Extended",
+  "CloudflareBrowserRenderingCrawler",
+];
+
+function buildRobotsTxt(siteUrl, siteConfig) {
+  const cfgBlock = siteConfig && siteConfig.block_ai_crawlers;
+  let aiBlocklist;
+  if (cfgBlock === false) {
+    aiBlocklist = [];
+  } else if (Array.isArray(cfgBlock)) {
+    aiBlocklist = cfgBlock;
+  } else {
+    aiBlocklist = DEFAULT_AI_CRAWLER_BLOCKLIST;
+  }
+
+  const aiRules = aiBlocklist.flatMap((agent) => [
+    `User-agent: ${agent}`,
+    "Disallow: /",
+    "",
+  ]);
+
   return [
+    "# --- Content Signals ---",
     "User-agent: *",
+    "Content-Signal: search=yes, ai-input=yes, ai-train=no",
+    "",
+    "# --- Default rules ---",
     "Allow: /",
     "",
     "# --- Block low-value / internal pages ---",
     "Disallow: /content/",
     "Disallow: /metadata/",
     "Disallow: /vendor/",
+    "Disallow: /gallery",
     "Disallow: /404.html",
-    "Disallow: /admin/",
     "Disallow: /tags",
     "Disallow: /tag/",
     "Disallow: /categories",
     "Disallow: /category/",
     "Disallow: /blog/dir/",
+    "Disallow: /admin",
+    "Disallow: /admin/",
     "",
-    "# --- Block AI crawlers explicitly ---",
-    "User-agent: GPTBot",
-    "Disallow: /",
-    "",
-    "User-agent: ClaudeBot",
-    "Disallow: /",
-    "",
-    "User-agent: Google-Extended",
-    "Disallow: /",
-    "",
+    ...(aiBlocklist.length > 0 ? ["# --- Block AI crawlers explicitly ---", ...aiRules] : []),
     "# --- Sitemap ---",
     `Sitemap: ${siteUrl}/sitemap.xml`,
     "",
+    "Crawl-delay: 5",
   ].join("\n");
 }
 
 function isIndexableRoute(route) {
   if (!route) return false;
-  if (["/", "/blog", "/portfolio", "/profile", "/about"].includes(route)) {
+  if (["/", "/blog", "/portfolio", "/profile", "/about", "/thoughts"].includes(route)) {
     return true;
   }
   if (route.startsWith("/blog/post/")) return true;
   if (route.startsWith("/portfolio/")) return true;
-  if (/^\/[^/]+$/.test(route) && !["/gallery", "/thoughts", "/tags", "/categories", "/admin"].includes(route)) {
+  if (/^\/[^/]+$/.test(route) && !["/gallery", "/tags", "/categories", "/admin"].includes(route)) {
     return true;
   }
   return false;
@@ -955,7 +1042,7 @@ function getSitemapPriority(route) {
   if (route === "/profile") return 1;
   if (route === "/") return 0.9;
   if (route.startsWith("/blog/post/") || route.startsWith("/portfolio/")) return 0.8;
-  if (["/blog", "/portfolio", "/about"].includes(route)) return 0.7;
+  if (["/blog", "/portfolio", "/about", "/thoughts"].includes(route)) return 0.7;
   if (/^\/[^/]+$/.test(route)) return 0.6;
   return 0.3;
 }
@@ -1042,15 +1129,15 @@ async function generateFaviconAssets(siteConfig) {
     refs.manifest,
     JSON.stringify(
       {
-        name: (siteConfig && siteConfig.hero_title) || "Raksara",
-        short_name: (siteConfig && siteConfig.hero_title) || "Raksara",
+        name: (siteConfig && (siteConfig.hero_title || siteConfig.title)) || "",
+        short_name: (siteConfig && (siteConfig.hero_title || siteConfig.title)) || "",
         icons: [
           { src: `/${refs.png}`, sizes: "48x48", type: "image/png" },
           { src: `/${refs.apple}`, sizes: "180x180", type: "image/png" },
           { src: `/${refs.svg}`, sizes: "any", type: "image/svg+xml", purpose: "any" },
         ],
         theme_color: palette.accent,
-        background_color: "#0b0d12",
+        background_color: (siteConfig && siteConfig.manifest_bg_color) || "#000000",
         display: "standalone",
       },
       null,
@@ -1169,10 +1256,9 @@ async function minifyHtmlDocument(html) {
 
 function getRouteMeta(route, context) {
   const { siteUrl, siteConfig, posts, portfolioItems, galleryItems, thoughts, pages, tags, categories, blogDirs } = context;
-  const siteName = (siteConfig && siteConfig.hero_title) || "Raksara";
+  const siteName = (siteConfig && (siteConfig.hero_title || siteConfig.title)) || "";
   const siteDescription =
-    (siteConfig && siteConfig.hero_subtitle) ||
-    "A place where ideas, knowledge, and engineering thoughts are recorded.";
+    (siteConfig && (siteConfig.description || siteConfig.hero_subtitle)) || "";
   const routeUrl = getAbsoluteRouteUrl(siteUrl, route);
   const defaultImage = resolveSiteAssetUrl(siteUrl, (siteConfig && (siteConfig.og_image || siteConfig.logo)) || "");
   const parts = route.split("/").filter(Boolean);
@@ -1256,7 +1342,7 @@ function getRouteMeta(route, context) {
     };
   }
   if (route === "/thoughts") {
-    return { ...meta, title: `Shower Thoughts — ${siteName}`, description: `${thoughts.length} short-form notes and fragments.`, robots: "noindex, nofollow" };
+    return { ...meta, title: `Thoughts — ${siteName}`, description: `${thoughts.length} short-form thoughts and fragments.` };
   }
   if (route === "/tags") {
     return { ...meta, title: `Tags — ${siteName}`, description: `${Object.keys(tags || {}).length} tags.`, robots: "noindex, nofollow" };
@@ -1710,10 +1796,8 @@ function renderHomePagePrerender(posts, thoughts, portfolio, gallery, config, im
     }
   }
 
-  const heroTitle = (config && config.hero_title) || "Raksara";
-  const heroSubtitle =
-    (config && config.hero_subtitle) ||
-    "A place where ideas, knowledge, and engineering thoughts are recorded.";
+  const heroTitle = (config && (config.hero_title || config.title)) || "";
+  const heroSubtitle = (config && (config.hero_subtitle || config.description)) || "";
 
   const waveSvg = `<div class="hero-waves"><svg class="hero-wave hero-wave-back" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,45 C100,20 200,55 360,30 C480,12 560,50 720,35 C850,22 1000,55 1140,28 C1280,8 1380,42 1440,38 L1440,80 L0,80 Z"/></svg><svg class="hero-wave hero-wave-front" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,38 C80,52 180,15 320,42 C430,60 540,18 700,40 C820,55 960,12 1100,45 C1220,62 1340,22 1440,35 L1440,80 L0,80 Z"/></svg></div>`;
 
@@ -1922,9 +2006,133 @@ async function injectGridPrerender(html, marked) {
   return html;
 }
 
-async function renderCustomMarkdownForPrerender(md) {
+function preprocessCardsForPrerender(md, portfolioItems, posts, imageManifest) {
+  return md.replace(/::cards\s*\(\s*([^,)]+?)(?:\s*,\s*(\d+))?\s*\)/g, (_m, pathArg, limitArg) => {
+    const limit = limitArg ? parseInt(limitArg, 10) : null;
+    const cleanPath = pathArg.trim().replace(/^\/|\/$/g, '');
+    const prefix = `content/${cleanPath}/`;
+
+    const all = [
+      ...(portfolioItems || []).map((p) => ({ ...p, _sec: 'portfolio' })),
+      ...(posts || []).map((p) => ({ ...p, _sec: 'blog' })),
+    ].filter((e) => e.path && e.path.startsWith(prefix));
+
+    all.sort((a, b) => {
+      const da = a.updated || a.modified || a.date || '';
+      const db = b.updated || b.modified || b.date || '';
+      return db.localeCompare(da);
+    });
+
+    const showMore = limit !== null && all.length > limit;
+    const visible = limit !== null ? all.slice(0, limit) : all;
+    if (!visible.length) return '';
+
+    const sectionHref =
+      cleanPath === 'portfolio' || cleanPath.startsWith('portfolio/') ? '/portfolio/' :
+      cleanPath === 'blog'      || cleanPath.startsWith('blog/')      ? '/blog/' :
+      `/${cleanPath}/`;
+
+    const cardSizes = '(max-width: 640px) calc(100vw - 3rem), (max-width: 1024px) calc(50vw - 2rem), calc(33vw - 2rem)';
+
+    const cards = visible.map((entry) => {
+      const slug = entry.slug || '';
+      const href =
+        entry._sec === 'blog'      || entry.path?.startsWith('content/blog/')      ? `/blog/post/${slug}/` :
+        entry._sec === 'portfolio' || entry.path?.startsWith('content/portfolio/') ? `/portfolio/${slug}/` :
+        `/${slug}/`;
+
+      const title = escapeHtml(entry.title || 'Untitled');
+      const desc  = escapeHtml(entry.summary || '');
+      const date  = entry.date ? escapeHtml(formatDate(entry.date)) : '';
+
+      let imgHtml = '';
+      if (entry.cover) {
+        const cover = resolvePath(entry.cover);
+        const manifestEntry = imageManifest && imageManifest[cover];
+        const lqipStyle = manifestEntry?.lqip ? `--lqip-url: url("${manifestEntry.lqip}")` : '';
+        const lqipClass = lqipStyle ? ' lqip-shown' : '';
+        const styleAttr = lqipStyle ? ` style="${escapeHtml(lqipStyle)}"` : '';
+        const imgAttrs = buildResponsiveImageAttrsPrerender(cover, { alt: title, loading: 'lazy', sizes: cardSizes }, imageManifest);
+        imgHtml = `<div class="content-card-img is-loading${lqipClass}"${styleAttr}><img ${imgAttrs} /></div>`;
+      }
+
+      return `<a href="${escapeHtml(href)}" class="content-card">${imgHtml}<div class="content-card-body"><div class="content-card-title">${title}</div>${desc ? `<p class="content-card-desc">${desc}</p>` : ''}${date ? `<div class="content-card-date">${date}</div>` : ''}</div></a>`;
+    }).join('');
+
+    const moreHtml = showMore ? `<div class="content-cards-more"><a href="${escapeHtml(sectionHref)}" class="content-cards-more-btn">Show more →</a></div>` : '';
+    return `<div class="content-cards-grid">${cards}</div>${moreHtml}`;
+  });
+}
+
+function preprocessCarouselForPrerender(md, portfolioItems, posts, imageManifest) {
+  return md.replace(/::carousels?\s*\(\s*([^,)]+?)(?:\s*,\s*(\d+))?\s*\)/g, (_m, pathArg, limitArg) => {
+    const limit = limitArg ? parseInt(limitArg, 10) : null;
+    const cleanPath = pathArg.trim().replace(/^\/|\/$/g, '');
+    const prefix = `content/${cleanPath}/`;
+
+    const all = [
+      ...(portfolioItems || []).map((p) => ({ ...p, _sec: 'portfolio' })),
+      ...(posts || []).map((p) => ({ ...p, _sec: 'blog' })),
+    ].filter((e) => e.path && e.path.startsWith(prefix));
+
+    all.sort((a, b) => {
+      const da = a.updated || a.modified || a.date || '';
+      const db = b.updated || b.modified || b.date || '';
+      return db.localeCompare(da);
+    });
+
+    const showMore = limit !== null && all.length > limit;
+    const visible = limit !== null ? all.slice(0, limit) : all;
+    if (!visible.length) return '';
+
+    const sectionHref =
+      cleanPath === 'portfolio' || cleanPath.startsWith('portfolio/') ? '/portfolio/' :
+      cleanPath === 'blog'      || cleanPath.startsWith('blog/')      ? '/blog/' :
+      `/${cleanPath}/`;
+
+    const carouselId = `carousel-${Math.random().toString(36).slice(2, 9)}`;
+    const imgSizes = '(max-width: 640px) 85vw, 62vw';
+
+    const slides = visible.map((entry) => {
+      const slug = entry.slug || '';
+      const href =
+        entry._sec === 'blog'      || entry.path?.startsWith('content/blog/')      ? `/blog/post/${slug}/` :
+        entry._sec === 'portfolio' || entry.path?.startsWith('content/portfolio/') ? `/portfolio/${slug}/` :
+        `/${slug}/`;
+
+      const title = escapeHtml(entry.title || 'Untitled');
+      const desc  = escapeHtml(entry.summary || '');
+      const date  = entry.date ? escapeHtml(formatDate(entry.date)) : '';
+      const noImgClass = entry.cover ? '' : ' no-image';
+
+      let imgHtml = '';
+      if (entry.cover) {
+        const cover = resolvePath(entry.cover);
+        const manifestEntry = imageManifest && imageManifest[cover];
+        const lqipStyle = manifestEntry?.lqip ? `--lqip-url: url("${manifestEntry.lqip}")` : '';
+        const lqipClass = lqipStyle ? ' lqip-shown' : '';
+        const styleAttr = lqipStyle ? ` style="${escapeHtml(lqipStyle)}"` : '';
+        const imgAttrs = buildResponsiveImageAttrsPrerender(cover, { alt: title, loading: 'lazy', sizes: imgSizes }, imageManifest);
+        imgHtml = `<div class="content-carousel-img is-loading${lqipClass}"${styleAttr}><img ${imgAttrs} /></div>`;
+      }
+
+      return `<div class="content-carousel-slide${noImgClass}" data-href="${escapeHtml(href)}" role="group" aria-label="${title}" tabindex="0">${imgHtml}<div class="content-carousel-body"><div class="content-carousel-title">${title}</div>${desc ? `<p class="content-carousel-desc">${desc}</p>` : ''}${date ? `<div class="content-carousel-date">${date}</div>` : ''}</div></div>`;
+    }).join('');
+
+    const prevBtn = `<button class="content-carousel-btn content-carousel-prev" aria-label="Previous slide"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>`;
+    const nextBtn = `<button class="content-carousel-btn content-carousel-next" aria-label="Next slide"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>`;
+    const moreHtml = showMore ? `<div class="content-carousel-more"><a href="${escapeHtml(sectionHref)}" class="content-cards-more-btn">Show more →</a></div>` : '';
+
+    return `<div class="content-carousel" id="${carouselId}" data-interval="5000" role="region" aria-label="Content carousel" tabindex="0"><div class="content-carousel-stage"><div class="content-carousel-track">${slides}</div>${prevBtn}${nextBtn}</div>${moreHtml}</div>`;
+  });
+}
+
+async function renderCustomMarkdownForPrerender(md, context = {}) {
+  const { portfolioItems = [], posts = [], imageManifest = null } = context;
   // Apply preprocessors in the same order as the browser version
   let processed = md;
+  processed = preprocessCarouselForPrerender(processed, portfolioItems, posts, imageManifest);
+  processed = preprocessCardsForPrerender(processed, portfolioItems, posts, imageManifest);
   processed = preprocessChartsForPrerender(processed);
   processed = preprocessGridForPrerender(processed);
   // Parse with marked
@@ -1935,7 +2143,7 @@ async function renderCustomMarkdownForPrerender(md) {
   return parsed;
 }
 
-async function renderProfilePagePrerender(pages, imageManifest) {
+async function renderProfilePagePrerender(pages, imageManifest, portfolioItems = [], posts = []) {
   const profilePage = (pages || []).find((p) => p.slug === "profile");
   if (!profilePage || !profilePage.path) return null;
 
@@ -2024,7 +2232,7 @@ async function renderProfilePagePrerender(pages, imageManifest) {
       )}></div>`
     : "";
 
-  const bodyHtml = await renderCustomMarkdownForPrerender(body || "");
+  const bodyHtml = await renderCustomMarkdownForPrerender(body || "", { portfolioItems, posts, imageManifest });
 
   return `<div class="profile-hero" id="profile-hero">
       <div class="profile-hero-bg" id="profile-hero-bg" data-src="${escapeHtml(coverPublicUrl)}"${heroBgStyle}></div>
@@ -2073,7 +2281,7 @@ async function prerender(posts, thoughts, portfolio, gallery, config, imageManif
   }
 
   try {
-    const profileMarkup = await renderProfilePagePrerender(pages, imageManifest);
+    const profileMarkup = await renderProfilePagePrerender(pages, imageManifest, portfolio, posts);
     if (profileMarkup) {
       const profileCacheFile = path.join(METADATA_DIR, "profile-prerender.json");
       fs.writeFileSync(profileCacheFile, JSON.stringify({ html: profileMarkup }), "utf-8");

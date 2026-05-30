@@ -5,7 +5,7 @@
 	import { initArticleFeatures } from '$lib/markdown';
 	import Giscus from '$lib/components/Giscus.svelte';
 	import ShareCard from '$lib/components/ShareCard.svelte';
-	import { shouldShowGiscus, getGiscusConfig, buildPostMeta, serializeJsonLd } from '$lib/seo';
+	import { shouldShowGiscus, getGiscusConfig, buildPostMeta, buildBreadcrumbSchema, serializeJsonLd } from '$lib/seo';
 	import { assetUrl, formatDate, humanize } from '$lib/utils';
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
@@ -99,6 +99,18 @@
 	const giscusConfig = $derived(config ? getGiscusConfig(config) : null);
 	const showGiscus = $derived(config ? shouldShowGiscus(config, 'blog', post?.comments_enabled) : false);
 	const pageMeta = $derived(post && config ? buildPostMeta(post, config, post.slug) : null);
+	const breadcrumbJsonLd = $derived(
+		post && config
+			? buildBreadcrumbSchema(
+					[
+						{ name: 'Home', url: '/' },
+						{ name: 'Blog', url: '/blog/' },
+						{ name: post.title, url: `/blog/post/${post.slug}/` },
+					],
+					String(config.site_url ?? config.url ?? '')
+				)
+			: null
+	);
 
 	// BL-009: reading mode toggle (persisted in sessionStorage)
 	let readingMode = $state(false);
@@ -144,8 +156,8 @@
 </script>
 
 <svelte:head>
-	<title>{post?.title ?? 'Post'} · {config?.hero_title ?? config?.title ?? 'Raksara'}</title>
-	<meta name="description" content={post?.summary ?? config?.description ?? config?.hero_subtitle ?? 'Read this post on Raksara.'} />
+	<title>{post?.title ?? 'Post'} · {config?.hero_title ?? config?.title ?? ''}</title>
+	<meta name="description" content={post?.summary ?? config?.description ?? config?.hero_subtitle ?? ''} />
 	{#if pageMeta}
 		<link rel="canonical" href={pageMeta.url} />
 		<meta property="og:title" content={pageMeta.title} />
@@ -177,6 +189,9 @@
 		{#if pageMeta.jsonLd}
 			{@html `<script type="application/ld+json">${serializeJsonLd(pageMeta.jsonLd)}</script>`}
 		{/if}
+	{/if}
+	{#if breadcrumbJsonLd}
+		{@html `<script type="application/ld+json">${serializeJsonLd(breadcrumbJsonLd)}</script>`}
 	{/if}
 </svelte:head>
 

@@ -13,6 +13,9 @@
 	const previousPage = $derived(data.previousPage);
 	const docs = $derived(data.docs);
 	const componentEntries = $derived(data.componentEntries);
+	const posts = $derived(data.posts ?? []);
+	const portfolioItems = $derived(data.portfolioItems ?? []);
+	const imageManifest = $derived(data.imageManifest ?? null);
 
 	let renderedHtml = $state('');
 	let articleEl: HTMLElement | null = null;
@@ -25,7 +28,11 @@
 			return;
 		}
 		(async () => {
-			renderedHtml = await renderMarkdown(source, { components: entries });
+			renderedHtml = await renderMarkdown(source, {
+				components: entries,
+				context: { posts, portfolioItems },
+				imageManifest: imageManifest ?? undefined,
+			});
 			await tick();
 			if (articleEl) await initArticleFeatures(articleEl);
 			if (location.hash) {

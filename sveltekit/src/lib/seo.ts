@@ -36,7 +36,7 @@ function resolveUrl(path: string, siteUrl?: string): string {
 
 /** Resolve brand/site name from config (hero_title takes priority over title). */
 function brandName(config: SiteConfig): string {
-  return config.hero_title ?? config.title ?? 'Raksara';
+  return config.hero_title ?? config.title ?? '';
 }
 
 /** Build PageMeta for a blog post or portfolio item. */
@@ -110,6 +110,62 @@ export function buildPageMeta(
     url,
     image: opts.image,
     type: 'website',
+  };
+}
+
+/** Build WebSite JSON-LD schema for the homepage. */
+export function buildWebSiteSchema(config: SiteConfig, siteUrl: string): JsonLdObject {
+  const root = siteUrl.replace(/\/+$/, '');
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    '@id': `${root}/#website`,
+    name: config.hero_title ?? config.title ?? '',
+    ...(config.description || config.hero_subtitle
+      ? { description: config.description ?? config.hero_subtitle }
+      : {}),
+    url: `${root}/`,
+  };
+}
+
+/** Build Person JSON-LD schema for the site author. Returns null if no author configured. */
+export function buildPersonSchema(config: SiteConfig, siteUrl: string): JsonLdObject | null {
+  const author = config.author;
+  if (!author) return null;
+  const root = siteUrl.replace(/\/+$/, '');
+  const sameAs: string[] = [];
+  if (config.social) {
+    for (const val of Object.values(config.social)) {
+      if (typeof val === 'string' && /^https?:\/\//i.test(val)) sameAs.push(val);
+    }
+  }
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    '@id': `${root}/#author`,
+    name: author,
+    url: `${root}/`,
+    ...(sameAs.length ? { sameAs } : {}),
+  };
+}
+
+/** Build BreadcrumbList JSON-LD schema. Items ordered from root to current page. */
+export function buildBreadcrumbSchema(
+  items: Array<{ name: string; url?: string }>,
+  siteUrl: string
+): JsonLdObject {
+  const root = siteUrl.replace(/\/+$/, '');
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((item, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: item.name,
+      ...(item.url
+        ? { item: `${root}${item.url.startsWith('/') ? item.url : '/' + item.url}` }
+        : {}),
+    })),
   };
 }
 

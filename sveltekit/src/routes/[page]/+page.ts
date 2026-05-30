@@ -2,7 +2,7 @@
 // Handles generic pages: /about, /documentation, etc.
 // Also catches /doc/{slug} style paths via the separate doc route.
 import type { PageLoad } from './$types';
-import { loadPages, loadDocs } from '$lib/metadata';
+import { loadPages, loadDocs, loadPosts, loadPortfolio, loadImageManifest } from '$lib/metadata';
 import { stripYamlFrontmatter } from '$lib/utils';
 import { error } from '@sveltejs/kit';
 
@@ -24,9 +24,14 @@ export const load: PageLoad = async ({ params, fetch }) => {
     return { page: null, markdown: null, slug, nextPage: null, previousPage: null, docs: null };
   }
 
-  const pages = await loadPages(fetch).catch(() => []);
+  const [pages, docs, posts, portfolioItems, imageManifest] = await Promise.all([
+    loadPages(fetch).catch(() => []),
+    loadDocs(fetch).catch(() => []),
+    loadPosts(fetch).catch(() => []),
+    loadPortfolio(fetch).catch(() => []),
+    loadImageManifest(fetch).catch(() => null),
+  ]);
   const page = pages.find((p) => p.slug === slug) ?? null;
-  const docs = await loadDocs(fetch).catch(() => []);
   // Try pages/slug.md
   const res = await fetch(`/content/pages/${slug}.md`);
   const markdown = res.ok ? await res.text() : null;
@@ -44,5 +49,5 @@ export const load: PageLoad = async ({ params, fetch }) => {
     throw error(404, 'Page not found');
   }
 
-  return { page, markdown: strippedMarkdown, slug, nextPage, previousPage, docs, componentEntries };
+  return { page, markdown: strippedMarkdown, slug, nextPage, previousPage, docs, componentEntries, posts, portfolioItems, imageManifest };
 };
