@@ -197,13 +197,23 @@
 	const ogProfileImage = $derived(
 		ogBase ? `${ogBase}/og/profile.jpg` : '/og/profile.jpg'
 	);
+	const profileDescription = $derived(
+		profile?.summary
+			?? config?.description
+			?? config?.hero_subtitle
+			?? profile?.role
+			?? profile?.title
+			?? config?.hero_title
+			?? config?.title
+			?? ''
+	);
 </script>
 
 <svelte:head>
 	<title>{profile?.title ?? 'Profile'} · {config?.hero_title ?? config?.title ?? 'Raksara'}</title>
-	<meta name="description" content={profile?.summary ?? ''} />
+	<meta name="description" content={profileDescription} />
 	<meta property="og:title" content="{profile?.title ?? 'Profile'} · {config?.hero_title ?? config?.title ?? 'Raksara'}" />
-	<meta property="og:description" content={profile?.summary ?? ''} />
+	<meta property="og:description" content={profileDescription} />
 	<meta property="og:type" content="profile" />
 	<meta property="og:url" content="{ogBase}/profile/" />
 	<meta property="og:image" content={ogProfileImage} />

@@ -20,10 +20,13 @@ sveltekit/static/vendor/
 sveltekit/static/vendor-chart.min.js
 sveltekit/static/vendor-highlight.min.js
 sveltekit/static/sitemap.xml
+sveltekit/static/feed.xml
+sveltekit/static/atom.xml
 sveltekit/static/robots.txt
 sveltekit/static/ads.txt
 sveltekit/static/CNAME
 sveltekit/static/.nojekyll
+sveltekit/static/og/
 sveltekit/static/favicon.svg
 sveltekit/static/favicon.png
 sveltekit/static/favicon.ico

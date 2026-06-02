@@ -27,21 +27,17 @@
 	const nav = $derived(config?.nav ?? defaultNav);
 	const adsenseId = $derived(config ? getAdsenseId(config) : '');
 	const giscusEnabled = $derived(config ? (getGiscusConfig(config)?.enabled ?? false) : false);
+	const googleVerificationTokens = $derived(config ? getGoogleVerificationTokens(config) : []);
 	const currentPath = $derived($page.url.pathname);
 	const canonicalHref = $derived(buildCanonicalHref(currentPath));
+	const routeOwnsCanonical = $derived(currentPath.startsWith('/blog/post/'));
+	const routeOwnsSocialMeta = $derived(routeHasOwnSocialMeta(currentPath));
+	const robotsContent = $derived(isIndexablePath(currentPath) ? 'index, follow' : 'noindex, nofollow');
 	// Used for absolute OG image URLs (WhatsApp / social platforms require https://)
 	const siteRoot = $derived(
 		String(config?.site_url || config?.url || $page.url.origin).replace(/\/+$/, '')
 	);
 	const defaultOgImage = $derived(resolveDefaultOgImage(currentPath, siteRoot, config?.og_defaults));
-	const siteDescription = $derived(
-		config?.description?.trim()
-			|| config?.hero_subtitle?.trim()
-			|| config?.hero_title?.trim()
-			|| config?.title?.trim()
-			|| ''
-	);
-
 	function isActiveLink(href: string): boolean {
 		const normalizedHref = href === '/' ? '/' : href.replace(/\/$/, '');
 		const normalizedPath = currentPath === '/' ? '/' : currentPath.replace(/\/$/, '');
@@ -70,6 +66,50 @@
 		if (!pathname || pathname === '/') return `${siteUrl}/`;
 		const cleanPath = `/${pathname.replace(/^\/+/, '').replace(/\/+$/, '')}/`;
 		return `${siteUrl}${cleanPath}`;
+	}
+
+	function normalizePath(pathname: string): string {
+		if (!pathname || pathname === '/') return '/';
+		return `/${pathname.replace(/^\/+/, '').replace(/\/+$/, '')}`;
+	}
+
+	function isIndexablePath(pathname: string): boolean {
+		const path = normalizePath(pathname);
+		if (['/', '/blog', '/portfolio', '/profile', '/about', '/thoughts'].includes(path)) return true;
+		if (path.startsWith('/blog/post/')) return true;
+		if (path.startsWith('/portfolio/')) return true;
+		if (/^\/[^/]+$/.test(path) && !['/gallery', '/tags', '/categories', '/admin'].includes(path)) return true;
+		return false;
+	}
+
+	function routeHasOwnSocialMeta(pathname: string): boolean {
+		const path = normalizePath(pathname);
+		return (
+			path === '/' ||
+			path === '/blog' ||
+			path.startsWith('/blog/post/') ||
+			path === '/portfolio' ||
+			path.startsWith('/portfolio/') ||
+			path === '/profile' ||
+			path === '/thoughts' ||
+			path === '/gallery' ||
+			path.startsWith('/gallery/')
+		);
+	}
+
+	function getGoogleVerificationTokens(siteConfig: LayoutData['config']): string[] {
+		if (!siteConfig) return [];
+		const rawConfig = siteConfig as typeof siteConfig & {
+			google_search_console?: string | string[];
+			googleSearchConsole?: string | string[];
+		};
+		const raw =
+			siteConfig.google_site_verification
+			?? siteConfig.googleSiteVerification
+			?? rawConfig.google_search_console
+			?? rawConfig.googleSearchConsole;
+		const values = Array.isArray(raw) ? raw : raw ? [raw] : [];
+		return Array.from(new Set(values.map((value) => String(value).trim()).filter(Boolean)));
 	}
 
 	function navigateSidebar(event: MouseEvent, href: string) {
@@ -346,12 +386,21 @@
 		<link rel="dns-prefetch" href="https://giscus.app" />
 	{/if}
 	<title>{config?.hero_title ?? config?.title ?? ''}</title>
-	<meta name="description" content={siteDescription} />
-	<link rel="canonical" href={canonicalHref} />
+	<link rel="alternate" type="application/rss+xml" title={`${config?.hero_title ?? config?.title ?? 'Raksara'} RSS feed`} href={`${siteRoot}/feed.xml`} />
+	<link rel="alternate" type="application/atom+xml" title={`${config?.hero_title ?? config?.title ?? 'Raksara'} Atom feed`} href={`${siteRoot}/atom.xml`} />
+	{#each googleVerificationTokens as token}
+		<meta name="google-site-verification" content={token} />
+	{/each}
+	<meta name="robots" content={robotsContent} />
+	{#if !routeOwnsCanonical}
+		<link rel="canonical" href={canonicalHref} />
+	{/if}
 	<meta property="og:site_name" content={config?.hero_title ?? config?.title ?? ''} />
-	<meta property="og:type" content="website" />
-	<meta name="twitter:card" content="summary_large_image" />
-	{#if defaultOgImage}
+	{#if !routeOwnsSocialMeta}
+		<meta property="og:type" content="website" />
+		<meta name="twitter:card" content="summary_large_image" />
+	{/if}
+	{#if defaultOgImage && !routeOwnsSocialMeta}
 		<meta property="og:image" content={defaultOgImage} />
 		<meta property="og:image:width" content="1200" />
 		<meta property="og:image:height" content="630" />

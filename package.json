@@ -7,9 +7,11 @@
     "build:metadata:strict": "node scripts/build-metadata.js --strict",
     "build:sveltekit": "cd sveltekit && npm run build",
     "check:sveltekit": "cd sveltekit && npm run check",
+    "validate:seo:build": "node scripts/validate-seo-build.js",
+    "validate:seo:dist": "node scripts/validate-seo-dist.js",
     "dev": "npm run build:metadata && cd sveltekit && npm run dev",
     "dev:sveltekit": "npm run dev",
-    "build": "npm run build:metadata && npm run build:sveltekit"
+    "build": "npm run build:metadata && npm run validate:seo:build && npm run build:sveltekit && npm run validate:seo:dist"
   },
   "keywords": [
     "blog",

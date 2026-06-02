@@ -17,6 +17,7 @@ Raksara keeps the engine in this repository and the content in a separate reposi
 - Giscus comments for blog and portfolio detail pages
 - Light/dark theme and configurable accent color from `config.json`
 - Generated metadata, search index, SEO artifacts (sitemap with image extensions, robots.txt, JSON-LD), responsive images, favicons, and static vendor assets
+- RSS (`/feed.xml`) and Atom (`/atom.xml`) feeds for blog discovery
 - WebSite + Person JSON-LD structured data on homepage; BreadcrumbList + BlogPosting/SoftwareApplication on content pages
 
 ## Repository Layout
@@ -51,9 +52,11 @@ Useful commands:
 
 ```bash
 npm run build:metadata      # Generate metadata and static assets
+npm run validate:seo:build  # Validate sitemap, robots, prerender manifest, and SEO config
+npm run validate:seo:dist   # Validate built HTML after SvelteKit output exists
 npm run dev                 # Build metadata, then run SvelteKit dev server
 npm run check:sveltekit     # Type/check SvelteKit
-npm run build               # Build metadata, then SvelteKit static output
+npm run build               # Build metadata, validate SEO, then SvelteKit static output
 ```
 
 The metadata build writes to:
@@ -65,12 +68,18 @@ The metadata build writes to:
 - `sveltekit/static/vendor*.js`
 - `sveltekit/static/vendor/hljs/`
 - `sveltekit/static/sitemap.xml`, `robots.txt`, `ads.txt`, favicons, and manifest
+- `sveltekit/static/feed.xml` and `sveltekit/static/atom.xml`
 
 ## Static SEO Output
 
 Raksara is deployed to GitHub Pages, so indexable pages must exist as static HTML, not only as client-side routes. The metadata build computes the canonical route list once, filters it with the same `isIndexableRoute()` logic used for `sitemap.xml`, and writes `sveltekit/static/metadata/prerender-routes.json`.
 
 During `npm run build:sveltekit`, SvelteKit reads that manifest and prerenders exactly those indexable routes. Non-indexable routes such as gallery popups, tag/category archives, and utility pages can still use the static adapter fallback as SPA routes, but sitemap URLs should always have matching HTML in `sveltekit/build`.
+
+For Google Search Console HTML-tag verification, add
+`google_site_verification: <token>` to `raksara.yml`. Builds render
+`<meta name="google-site-verification" content="<token>">`; SEO validation warns
+when the token is not configured.
 
 ## Content Repository
 

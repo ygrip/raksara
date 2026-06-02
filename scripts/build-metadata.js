@@ -734,6 +734,8 @@ async function generateSeoArtifacts({
 
   writeWebFile("metadata/prerender-routes.json", `${JSON.stringify(indexableRoutes.map(toPrerenderRoute), null, 2)}\n`);
   writeWebFile("sitemap.xml", buildSitemapXml(siteUrl, indexableRoutes, { posts, portfolioItems }));
+  writeWebFile("feed.xml", buildRssFeed(siteUrl, posts, siteConfig));
+  writeWebFile("atom.xml", buildAtomFeed(siteUrl, posts, siteConfig));
   writeWebFile("robots.txt", buildRobotsTxt(siteUrl, siteConfig));
   if (adsenseConfig && adsenseConfig.adsTxtLine) {
     writeWebFile("ads.txt", `${adsenseConfig.adsTxtLine}\n`);
@@ -751,6 +753,7 @@ async function generateSeoArtifacts({
   }
 
   console.log("  ✓ Generated sitemap.xml");
+  console.log("  ✓ Generated feed.xml and atom.xml");
   console.log("  ✓ Generated prerender route manifest");
   console.log("  ✓ Generated robots.txt");
   if (adsenseConfig && adsenseConfig.adsTxtLine) {
@@ -924,6 +927,121 @@ function buildSitemapXml(siteUrl, routes, context = {}) {
     urlsetOpen,
     urls,
     "</urlset>",
+    "",
+  ].join("\n");
+}
+
+function getPostUpdatedDate(post) {
+  return post.updated || post.modified || post.date || "1970-01-01";
+}
+
+function sortPostsForFeed(posts) {
+  return [...posts].sort((a, b) => getPostUpdatedDate(b).localeCompare(getPostUpdatedDate(a)));
+}
+
+function getFeedSiteName(siteConfig) {
+  return (siteConfig && (siteConfig.hero_title || siteConfig.title)) || "Raksara";
+}
+
+function getFeedDescription(siteConfig) {
+  return (siteConfig && (siteConfig.description || siteConfig.hero_subtitle)) || "";
+}
+
+function toRfc822Date(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return new Date("1970-01-01T00:00:00Z").toUTCString();
+  return date.toUTCString();
+}
+
+function toAtomDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "1970-01-01T00:00:00.000Z";
+  return date.toISOString();
+}
+
+function getLatestFeedDate(posts) {
+  const latest = sortPostsForFeed(posts)[0];
+  return latest ? getPostUpdatedDate(latest) : "1970-01-01";
+}
+
+function buildRssFeed(siteUrl, posts, siteConfig) {
+  const siteName = getFeedSiteName(siteConfig);
+  const description = getFeedDescription(siteConfig);
+  const author = (siteConfig && siteConfig.author) || "";
+  const feedPosts = sortPostsForFeed(posts);
+  const latestDate = getLatestFeedDate(feedPosts);
+
+  const items = feedPosts
+    .map((post) => {
+      const url = getAbsoluteRouteUrl(siteUrl, `/blog/post/${post.slug}/`);
+      const updated = getPostUpdatedDate(post);
+      return [
+        "    <item>",
+        `      <title>${escapeXml(post.title)}</title>`,
+        `      <link>${escapeXml(url)}</link>`,
+        `      <guid isPermaLink="true">${escapeXml(url)}</guid>`,
+        `      <pubDate>${escapeXml(toRfc822Date(post.date || updated))}</pubDate>`,
+        `      <description>${escapeXml(post.summary || "")}</description>`,
+        ...(author ? [`      <dc:creator>${escapeXml(post.author || author)}</dc:creator>`] : []),
+        ...(post.tags || []).map((tag) => `      <category>${escapeXml(tag)}</category>`),
+        "    </item>",
+      ].join("\n");
+    })
+    .join("\n");
+
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">',
+    "  <channel>",
+    `    <title>${escapeXml(siteName)}</title>`,
+    `    <link>${escapeXml(`${siteUrl}/`)}</link>`,
+    `    <description>${escapeXml(description)}</description>`,
+    `    <lastBuildDate>${escapeXml(toRfc822Date(latestDate))}</lastBuildDate>`,
+    `    <atom:link href="${escapeXml(`${siteUrl}/feed.xml`)}" rel="self" type="application/rss+xml" />`,
+    items,
+    "  </channel>",
+    "</rss>",
+    "",
+  ].join("\n");
+}
+
+function buildAtomFeed(siteUrl, posts, siteConfig) {
+  const siteName = getFeedSiteName(siteConfig);
+  const description = getFeedDescription(siteConfig);
+  const author = (siteConfig && siteConfig.author) || siteName;
+  const feedPosts = sortPostsForFeed(posts);
+  const latestDate = getLatestFeedDate(feedPosts);
+
+  const entries = feedPosts
+    .map((post) => {
+      const url = getAbsoluteRouteUrl(siteUrl, `/blog/post/${post.slug}/`);
+      const updated = getPostUpdatedDate(post);
+      return [
+        "  <entry>",
+        `    <title>${escapeXml(post.title)}</title>`,
+        `    <link href="${escapeXml(url)}" />`,
+        `    <id>${escapeXml(url)}</id>`,
+        `    <published>${escapeXml(toAtomDate(post.date || updated))}</published>`,
+        `    <updated>${escapeXml(toAtomDate(updated))}</updated>`,
+        `    <summary>${escapeXml(post.summary || "")}</summary>`,
+        ...(post.tags || []).map((tag) => `    <category term="${escapeXml(tag)}" />`),
+        "  </entry>",
+      ].join("\n");
+    })
+    .join("\n");
+
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<feed xmlns="http://www.w3.org/2005/Atom">',
+    `  <title>${escapeXml(siteName)}</title>`,
+    `  <subtitle>${escapeXml(description)}</subtitle>`,
+    `  <link href="${escapeXml(`${siteUrl}/`)}" />`,
+    `  <link href="${escapeXml(`${siteUrl}/atom.xml`)}" rel="self" type="application/atom+xml" />`,
+    `  <id>${escapeXml(`${siteUrl}/`)}</id>`,
+    `  <updated>${escapeXml(toAtomDate(latestDate))}</updated>`,
+    `  <author><name>${escapeXml(author)}</name></author>`,
+    entries,
+    "</feed>",
     "",
   ].join("\n");
 }

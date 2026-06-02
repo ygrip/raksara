@@ -16,6 +16,16 @@
 	const posts = $derived(data.posts ?? []);
 	const portfolioItems = $derived(data.portfolioItems ?? []);
 	const imageManifest = $derived(data.imageManifest ?? null);
+	const pageDescription = $derived(
+		page?.summary
+			?? page?.description
+			?? config?.description
+			?? config?.hero_subtitle
+			?? page?.title
+			?? config?.hero_title
+			?? config?.title
+			?? ''
+	);
 
 	let renderedHtml = $state('');
 	let articleEl: HTMLElement | null = null;
@@ -45,7 +55,7 @@
 
 <svelte:head>
 	<title>{page?.title ?? slug} · {config?.hero_title ?? config?.title ?? 'Raksara'}</title>
-	{#if page?.summary}<meta name="description" content={page.summary} />{/if}
+	<meta name="description" content={pageDescription} />
 </svelte:head>
 
 <article bind:this={articleEl} class="mx-auto max-w-3xl">

@@ -180,6 +180,10 @@ export interface SiteConfig {
   nav?: Array<{ label: string; href: string }>;
   /** AdSense publisher ID string or structured object from config.json */
   adsense?: string | Record<string, string>;
+  /** Google Search Console verification token(s). */
+  google_site_verification?: string | string[];
+  /** camelCase alias for google_site_verification. */
+  googleSiteVerification?: string | string[];
   /** Giscus top-level (legacy / direct) */
   giscus?: GiscusConfig;
   /** Preferred: nested comments block with enabled flag and page list */

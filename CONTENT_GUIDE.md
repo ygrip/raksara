@@ -647,6 +647,8 @@ and Twitter/X Card.
 - **Directory / list pages** — use a contextual title (e.g. "Blog", "Gallery", "Tag: golang").
 - **Fallback image** — set `og_image` in `raksara.yml` to provide a default social thumbnail
   for pages without a cover photo.
+- **Feeds** — the metadata build publishes `/feed.xml` (RSS) and `/atom.xml`
+  from blog posts, using canonical post URLs and stable content dates.
 
 **Example `raksara.yml` with full SEO config:**
 
@@ -656,8 +658,35 @@ hero_title: Yunaz Gilang
 hero_subtitle: Engineering thoughts, creative work, and random ideas.
 author: Yunaz Gilang
 og_image: assets/images/og-card.png
+google_site_verification: your-google-search-console-token
 adsense: google.com, <your-pub>, DIRECT, <your-key>
 ```
+
+### Google Search Console Verification
+
+To verify the site with Google Search Console using the HTML meta tag method,
+add the verification token from Google to `raksara.yml`:
+
+```yaml
+google_site_verification: your-google-search-console-token
+```
+
+If you need more than one token, use a list:
+
+```yaml
+google_site_verification:
+  - production-token
+  - alternate-property-token
+```
+
+The static build renders each token as:
+
+```html
+<meta name="google-site-verification" content="your-google-search-console-token">
+```
+
+If the field is missing, SEO validation emits a warning so Search Console setup
+does not get forgotten during indexing work.
 
 ### Google AdSense (`ads.txt` + meta tag)
 
