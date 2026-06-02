@@ -3,6 +3,7 @@
 // Also catches /doc/{slug} style paths via the separate doc route.
 import type { PageLoad } from './$types';
 import { loadPages, loadDocs, loadPosts, loadPortfolio, loadImageManifest } from '$lib/metadata';
+import { renderMarkdown } from '$lib/markdown';
 import { stripYamlFrontmatter } from '$lib/utils';
 import { error } from '@sveltejs/kit';
 
@@ -49,5 +50,13 @@ export const load: PageLoad = async ({ params, fetch }) => {
     throw error(404, 'Page not found');
   }
 
-  return { page, markdown: strippedMarkdown, slug, nextPage, previousPage, docs, componentEntries, posts, portfolioItems, imageManifest };
+  const renderedHtml = strippedMarkdown
+    ? await renderMarkdown(strippedMarkdown, {
+        components: componentEntries,
+        context: { posts, portfolioItems },
+        imageManifest: imageManifest ?? undefined,
+      })
+    : '';
+
+  return { page, markdown: strippedMarkdown, renderedHtml, slug, nextPage, previousPage, docs, componentEntries, posts, portfolioItems, imageManifest };
 };

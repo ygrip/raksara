@@ -126,6 +126,8 @@ let robotsBlocked = 0;
 let duplicateCanonical = 0;
 let duplicateDescription = 0;
 let duplicateRobots = 0;
+let loadingFallbacks = 0;
+let missingArticleBody = 0;
 
 for (const url of sitemapUrls) {
   const parsed = new URL(url);
@@ -207,6 +209,19 @@ for (const url of sitemapUrls) {
     error(`${parsed.pathname}: sitemap URL is blocked by robots.txt`);
     robotsBlocked++;
   }
+
+  if (/<p\b[^>]*>\s*Loading…\s*<\/p>/i.test(html)) {
+    error(`${relativeFile}: static HTML contains the Loading fallback instead of prerendered content`);
+    loadingFallbacks++;
+  }
+
+  if (
+    (parsed.pathname.startsWith('/blog/post/') || /^\/portfolio\/[^/]+\/$/.test(parsed.pathname))
+    && !/<div\b[^>]*class=["'][^"']*\barticle-body\b/i.test(html)
+  ) {
+    error(`${relativeFile}: article detail page is missing prerendered article body`);
+    missingArticleBody++;
+  }
 }
 
 if (checked > 0) {
@@ -222,6 +237,8 @@ if (duplicateRobots === 0) ok('Robots meta tags are unique on all checked pages'
 if (noindexCount === 0) ok('No sitemap URL renders robots noindex');
 if (jsonLdErrors === 0) ok('JSON-LD scripts are valid where present');
 if (robotsBlocked === 0 && robotsText) ok('robots.txt does not block sitemap URLs');
+if (loadingFallbacks === 0) ok('No sitemap URL renders the Loading fallback as static content');
+if (missingArticleBody === 0) ok('Article detail pages include prerendered article bodies');
 
 console.log(`\n${errors === 0 ? 'PASS' : 'FAIL'} SEO dist validation: ${errors} error(s), ${warnings} warning(s)`);
 console.log(`   Sitemap URLs: ${sitemapUrls.length}; checked HTML files: ${checked}\n`);

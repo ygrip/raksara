@@ -17,10 +17,9 @@
 	const markdown = $derived(data.markdown);
 	const config = $derived(data.config);
 	const imageManifest = $derived(data.imageManifest ?? null);
-	const prerenderedHtml = $derived(data.renderedHtml ?? '');
+	const renderedHtml = $derived(data.renderedHtml ?? '');
 	const articleCoverSizes = '(max-width: 832px) calc(100vw - 32px), 800px';
 
-	let renderedHtml = $state('');
 	let articleEl: HTMLElement | null = null;
 	let featuresInitialized = $state(false);
 
@@ -140,9 +139,9 @@
 		sessionStorage.setItem('comicScrollMode', comicScrollMode);
 	}
 
-	// Use prerendered HTML from load (static SEO) and init client features on mount
+	// Article HTML is rendered in load() so SSR/static output contains the body.
+	// Client mount only upgrades interactive markdown features.
 	onMount(async () => {
-		renderedHtml = prerenderedHtml;
 		await tick();
 		if (articleEl) {
 			await initArticleFeatures(articleEl);

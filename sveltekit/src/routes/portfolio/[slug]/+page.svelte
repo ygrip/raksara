@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import type { PageData } from './$types';
-	import { renderMarkdown, initArticleFeatures } from '$lib/markdown';
+	import { initArticleFeatures } from '$lib/markdown';
 	import Giscus from '$lib/components/Giscus.svelte';
 	import ShareCard from '$lib/components/ShareCard.svelte';
 	import { shouldShowGiscus, getGiscusConfig, buildPostMeta, buildBreadcrumbSchema, serializeJsonLd } from '$lib/seo';
@@ -14,9 +14,9 @@
 	const markdown = $derived(data.markdown);
 	const config = $derived(data.config);
 	const imageManifest = $derived(data.imageManifest ?? null);
+	const renderedHtml = $derived(data.renderedHtml ?? '');
 	const articleCoverSizes = '(max-width: 832px) calc(100vw - 32px), 800px';
 
-	let renderedHtml = $state('');
 	let articleEl: HTMLElement | null = null;
 
 	const giscusConfig = $derived(config ? getGiscusConfig(config) : null);
@@ -35,27 +35,13 @@
 			: null
 	);
 
-	function stripLeadingTitle(md: string, title?: string | null): string {
-		if (!title) return md;
-		const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-		return md.replace(new RegExp(`^\\s*#\\s+${escaped}\\s*\\n+`, 'i'), '');
-	}
-
-	$effect(() => {
-		const source = markdown;
-		if (!source) {
-			renderedHtml = '';
-			return;
+	onMount(async () => {
+		await tick();
+		if (articleEl) await initArticleFeatures(articleEl);
+		if (location.hash) {
+			const target = document.querySelector(location.hash);
+			if (target) target.scrollIntoView({ behavior: 'smooth' });
 		}
-		(async () => {
-			renderedHtml = await renderMarkdown(stripLeadingTitle(source, item?.title), { imageManifest: imageManifest ?? undefined });
-			await tick();
-			if (articleEl) await initArticleFeatures(articleEl);
-			if (location.hash) {
-				const target = document.querySelector(location.hash);
-				if (target) target.scrollIntoView({ behavior: 'smooth' });
-			}
-		})();
 	});
 </script>
 

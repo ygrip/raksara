@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import type { PageData } from './$types';
-	import { renderMarkdown, initArticleFeatures } from '$lib/markdown';
+	import { initArticleFeatures } from '$lib/markdown';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
 
 	let { data }: { data: PageData } = $props();
@@ -12,10 +12,7 @@
 	const nextPage = $derived(data.nextPage);
 	const previousPage = $derived(data.previousPage);
 	const docs = $derived(data.docs);
-	const componentEntries = $derived(data.componentEntries);
-	const posts = $derived(data.posts ?? []);
-	const portfolioItems = $derived(data.portfolioItems ?? []);
-	const imageManifest = $derived(data.imageManifest ?? null);
+	const renderedHtml = $derived(data.renderedHtml ?? '');
 	const pageDescription = $derived(
 		page?.summary
 			?? page?.description
@@ -27,29 +24,15 @@
 			?? ''
 	);
 
-	let renderedHtml = $state('');
 	let articleEl: HTMLElement | null = null;
 
-	$effect(() => {
-		const source = markdown;
-		const entries = componentEntries ?? [];
-		if (!source) {
-			renderedHtml = '';
-			return;
+	onMount(async () => {
+		await tick();
+		if (articleEl) await initArticleFeatures(articleEl);
+		if (location.hash) {
+			const target = document.querySelector(location.hash);
+			if (target) target.scrollIntoView({ behavior: 'smooth' });
 		}
-		(async () => {
-			renderedHtml = await renderMarkdown(source, {
-				components: entries,
-				context: { posts, portfolioItems },
-				imageManifest: imageManifest ?? undefined,
-			});
-			await tick();
-			if (articleEl) await initArticleFeatures(articleEl);
-			if (location.hash) {
-				const target = document.querySelector(location.hash);
-				if (target) target.scrollIntoView({ behavior: 'smooth' });
-			}
-		})();
 	});
 </script>
 
