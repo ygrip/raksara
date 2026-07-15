@@ -23,6 +23,10 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      SITE_URL: ${{ vars.SITE_URL }}
+      PUBLIC_SITE_URL: ${{ vars.SITE_URL }}
+      PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.PUBLIC_TURNSTILE_SITE_KEY }}
 
     steps:
       - name: Checkout engine
@@ -81,8 +85,6 @@ jobs:
           restore-keys: raksara-og-
 
       - name: Build metadata and static assets
-        env:
-          SITE_URL: ${{ vars.SITE_URL }}
         run: npm run build:metadata
 
       - name: Validate generated SEO metadata
@@ -104,9 +106,6 @@ jobs:
           fi
 
       - name: Build SvelteKit
-        env:
-          PUBLIC_SITE_URL: ${{ vars.SITE_URL }}
-          PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.PUBLIC_TURNSTILE_SITE_KEY }}
         run: npm run build:sveltekit
 
       - name: Validate built static site
