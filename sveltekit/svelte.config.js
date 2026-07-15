@@ -48,13 +48,12 @@ const config = {
 			base: '',
 		},
 		prerender: {
-			// Warn (not error) when metadata JSON files are missing at build time.
-			// In CI the build pipeline copies metadata/ before npm run build runs.
-			handleHttpError: 'warn',
+			// A failed public route must fail the build. Continuing after a 500 can
+			// publish an incomplete GitHub Pages artifact without index.html.
+			handleHttpError: 'fail',
 			handleUnseenRoutes: 'warn',
-			// The metadata build emits the same indexable routes used by sitemap.xml.
-			// GitHub Pages then serves crawler-readable HTML for those routes, while
-			// non-indexable routes can still use the adapter fallback as an SPA.
+			// The metadata build emits the routes that must have crawler-readable
+			// static HTML. Non-prerendered utility routes can still use the fallback.
 			entries: prerenderEntries,
 			crawl: false,
 		},
