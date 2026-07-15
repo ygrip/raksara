@@ -85,6 +85,12 @@ jobs:
           SITE_URL: ${{ vars.SITE_URL }}
         run: npm run build:metadata
 
+      - name: Validate generated SEO metadata
+        run: npm run validate:seo:build
+
+      - name: Check SvelteKit types
+        run: npm run check:sveltekit
+
       # Sync generated responsive images back to content/.raksara-responsive so the
       # cache action (above) saves them. On the next run the cache will be restored to
       # content/.raksara-responsive, copyMetadataToWeb() will copy them into
@@ -102,6 +108,9 @@ jobs:
           PUBLIC_SITE_URL: ${{ vars.SITE_URL }}
           PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.PUBLIC_TURNSTILE_SITE_KEY }}
         run: npm run build:sveltekit
+
+      - name: Validate built static site
+        run: npm run validate:seo:dist
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
