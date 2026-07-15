@@ -38,32 +38,48 @@ function stripLeadingTitle(md: string, title?: string | null): string {
 
 export const prerender = true;
 
-export const load: PageLoad = async ({ params, fetch }) => {
+export const load = (async ({ params, fetch }) => {
   const slug = params.slug.replace(/\/+$/, '');
-  // Fetch the raw markdown from /content/blog/{slug}.md
+
   const res = await fetch(`/content/blog/${slug}.md`);
   const raw = res.ok ? await res.text() : null;
-  // Strip YAML frontmatter before rendering
   const markdown = stripYamlFrontmatter(raw);
 
-  // Load post metadata to get title/cover etc.
   const [allPosts, blogDirs, imageManifest] = await Promise.all([
-    loadPosts(fetch).catch(() => [] as import('$lib/types').Post[]),
-    loadBlogDirs(fetch).catch(() => ({})),
+    loadPosts(fetch),
+    loadBlogDirs(fetch),
     loadImageManifest(fetch).catch(() => null),
   ]);
-  const post = allPosts.find((p) => p.slug === slug) ?? null;
+
+  const post = allPosts.find((item) => item.slug === slug) ?? null;
+
   if (!post || !raw) {
     throw error(404, 'Post not found');
   }
-  const nextPage = routeFromNav((post as unknown as { next_page?: unknown } | null)?.next_page);
-  const previousPage = routeFromNav((post as unknown as { previous_page?: unknown } | null)?.previous_page);
 
-  // Render markdown to HTML during prerender for SEO (static HTML contains article body)
-  const renderedHtml = await renderMarkdown(stripLeadingTitle(markdown ?? '', post.title), {
-    context: { posts: allPosts, blogDirs },
-    imageManifest: imageManifest ?? undefined,
-  });
+  const nextPage = routeFromNav(post.next_page);
+  const previousPage = routeFromNav(post.previous_page);
 
-  return { slug, markdown, renderedHtml, post, allPosts, blogDirs, nextPage, previousPage, imageManifest };
-};
+  const renderedHtml = await renderMarkdown(
+    stripLeadingTitle(markdown ?? '', post.title),
+    {
+      context: {
+        posts: allPosts,
+        blogDirs,
+      },
+      imageManifest: imageManifest ?? undefined,
+    },
+  );
+
+  return {
+    slug,
+    markdown,
+    renderedHtml,
+    post,
+    allPosts,
+    blogDirs,
+    nextPage,
+    previousPage,
+    imageManifest,
+  };
+}) satisfies PageLoad;

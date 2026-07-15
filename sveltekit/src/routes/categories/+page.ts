@@ -2,7 +2,7 @@
 import type { PageLoad } from './$types';
 import { loadCategories } from '$lib/metadata';
 
-export const prerender = false;
+export const prerender = true;
 
 export const load: PageLoad = async ({ fetch }) => {
   const cats = await loadCategories(fetch).catch(() => ({} as Record<string, number>));

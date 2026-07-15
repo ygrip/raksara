@@ -732,7 +732,7 @@ async function generateSeoArtifacts({
   });
   const indexableRoutes = routes.filter((route) => isIndexableRoute(route));
 
-  writeWebFile("metadata/prerender-routes.json", `${JSON.stringify(indexableRoutes.map(toPrerenderRoute), null, 2)}\n`);
+  writeWebFile("metadata/prerender-routes.json", `${JSON.stringify(routes.map(toPrerenderRoute), null, 2)}\n`);
   writeWebFile("sitemap.xml", buildSitemapXml(siteUrl, indexableRoutes, { posts, portfolioItems }));
   writeWebFile("feed.xml", buildRssFeed(siteUrl, posts, siteConfig));
   writeWebFile("atom.xml", buildAtomFeed(siteUrl, posts, siteConfig));
@@ -1120,6 +1120,8 @@ function buildRobotsTxt(siteUrl, siteConfig) {
     "",
     "# --- Default rules ---",
     "Allow: /",
+    "Allow: /content/assets/",
+    "Allow: /content/.raksara-responsive/",
     "",
     "# --- Block low-value / internal pages ---",
     "Disallow: /content/",
@@ -1131,7 +1133,6 @@ function buildRobotsTxt(siteUrl, siteConfig) {
     "Disallow: /tag/",
     "Disallow: /categories",
     "Disallow: /category/",
-    "Disallow: /blog/dir/",
     "Disallow: /admin",
     "Disallow: /admin/",
     "",
@@ -1143,12 +1144,21 @@ function buildRobotsTxt(siteUrl, siteConfig) {
   ].join("\n");
 }
 
+function shouldFollow(route) {
+  if(!route) return false;
+  if (["/", "/blog", "/portfolio", "/profile", "/about", "/thoughts", "/tags", "/categories", "/gallery"].includes(route)) {
+    return true;
+  }
+}
+
+
 function isIndexableRoute(route) {
   if (!route) return false;
   if (["/", "/blog", "/portfolio", "/profile", "/about", "/thoughts"].includes(route)) {
     return true;
   }
   if (route.startsWith("/blog/post/")) return true;
+  if (route.startsWith("/blog/dir/")) return true;
   if (route.startsWith("/portfolio/")) return true;
   if (/^\/[^/]+$/.test(route) && !["/gallery", "/tags", "/categories", "/admin"].includes(route)) {
     return true;
@@ -1389,7 +1399,7 @@ function getRouteMeta(route, context) {
     type: "website",
     author: (siteConfig && siteConfig.author) || "",
     keywords: [],
-    robots: isIndexableRoute(route) ? "index, follow" : "noindex, nofollow",
+    robots: isIndexableRoute(route) ? "index, follow" : shouldFollow(route) ? "noindex, follow" : "noindex, nofollow",
     url: routeUrl,
   };
 

@@ -2,7 +2,7 @@
 import type { PageLoad } from './$types';
 import { loadTags } from '$lib/metadata';
 
-export const prerender = false;
+export const prerender = true;
 
 export const load: PageLoad = async ({ fetch }) => {
   const tags = await loadTags(fetch).catch(() => ({} as Record<string, number>));

@@ -32,7 +32,7 @@
 	const canonicalHref = $derived(buildCanonicalHref(currentPath));
 	const routeOwnsCanonical = $derived(currentPath.startsWith('/blog/post/'));
 	const routeOwnsSocialMeta = $derived(routeHasOwnSocialMeta(currentPath));
-	const robotsContent = $derived(isIndexablePath(currentPath) ? 'index, follow' : 'noindex, nofollow');
+	const robotsContent = $derived(isIndexablePath(currentPath) ? 'index, follow' : shouldFollowPath(currentPath) ? 'noindex, follow' : 'noindex, nofollow');
 	// Used for absolute OG image URLs (WhatsApp / social platforms require https://)
 	const siteRoot = $derived(
 		String(config?.site_url || config?.url || $page.url.origin).replace(/\/+$/, '')
@@ -73,10 +73,17 @@
 		return `/${pathname.replace(/^\/+/, '').replace(/\/+$/, '')}`;
 	}
 
+	function shouldFollowPath(pathname: string): boolean {
+		const path = normalizePath(pathname);
+		if (['/', '/blog', '/portfolio', '/profile', '/about', '/thoughts', '/tags', '/categories', '/gallery'].includes(path)) return true;
+		return false;
+	}
+
 	function isIndexablePath(pathname: string): boolean {
 		const path = normalizePath(pathname);
 		if (['/', '/blog', '/portfolio', '/profile', '/about', '/thoughts'].includes(path)) return true;
 		if (path.startsWith('/blog/post/')) return true;
+		if (path.startsWith('/blog/dir/')) return true;
 		if (path.startsWith('/portfolio/')) return true;
 		if (/^\/[^/]+$/.test(path) && !['/gallery', '/tags', '/categories', '/admin'].includes(path)) return true;
 		return false;

@@ -2,12 +2,26 @@
 // Canonical TypeScript types derived from Raksara metadata JSON shapes.
 // Keep in sync with scripts/schemas.js.
 
+export interface FrontmatterNav {
+  title?: string;
+  link?: string;
+  href?: string;
+}
+
+export type FrontmatterNavValue =
+  | FrontmatterNav
+  | FrontmatterNav[];
+
 export interface Post {
   title: string;
   slug: string;
   path: string;
   section: 'blog';
   date: string;
+
+  updated?: string;
+  modified?: string;
+
   tags?: string[];
   category?: string;
   summary?: string;
@@ -21,7 +35,12 @@ export interface Post {
   readingMode?: boolean;
   comments_enabled?: boolean;
   status?: 'draft' | 'ongoing' | 'completed';
-  ogImage?: { landscape: string; portrait: string };
+  next_page?: FrontmatterNavValue;
+  previous_page?: FrontmatterNavValue;
+  ogImage?: {
+    landscape: string;
+    portrait: string;
+  };
 }
 
 export interface PortfolioItem {
@@ -122,6 +141,8 @@ export interface Page {
   section: 'pages';
   date?: string;
   summary?: string;
+  description?: string;
+
   cover?: string;
   avatar?: string;
   role?: string;
@@ -130,8 +151,17 @@ export interface Page {
   linkedin?: string;
   medium?: string;
   email?: string;
-  metadata?: Array<string | { label?: string; value?: string; url?: string }>;
-  ogImage?: { landscape: string; portrait: string };
+  metadata?: Array<
+    string | {
+      label?: string;
+      value?: string;
+      url?: string;
+    }
+  >;
+  ogImage?: {
+    landscape: string;
+    portrait: string;
+  };
 }
 
 export interface DocEntry {

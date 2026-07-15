@@ -17,13 +17,22 @@ const StatusSchema = z
 const PostSchema = z.object({
   title: z.string(),
   date: ISODate,
+  updated: ISODate.optional(),
+  modified: ISODate.optional(),
+
   tags: z.array(z.string()).optional().default([]),
   category: z.string().optional(),
   summary: z.string().optional(),
   cover: z.string().optional(),
   series: z.string().optional(),
   chapter: z.union([z.string(), z.number()]).optional(),
-  type: z.enum(["blog", "poem", "novel", "chapters", "comic"]).optional(),
+  type: z.enum([
+    "blog",
+    "poem",
+    "novel",
+    "chapters",
+    "comic"
+  ]).optional(),
   readingMode: z.boolean().optional(),
   comments_enabled: z.boolean().optional(),
   status: StatusSchema.optional(),

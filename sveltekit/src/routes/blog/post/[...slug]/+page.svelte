@@ -29,9 +29,9 @@
 	const isNovel = $derived(postType === 'novel' || postType === 'chapters');
 
 	// Chapter (series) navigation
-	const allPosts = $derived((data as Record<string, unknown> & typeof data).allPosts as import('$lib/types').Post[] ?? []);
-	const manualNextPage = $derived((data as Record<string, unknown> & { nextPage?: ChapterNav | null }).nextPage ?? null);
-	const manualPreviousPage = $derived((data as Record<string, unknown> & { previousPage?: ChapterNav | null }).previousPage ?? null);
+	const allPosts = $derived(data.allPosts ?? []);
+	const manualNextPage = $derived(data.nextPage ?? null);
+	const manualPreviousPage = $derived(data.previousPage ?? null);
 	const seriesSlug = $derived(post?.series ?? post?.dir ?? null);
 	const chapterOrder = (item: import('$lib/types').Post): number => {
 		const explicit = Number((item as import('$lib/types').Post & { order?: string | number }).chapter ?? (item as import('$lib/types').Post & { order?: string | number }).order ?? NaN);
@@ -139,6 +139,12 @@
 		sessionStorage.setItem('comicScrollMode', comicScrollMode);
 	}
 
+	const modifiedTime = $derived(
+		post
+			? post.updated ?? post.modified ?? post.date
+			: undefined
+	);
+
 	// Article HTML is rendered in load() so SSR/static output contains the body.
 	// Client mount only upgrades interactive markdown features.
 	onMount(async () => {
@@ -166,8 +172,8 @@
 		{#if post?.date}
 			<meta property="article:published_time" content={post.date} />
 		{/if}
-		{#if post?.updated || post?.modified || post?.date}
-			<meta property="article:modified_time" content={(post as Record<string, unknown> & { updated?: string; modified?: string }).updated ?? (post as Record<string, unknown> & { updated?: string; modified?: string }).modified ?? post.date} />
+		{#if modifiedTime}
+		<meta property="article:modified_time" content={modifiedTime}/>
 		{/if}
 		<meta name="twitter:card" content="summary_large_image" />
 		<meta name="twitter:title" content={pageMeta.title} />

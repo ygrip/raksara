@@ -11,7 +11,7 @@ function routeFromNav(value: unknown): string | null {
   return raw.replace(/^#/, '').replace(/^\/+/, '');
 }
 
-export const prerender = false;
+export const prerender = true;
 
 export const load: PageLoad = async ({ params, fetch }) => {
   const slug = `doc/${params.path.replace(/\/+$/, '')}`;

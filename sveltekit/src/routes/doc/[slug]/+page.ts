@@ -1,6 +1,6 @@
 import { loadDocs } from '$lib/metadata';
 
-export const prerender = false;
+export const prerender = true;
 
 type DocNav = { href: string; title: string };
 
