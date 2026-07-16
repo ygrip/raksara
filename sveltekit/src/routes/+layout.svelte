@@ -5,6 +5,7 @@
 	import { goto } from '$app/navigation';
 	import type { LayoutData } from './$types';
 	import SearchOverlay from '$lib/components/SearchOverlay.svelte';
+	import ContentFooter from '$lib/components/ContentFooter.svelte';
 	import { getAdsenseId, getGiscusConfig } from '$lib/seo';
 	import { assetUrl } from '$lib/utils';
 
@@ -24,11 +25,20 @@
 		{ label: 'About', href: '/about' },
 	];
 
+	const LOCAL_FOOTER_ROUTES = new Set([
+		'/[page]',
+		'/doc/[slug]',
+		'/doc/[...path]',
+		'/portfolio/[slug]',
+		'/blog/post/[...slug]',
+	]);
+
 	const nav = $derived(config?.nav ?? defaultNav);
 	const adsenseId = $derived(config ? getAdsenseId(config) : '');
 	const giscusEnabled = $derived(config ? (getGiscusConfig(config)?.enabled ?? false) : false);
 	const googleVerificationTokens = $derived(config ? getGoogleVerificationTokens(config) : []);
 	const currentPath = $derived($page.url.pathname);
+	const routeUsesLocalFooter = $derived(LOCAL_FOOTER_ROUTES.has($page.route.id ?? ''));
 	const canonicalHref = $derived(buildCanonicalHref(currentPath));
 	const routeOwnsCanonical = $derived(currentPath.startsWith('/blog/post/'));
 	const routeOwnsSocialMeta = $derived(routeHasOwnSocialMeta(currentPath));
@@ -509,6 +519,9 @@
 		<div class="page-content">
 			{@render children()}
 		</div>
+		{#if !routeUsesLocalFooter}
+			<ContentFooter author={config?.author} />
+		{/if}
 	</main>
 </div>
 
@@ -517,3 +530,15 @@
 {#if $navigating}
 	<div class="route-loading-bar" aria-hidden="true"></div>
 {/if}
+
+<style>
+	#content {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.page-content {
+		width: 100%;
+		flex: 1;
+	}
+</style>

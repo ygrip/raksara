@@ -23,7 +23,7 @@
   }: Props = $props();
 </script>
 
-<footer class="content-footer mx-auto max-w-3xl">
+<footer class="content-footer">
   {#if author}
     <p class="content-footer-copy">&copy; {year} {author}. All rights reserved.</p>
   {/if}
@@ -39,11 +39,18 @@
 
 <style>
   .content-footer {
+    width: 100%;
+    max-width: 800px;
+    margin: auto auto 0;
+    padding: 1.5rem 2rem 2rem;
+    border-top: 1px solid var(--border-color);
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem 1.25rem;
+    color: var(--text-tertiary);
+    font-size: 0.8rem;
   }
 
   .content-footer-copy {
@@ -58,7 +65,7 @@
   }
 
   .content-footer-links a {
-    color: inherit;
+    color: var(--text-secondary);
     text-decoration: none;
     text-underline-offset: 0.2em;
   }
@@ -73,6 +80,7 @@
     .content-footer {
       align-items: flex-start;
       flex-direction: column;
+      padding: 1.25rem 1rem 1.5rem;
     }
   }
 </style>
