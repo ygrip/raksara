@@ -17,6 +17,7 @@
 
 	let sentinel: HTMLDivElement;
 	let observer: IntersectionObserver | null = null;
+	let observeFrame = 0;
 	let loading = $state(false);
 	let observerSupported = $state(true);
 
@@ -38,6 +39,14 @@
 		if (hasMore) observer.observe(sentinel);
 	}
 
+	function scheduleObservation() {
+		if (observeFrame) cancelAnimationFrame(observeFrame);
+		observeFrame = requestAnimationFrame(() => {
+			observeFrame = 0;
+			observeSentinel();
+		});
+	}
+
 	onMount(() => {
 		if (!('IntersectionObserver' in window)) {
 			observerSupported = false;
@@ -48,15 +57,15 @@
 			([entry]) => {
 				if (!entry?.isIntersecting || loading || !hasMore) return;
 
-				void loadNextBatch().then(() => {
-					requestAnimationFrame(observeSentinel);
-				});
+				observer?.unobserve(sentinel);
+				void loadNextBatch().finally(scheduleObservation);
 			},
 			{ rootMargin, threshold: 0.01 },
 		);
 
 		observeSentinel();
 		return () => {
+			if (observeFrame) cancelAnimationFrame(observeFrame);
 			observer?.disconnect();
 			observer = null;
 		};
@@ -65,10 +74,15 @@
 	// Search, sorting, and filtering can turn hasMore back on after the list
 	// previously reached its end. Re-observe so the sentinel does not remain inert.
 	$effect(() => {
-		hasMore;
-		remaining;
-		if (!observer) return;
-		requestAnimationFrame(observeSentinel);
+		const shouldObserve = hasMore;
+		const remainingItems = remaining;
+		if (!observer || remainingItems < 0) return;
+
+		if (!shouldObserve) {
+			observer.unobserve(sentinel);
+			return;
+		}
+		scheduleObservation();
 	});
 </script>
 
