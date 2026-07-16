@@ -16,6 +16,7 @@
 	}: Props = $props();
 
 	let sentinel: HTMLDivElement;
+	let observer: IntersectionObserver | null = null;
 	let loading = $state(false);
 	let observerSupported = $state(true);
 
@@ -31,32 +32,43 @@
 		}
 	}
 
+	function observeSentinel() {
+		if (!observer || !sentinel?.isConnected) return;
+		observer.unobserve(sentinel);
+		if (hasMore) observer.observe(sentinel);
+	}
+
 	onMount(() => {
 		if (!('IntersectionObserver' in window)) {
 			observerSupported = false;
 			return;
 		}
 
-		const observer = new IntersectionObserver(
+		observer = new IntersectionObserver(
 			([entry]) => {
 				if (!entry?.isIntersecting || loading || !hasMore) return;
 
 				void loadNextBatch().then(() => {
-					if (!hasMore || !sentinel?.isConnected) return;
-
-					// Re-observe after the list grows. This also handles short pages where
-					// the sentinel remains inside the root margin after one batch.
-					observer.unobserve(sentinel);
-					requestAnimationFrame(() => {
-						if (hasMore && sentinel?.isConnected) observer.observe(sentinel);
-					});
+					requestAnimationFrame(observeSentinel);
 				});
 			},
 			{ rootMargin, threshold: 0.01 },
 		);
 
-		observer.observe(sentinel);
-		return () => observer.disconnect();
+		observeSentinel();
+		return () => {
+			observer?.disconnect();
+			observer = null;
+		};
+	});
+
+	// Search, sorting, and filtering can turn hasMore back on after the list
+	// previously reached its end. Re-observe so the sentinel does not remain inert.
+	$effect(() => {
+		hasMore;
+		remaining;
+		if (!observer) return;
+		requestAnimationFrame(observeSentinel);
 	});
 </script>
 
