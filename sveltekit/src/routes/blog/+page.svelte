@@ -4,6 +4,7 @@
 	import { formatDate, humanize } from '$lib/utils';
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import ShareCard from '$lib/components/ShareCard.svelte';
+	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 
 	let { data }: { data: PageData } = $props();
 	const posts = $derived(data.posts);
@@ -44,8 +45,12 @@
 
 	const visible = $derived(sorted.slice(0, page * PAGE_SIZE));
 	const hasMore = $derived(sorted.length > visible.length);
+	const remaining = $derived(Math.max(0, sorted.length - visible.length));
 	const ogBase = $derived(String(config?.site_url ?? config?.url ?? '').replace(/\/+$/, ''));
 
+	function loadNextPage() {
+		if (hasMore) page += 1;
+	}
 </script>
 
 <svelte:head>
@@ -151,14 +156,8 @@
 	{/each}
 </div>
 
-{#if hasMore}
-	<div class="pagination">
-		<button
-			onclick={() => (page += 1)}
-			class="load-more-btn"
-			style="background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); padding: 8px 20px; font-size: 13px; cursor: pointer;"
-		>
-			Load more ({sorted.length - visible.length} remaining)
-		</button>
-	</div>
-{/if}
+<InfiniteScroll
+	{hasMore}
+	{remaining}
+	onLoadMore={loadNextPage}
+/>
