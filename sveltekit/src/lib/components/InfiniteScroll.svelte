@@ -16,6 +16,8 @@
 	}: Props = $props();
 
 	let sentinel: HTMLDivElement;
+	let observer: IntersectionObserver | null = null;
+	let observeFrame = 0;
 	let loading = $state(false);
 	let observerSupported = $state(true);
 
@@ -31,32 +33,56 @@
 		}
 	}
 
+	function observeSentinel() {
+		if (!observer || !sentinel?.isConnected) return;
+		observer.unobserve(sentinel);
+		if (hasMore) observer.observe(sentinel);
+	}
+
+	function scheduleObservation() {
+		if (observeFrame) cancelAnimationFrame(observeFrame);
+		observeFrame = requestAnimationFrame(() => {
+			observeFrame = 0;
+			observeSentinel();
+		});
+	}
+
 	onMount(() => {
 		if (!('IntersectionObserver' in window)) {
 			observerSupported = false;
 			return;
 		}
 
-		const observer = new IntersectionObserver(
+		observer = new IntersectionObserver(
 			([entry]) => {
 				if (!entry?.isIntersecting || loading || !hasMore) return;
 
-				void loadNextBatch().then(() => {
-					if (!hasMore || !sentinel?.isConnected) return;
-
-					// Re-observe after the list grows. This also handles short pages where
-					// the sentinel remains inside the root margin after one batch.
-					observer.unobserve(sentinel);
-					requestAnimationFrame(() => {
-						if (hasMore && sentinel?.isConnected) observer.observe(sentinel);
-					});
-				});
+				observer?.unobserve(sentinel);
+				void loadNextBatch().finally(scheduleObservation);
 			},
 			{ rootMargin, threshold: 0.01 },
 		);
 
-		observer.observe(sentinel);
-		return () => observer.disconnect();
+		observeSentinel();
+		return () => {
+			if (observeFrame) cancelAnimationFrame(observeFrame);
+			observer?.disconnect();
+			observer = null;
+		};
+	});
+
+	// Search, sorting, and filtering can turn hasMore back on after the list
+	// previously reached its end. Re-observe so the sentinel does not remain inert.
+	$effect(() => {
+		const shouldObserve = hasMore;
+		const remainingItems = remaining;
+		if (!observer || remainingItems < 0) return;
+
+		if (!shouldObserve) {
+			observer.unobserve(sentinel);
+			return;
+		}
+		scheduleObservation();
 	});
 </script>
 

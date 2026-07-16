@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import type { PortfolioItem } from '$lib/types';
-	import { formatDate } from '$lib/utils';
 	import ShareCard from '$lib/components/ShareCard.svelte';
+	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 
 	let { data }: { data: PageData } = $props();
 	const portfolio = $derived(data.portfolio);
@@ -11,6 +11,8 @@
 	type SortKey = 'latest' | 'oldest' | 'az' | 'za';
 	let sortKey = $state<SortKey>('latest');
 	let searchQuery = $state('');
+	let page = $state(1);
+	const PAGE_SIZE = 10;
 
 	function portfolioHref(slug: string): string {
 		return `/portfolio/${slug}/`;
@@ -28,29 +30,41 @@
 		}
 	});
 
+	const visible = $derived(sorted.slice(0, page * PAGE_SIZE));
+	const hasMore = $derived(sorted.length > visible.length);
+	const remaining = $derived(Math.max(0, sorted.length - visible.length));
+
 	// BL-008: group by year when sorting by date, group by letter when sorting A-Z/Z-A
 	type Group = { label: string; items: PortfolioItem[] };
 	const grouped = $derived.by((): Group[] => {
-		if (!sorted.length) return [];
+		if (!visible.length) return [];
 		if (sortKey === 'az' || sortKey === 'za') {
 			const map = new Map<string, PortfolioItem[]>();
-			for (const item of sorted) {
+			for (const item of visible) {
 				const letter = item.title[0]?.toUpperCase() ?? '#';
 				if (!map.has(letter)) map.set(letter, []);
 				map.get(letter)!.push(item);
 			}
 			return [...map.entries()].map(([label, items]) => ({ label, items }));
-		} else {
-			const map = new Map<string, PortfolioItem[]>();
-			for (const item of sorted) {
-				const year = item.date ? item.date.slice(0, 4) : 'Unknown';
-				if (!map.has(year)) map.set(year, []);
-				map.get(year)!.push(item);
-			}
-			return [...map.entries()].map(([label, items]) => ({ label, items }));
 		}
+
+		const map = new Map<string, PortfolioItem[]>();
+		for (const item of visible) {
+			const year = item.date ? item.date.slice(0, 4) : 'Unknown';
+			if (!map.has(year)) map.set(year, []);
+			map.get(year)!.push(item);
+		}
+		return [...map.entries()].map(([label, items]) => ({ label, items }));
 	});
 	const ogBase = $derived(String(config?.site_url ?? config?.url ?? '').replace(/\/+$/, ''));
+
+	function resetPagination() {
+		page = 1;
+	}
+
+	function loadNextPage() {
+		if (hasMore) page += 1;
+	}
 </script>
 
 <svelte:head>
@@ -87,6 +101,7 @@
 			placeholder="Search here…"
 			class="dir-search-input"
 			aria-label="Search current listing"
+			oninput={resetPagination}
 		/>
 	</div>
 	<div class="dir-sort-wrap">
@@ -96,6 +111,7 @@
 			bind:value={sortKey}
 			class="dir-sort-select"
 			aria-label="Sort listing"
+			onchange={resetPagination}
 		>
 			<option value="latest">Latest</option>
 			<option value="oldest">Oldest</option>
@@ -156,3 +172,9 @@
 		</div>
 	{/each}
 </div>
+
+<InfiniteScroll
+	{hasMore}
+	{remaining}
+	onLoadMore={loadNextPage}
+/>
