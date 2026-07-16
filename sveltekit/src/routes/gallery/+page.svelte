@@ -3,14 +3,15 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import type { PageData } from './$types';
 	import type { GalleryItem } from '$lib/types';
-	import { assetUrl, formatDate } from '$lib/utils';
+	import { formatDate } from '$lib/utils';
 	import { shareContent } from '$lib/share';
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import ShareCard from '$lib/components/ShareCard.svelte';
+	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 
 	let { data }: { data: PageData } = $props();
 	const gallery = $derived(data.gallery);
-	const config  = $derived(data.config);
+	const config = $derived(data.config);
 	const imageManifest = $derived(data.imageManifest ?? null);
 	const galleryThumbSizes = '(max-width: 640px) calc(100vw - 32px), 640px';
 	const lightboxImageSizes = 'min(92vw, 1024px)';
@@ -23,8 +24,8 @@
 	const PAGE_SIZE = 12;
 
 	// --- Lightbox state ---
-	let activeItem   = $state<GalleryItem | null>(null);
-	let carouselIdx  = $state(0);
+	let activeItem = $state<GalleryItem | null>(null);
+	let carouselIdx = $state(0);
 	let descExpanded = $state(false);
 
 	const images = $derived(
@@ -51,6 +52,7 @@
 	});
 	const visibleGallery = $derived(filteredGallery.slice(0, visiblePage * PAGE_SIZE));
 	const hasMore = $derived(filteredGallery.length > visibleGallery.length);
+	const remaining = $derived(Math.max(0, filteredGallery.length - visibleGallery.length));
 
 	function activeSlugFromUrl(url = new URL(location.href)) {
 		if (!url.pathname.startsWith('/gallery/')) return '';
@@ -58,8 +60,8 @@
 	}
 
 	function openLightbox(item: GalleryItem, idx = 0, updateUrl = true) {
-		activeItem   = item;
-		carouselIdx  = idx;
+		activeItem = item;
+		carouselIdx = idx;
 		descExpanded = false;
 		document.body.style.overflow = 'hidden';
 		document.body.classList.add('gallery-lightbox-open');
@@ -94,9 +96,9 @@
 	// BL-016 — keyboard navigation
 	function handleKey(e: KeyboardEvent) {
 		if (!activeItem) return;
-		if (e.key === 'ArrowLeft')  prevImage();
+		if (e.key === 'ArrowLeft') prevImage();
 		if (e.key === 'ArrowRight') nextImage();
-		if (e.key === 'Escape')     closeLightbox();
+		if (e.key === 'Escape') closeLightbox();
 	}
 
 	function syncFiltersFromUrl(url = new URL(location.href)) {
@@ -143,6 +145,10 @@
 		if (!kind || kind === 'tag') params.delete('tag');
 		if (!kind || kind === 'category') params.delete('category');
 		goto(params.toString() ? `/gallery?${params}` : '/gallery');
+	}
+
+	function loadNextPage() {
+		if (hasMore) visiblePage += 1;
 	}
 
 	// BL-019 — share item
@@ -254,7 +260,6 @@
 		{@const itemThumbSource = thumbSource(item)}
 		{@const itemThumbLqip = buildLqipStyle(itemThumbSource, imageManifest)}
 		<li class="gallery-card{isMulti ? ' multi-image' : ''}" style={itemThumbLqip}>
-			<!-- Image area -->
 			<div
 				class="gallery-card-img is-loading"
 				class:lqip-shown={!!itemThumbLqip}
@@ -278,18 +283,15 @@
 				{/if}
 			</div>
 
-			<!-- Card info -->
 			<div class="gallery-card-info">
 				<div class="gallery-card-header">
 					<div class="gallery-card-title">{item.title}</div>
-					<!-- Share button -->
 					<button
 						class="share-btn"
 						onclick={() => shareItem(item)}
 						aria-label="Share {item.title}"
 					>
 						<svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="12" cy="3.5" r="2" stroke="currentColor" stroke-width="1.3"/><circle cx="4" cy="8" r="2" stroke="currentColor" stroke-width="1.3"/><circle cx="12" cy="12.5" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M5.8 7.1l4.4-2.5M5.8 8.9l4.4 2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-
 					</button>
 				</div>
 				<div class="gallery-card-caption" aria-hidden={!item.caption}>{item.caption || '\u00a0'}</div>
@@ -312,17 +314,14 @@
 	<p class="italic" style="color: var(--text-tertiary);">No gallery items match your filters.</p>
 {/if}
 
-{#if hasMore}
-	<div class="pagination">
-		<button onclick={() => (visiblePage += 1)} style="background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); padding: 8px 20px; font-size: 13px; cursor: pointer;">
-			Load more ({filteredGallery.length - visibleGallery.length} remaining)
-		</button>
-	</div>
-{/if}
+<InfiniteScroll
+	{hasMore}
+	{remaining}
+	onLoadMore={loadNextPage}
+/>
 
 <!-- Lightbox + Carousel -->
 {#if activeItem}
-	<!-- backdrop -->
 	<div
 		class="gallery-lightbox-overlay fixed inset-0 flex items-center justify-center"
 		style="background: rgba(0,0,0,0.9);"
@@ -330,13 +329,10 @@
 		aria-modal="true"
 		aria-label={activeItem.title}
 	>
-		<!-- close backdrop -->
 		<button class="absolute inset-0" onclick={closeLightbox} aria-label="Close lightbox" tabindex="-1"></button>
 
 		<figure class="relative z-10 flex max-h-screen w-full max-w-5xl flex-col items-center px-4">
-			<!-- Image area -->
 			<div class="relative flex w-full items-center justify-center">
-				<!-- BL-016: prev arrow -->
 				{#if images.length > 1}
 					<button
 						class="absolute left-0 z-10 flex h-9 w-9 items-center justify-center rounded-full text-white"
@@ -354,7 +350,6 @@
 					/>
 				{/if}
 
-				<!-- BL-016: next arrow -->
 				{#if images.length > 1}
 					<button
 						class="absolute right-0 z-10 flex h-9 w-9 items-center justify-center rounded-full text-white"
@@ -365,7 +360,6 @@
 				{/if}
 			</div>
 
-			<!-- Indicator dots / counter -->
 			{#if images.length > 1}
 				<div class="mt-3 flex items-center gap-1.5">
 					{#each images as _, i}
@@ -380,7 +374,6 @@
 				</div>
 			{/if}
 
-			<!-- Caption + BL-017: description expand/collapse -->
 			{#if currentImg?.caption || activeItem.caption || activeItem.description}
 				<figcaption class="mt-3 w-full max-w-xl text-center">
 					{#if currentImg?.caption || activeItem.caption}
@@ -400,7 +393,6 @@
 			{/if}
 		</figure>
 
-		<!-- close button -->
 		<button
 			class="absolute right-4 top-4 z-20 text-white opacity-70 hover:opacity-100"
 			onclick={closeLightbox}
