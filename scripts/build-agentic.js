@@ -7,6 +7,7 @@ const STATIC_DIR = path.join(ROOT, 'sveltekit', 'static');
 const CONFIG_PATH = path.join(METADATA_DIR, 'config.json');
 const ROUTES_PATH = path.join(STATIC_DIR, 'metadata', 'prerender-routes.json');
 const LLMS_PATH = path.join(STATIC_DIR, 'llms.txt');
+const ORIGIN_TRIAL_SCRIPT_PATH = path.join(STATIC_DIR, 'webmcp-origin-trial.js');
 const STRICT = process.argv.includes('--strict');
 
 function fail(message) {
@@ -78,6 +79,27 @@ function removeStaleLlmsFile() {
   if (!fs.existsSync(LLMS_PATH)) return;
   fs.unlinkSync(LLMS_PATH);
   console.log('  ✓ Removed disabled llms.txt');
+}
+
+function buildOriginTrialScript(config) {
+  const agentic = config?.agentic;
+  const webmcp = agentic?.webmcp;
+  const token = cleanText(webmcp?.origin_trial_token);
+
+  if (agentic?.enabled !== true || webmcp?.enabled !== true || !token) {
+    return "// WebMCP origin trial is not configured for this build.\n";
+  }
+
+  // This must remain an external script. Chrome requires third-party origin-trial
+  // tokens to be supplied by external JavaScript rather than a static meta tag,
+  // inline script, or HTTP header.
+  return `(() => {\n  const token = ${JSON.stringify(token)};\n  if (!token || document.querySelector('meta[http-equiv="origin-trial"][data-raksara-agentic]')) return;\n  const meta = document.createElement('meta');\n  meta.httpEquiv = 'origin-trial';\n  meta.content = token;\n  meta.dataset.raksaraAgentic = 'true';\n  document.head.appendChild(meta);\n})();\n`;
+}
+
+function writeOriginTrialScript(config) {
+  fs.mkdirSync(STATIC_DIR, { recursive: true });
+  fs.writeFileSync(ORIGIN_TRIAL_SCRIPT_PATH, buildOriginTrialScript(config), 'utf-8');
+  console.log('  ✓ Generated sveltekit/static/webmcp-origin-trial.js');
 }
 
 function buildLlmsTxt(config) {
@@ -166,6 +188,8 @@ function buildLlmsTxt(config) {
 console.log('\n🤖 Building agentic browsing artifacts...\n');
 
 const config = readJson(CONFIG_PATH);
+writeOriginTrialScript(config);
+
 if (!config) {
   removeStaleLlmsFile();
 } else {
