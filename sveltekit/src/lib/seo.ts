@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Raksara SEO helpers for SvelteKit.
  * Generates JSON-LD structured data and social meta tag objects.
  */
@@ -19,14 +19,20 @@ export interface PageMeta {
   jsonLd?: JsonLdObject;
 }
 
+type SiteSeoConfig = {
+  site_name?: string;
+  alternate_names?: string[];
+  author_path?: string;
+};
+
 /** Serialize JSON-LD safely for injection into <script type="application/ld+json"> */
 export function serializeJsonLd(value: unknown): string {
   return JSON.stringify(value)
-    .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e')
-    .replace(/&/g, '\\u0026')
-    .replace(/\u2028/g, '\\u2028')
-    .replace(/\u2029/g, '\\u2029');
+    .replace(/</g, '\u003c')
+    .replace(/>/g, '\u003e')
+    .replace(/&/g, '\u0026')
+    .replace(/\u2028/g, '\u2028')
+    .replace(/\u2029/g, '\u2029');
 }
 
 function resolveUrl(path: string, siteUrl?: string): string {
@@ -34,9 +40,15 @@ function resolveUrl(path: string, siteUrl?: string): string {
   return `${base}${path.startsWith('/') ? path : '/' + path}`;
 }
 
-/** Resolve brand/site name from config (hero_title takes priority over title). */
+function getSiteSeoConfig(config: SiteConfig): SiteSeoConfig {
+  const raw = config as SiteConfig & { seo?: SiteSeoConfig };
+  return raw.seo ?? {};
+}
+
+/** Resolve brand/site name from config (SEO site name takes priority). */
 function brandName(config: SiteConfig): string {
-  return config.hero_title ?? config.title ?? '';
+  const seo = getSiteSeoConfig(config);
+  return seo.site_name ?? config.hero_title ?? config.title ?? '';
 }
 
 /** Build PageMeta for a blog post or portfolio item. */
@@ -47,6 +59,7 @@ export function buildPostMeta(
 ): PageMeta {
   const isPost = post.section === 'blog';
   const siteUrl = config.site_url ?? config.url;
+  const root = (siteUrl ?? '').replace(/\/+$/, '');
   const url = resolveUrl(isPost ? `/blog/post/${slug}` : `/portfolio/${slug}`, siteUrl);
   const image = post.cover ? resolveUrl(post.cover, siteUrl) : undefined;
 
@@ -63,6 +76,7 @@ export function buildPostMeta(
     author: [
       {
         '@type': 'Person',
+        ...(root ? { '@id': `${root}/#author` } : {}),
         name: authorName,
       },
     ],
@@ -72,6 +86,7 @@ export function buildPostMeta(
       '@type': 'WebPage',
       '@id': url,
     },
+    ...(root ? { isPartOf: { '@id': `${root}/#website` } } : {}),
     url,
     ...(image ? { image: [image] } : {}),
     ...(post.tags?.length ? { keywords: post.tags.join(', ') } : {}),
@@ -103,7 +118,7 @@ export function buildPageMeta(
   const brand = brandName(config);
   const title = opts.title ? `${opts.title} — ${brand}` : brand;
   const description = opts.description ?? config.description ?? '';
-  const url = resolveUrl(opts.path ?? '/', config.url);
+  const url = resolveUrl(opts.path ?? '/', config.site_url ?? config.url);
   return {
     title,
     description,
@@ -116,15 +131,24 @@ export function buildPageMeta(
 /** Build WebSite JSON-LD schema for the homepage. */
 export function buildWebSiteSchema(config: SiteConfig, siteUrl: string): JsonLdObject {
   const root = siteUrl.replace(/\/+$/, '');
+  const seo = getSiteSeoConfig(config);
+  const name = seo.site_name ?? config.hero_title ?? config.title ?? '';
+  const alternateNames = Array.isArray(seo.alternate_names)
+    ? Array.from(new Set(seo.alternate_names.map((value) => String(value).trim()).filter((value) => value && value !== name)))
+    : [];
+
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
     '@id': `${root}/#website`,
-    name: config.hero_title ?? config.title ?? '',
+    name,
+    ...(alternateNames.length === 1 ? { alternateName: alternateNames[0] } : {}),
+    ...(alternateNames.length > 1 ? { alternateName: alternateNames } : {}),
     ...(config.description || config.hero_subtitle
       ? { description: config.description ?? config.hero_subtitle }
       : {}),
     url: `${root}/`,
+    ...(config.author ? { creator: { '@id': `${root}/#author` } } : {}),
   };
 }
 
@@ -133,6 +157,8 @@ export function buildPersonSchema(config: SiteConfig, siteUrl: string): JsonLdOb
   const author = config.author;
   if (!author) return null;
   const root = siteUrl.replace(/\/+$/, '');
+  const seo = getSiteSeoConfig(config);
+  const authorPath = String(seo.author_path ?? '/profile/').trim() || '/profile/';
   const sameAs: string[] = [];
   if (config.social) {
     for (const val of Object.values(config.social)) {
@@ -144,7 +170,7 @@ export function buildPersonSchema(config: SiteConfig, siteUrl: string): JsonLdOb
     '@type': 'Person',
     '@id': `${root}/#author`,
     name: author,
-    url: `${root}/`,
+    url: resolveUrl(authorPath, root),
     ...(sameAs.length ? { sameAs } : {}),
   };
 }
