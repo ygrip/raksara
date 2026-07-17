@@ -122,7 +122,7 @@
 				<div class="home-section">
 					<div class="home-section-header">
 						<h2>{section.title ?? 'Recent Posts'}</h2>
-						<a href="/blog">View all →</a>
+						<a href="/blog" aria-label="All blog posts">All blog posts →</a>
 					</div>
 					{#if section.description}
 						<p class="home-section-desc">{section.description}</p>
@@ -160,7 +160,7 @@
 				<div class="home-section">
 					<div class="home-section-header">
 						<h2>{section.title ?? 'Projects'}</h2>
-						<a href="/portfolio">View all →</a>
+						<a href="/portfolio" aria-label="All portfolio projects">All portfolio projects →</a>
 					</div>
 					{#if section.description}
 						<p class="home-section-desc">{section.description}</p>
@@ -175,7 +175,7 @@
 								{#if item.tags?.length}
 									<div class="portfolio-card-tags">
 										{#each item.tags.slice(0, 3) as tag}
-											<span class="tag" style="padding:2px 8px;font-size:11px">{tag}</span>
+											<span class="tag" style="padding:3px 10px;font-size:11px">{tag}</span>
 										{/each}
 									</div>
 								{/if}
@@ -272,7 +272,7 @@
 				<div class="home-section">
 					<div class="home-section-header">
 						<h2>{section.title ?? 'Thoughts'}</h2>
-						<a href="/thoughts">View all →</a>
+						<a href="/thoughts" aria-label="All thoughts">All thoughts →</a>
 					</div>
 					{#if section.description}
 						<p class="home-section-desc">{section.description}</p>
@@ -300,7 +300,7 @@
 						{#if section.title}
 							<div class="home-section-header">
 								<h2>{section.title}</h2>
-								<a href="/gallery">View all →</a>
+								<a href="/gallery" aria-label="All gallery items">All gallery items →</a>
 							</div>
 						{/if}
 						{#if section.description}
@@ -356,7 +356,7 @@
 		<div class="home-section">
 			<div class="home-section-header">
 				<h2>Recent Posts</h2>
-				<a href="/blog">View all →</a>
+				<a href="/blog" aria-label="All blog posts">All blog posts →</a>
 			</div>
 			<div class="post-list">
 				{#each bundle.posts.slice(0, 3) as post, i}
@@ -388,7 +388,7 @@
 		<div class="home-section">
 			<div class="home-section-header">
 				<h2>Projects</h2>
-				<a href="/portfolio">View all →</a>
+				<a href="/portfolio" aria-label="All portfolio projects">All portfolio projects →</a>
 			</div>
 			<div class="portfolio-grid">
 				{#each bundle.portfolio.slice(0, 4) as item}
@@ -447,7 +447,7 @@
 		<div class="home-section">
 			<div class="home-section-header">
 				<h2>Thoughts</h2>
-				<a href="/thoughts">View all →</a>
+				<a href="/thoughts" aria-label="All thoughts">All thoughts →</a>
 			</div>
 			<div class="thoughts-list">
 				{#each bundle.thoughts.slice(0, 2) as thought}
