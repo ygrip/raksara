@@ -18,7 +18,61 @@
 		<link rel="manifest" href="/site.webmanifest" />
 		<!-- Font preconnect is injected dynamically only when config.font is set (see +layout.svelte) -->
 		%sveltekit.head%
-		<link rel="stylesheet" href="/accessibility.css" />
+		<style>
+			/* Keep white CTA text readable across every supported accent palette. */
+			.home-btn-primary {
+				background: color-mix(in srgb, var(--accent) 60%, #000) !important;
+				background-image: none !important;
+				border-color: color-mix(in srgb, var(--accent) 72%, #000) !important;
+				color: #fff !important;
+				text-shadow: none !important;
+			}
+			.home-btn-primary:hover {
+				background: color-mix(in srgb, var(--accent) 55%, #000) !important;
+				border-color: color-mix(in srgb, var(--accent) 65%, #000) !important;
+				color: #fff !important;
+			}
+			.home-btn-primary:active {
+				background: color-mix(in srgb, var(--accent) 50%, #000) !important;
+			}
+
+			/* Visible keyboard focus in both light and dark themes. */
+			.home-btn:focus-visible,
+			.home-section-header a:focus-visible,
+			.home-link-item:focus-visible,
+			.home-info-card-link:focus-visible {
+				outline: 3px solid var(--text-primary);
+				outline-offset: 4px;
+				box-shadow: 0 0 0 6px var(--bg-base);
+			}
+
+			/* Preserve a comfortable touch target for section navigation. */
+			.home-section-header a {
+				display: inline-flex;
+				align-items: center;
+				min-height: 44px;
+				padding-inline: 0.35rem;
+				text-underline-offset: 0.22em;
+			}
+			.home-section-header a:hover {
+				text-decoration: underline;
+			}
+
+			@media (forced-colors: active) {
+				.home-btn-primary {
+					background: ButtonFace !important;
+					border: 2px solid ButtonText !important;
+					color: ButtonText !important;
+				}
+				.home-btn:focus-visible,
+				.home-section-header a:focus-visible,
+				.home-link-item:focus-visible,
+				.home-info-card-link:focus-visible {
+					outline: 3px solid Highlight;
+					box-shadow: none;
+				}
+			}
+		</style>
 	</head>
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">%sveltekit.body%</div>
