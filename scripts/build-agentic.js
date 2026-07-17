@@ -5,6 +5,7 @@ const ROOT = path.join(__dirname, '..');
 const METADATA_DIR = path.join(ROOT, 'metadata');
 const STATIC_DIR = path.join(ROOT, 'sveltekit', 'static');
 const CONFIG_PATH = path.join(METADATA_DIR, 'config.json');
+const ROUTES_PATH = path.join(STATIC_DIR, 'metadata', 'prerender-routes.json');
 const LLMS_PATH = path.join(STATIC_DIR, 'llms.txt');
 const STRICT = process.argv.includes('--strict');
 
@@ -35,6 +36,22 @@ function normalizeSiteUrl(value) {
   if (!text) return '';
   const withProtocol = /^https?:\/\//i.test(text) ? text : `https://${text}`;
   return withProtocol.replace(/\/+$/, '');
+}
+
+function normalizeRoute(value) {
+  const text = cleanText(value);
+  if (!text || text === '/') return '/';
+  const pathname = new URL(text, 'https://raksara.invalid').pathname;
+  return `/${decodeURIComponent(pathname).replace(/^\/+/, '').replace(/\/+$/, '')}`;
+}
+
+function loadPrerenderRoutes() {
+  const routes = readJson(ROUTES_PATH);
+  if (!Array.isArray(routes)) {
+    fail('Unable to validate llms.txt links because prerender-routes.json is unavailable');
+    return null;
+  }
+  return new Set(routes.map(normalizeRoute));
 }
 
 function toAbsoluteUrl(siteUrl, href) {
@@ -73,6 +90,7 @@ function buildLlmsTxt(config) {
   }
 
   const siteUrl = normalizeSiteUrl(config.site_url || config.url);
+  const routeSet = loadPrerenderRoutes();
   const title = cleanText(llms.title) || cleanText(config.hero_title) || cleanText(config.title) || 'Raksara';
   const summary = cleanText(llms.summary) || cleanText(config.description) || cleanText(config.hero_subtitle);
   const rawDetails = Array.isArray(llms.details) ? llms.details : llms.details ? [llms.details] : [];
@@ -88,13 +106,22 @@ function buildLlmsTxt(config) {
       const links = Array.isArray(section?.links)
         ? section.links
             .map((link, linkIndex) => {
+              const rawHref = cleanText(link?.href || link?.url);
               const label = escapeLabel(link?.label || link?.title);
-              const url = toAbsoluteUrl(siteUrl, link?.href || link?.url);
+              const url = toAbsoluteUrl(siteUrl, rawHref);
               const description = escapeDescription(link?.description || link?.notes);
 
               if (!label || !url) {
                 fail(`agentic.llms.sections[${sectionIndex}].links[${linkIndex}] requires label and href`);
                 return null;
+              }
+
+              if (routeSet && rawHref && !/^https?:\/\//i.test(rawHref)) {
+                const route = normalizeRoute(rawHref);
+                if (!routeSet.has(route)) {
+                  fail(`agentic.llms link "${label}" points to a route that is not prerendered: ${rawHref}`);
+                  return null;
+                }
               }
 
               return { label, url, description };
