@@ -7,6 +7,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { metadataUrl } from '$lib/metadata';
+	import AgenticTools from '$lib/components/AgenticTools.svelte';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -153,6 +154,8 @@
 		return () => window.removeEventListener('keydown', globalKeydown);
 	});
 </script>
+
+<AgenticTools />
 
 {#if open}
 	<div class="search-overlay" role="dialog" aria-modal="true" aria-label="Search" tabindex="0" onkeydown={handleKeydown}>
