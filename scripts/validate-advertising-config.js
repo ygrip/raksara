@@ -54,6 +54,19 @@ if (!config || adcash?.enabled !== true) {
     fail('advertising.adcash.load_strategy must be immediate or interaction');
   }
 
+  if (adcash.excluded_paths !== undefined) {
+    if (!Array.isArray(adcash.excluded_paths)) {
+      fail('advertising.adcash.excluded_paths must be an array of paths');
+    } else {
+      for (const [index, value] of adcash.excluded_paths.entries()) {
+        const excludedPath = clean(value);
+        if (!excludedPath.startsWith('/')) {
+          fail(`advertising.adcash.excluded_paths[${index}] must start with /`);
+        }
+      }
+    }
+  }
+
   let parsedUrl = null;
   try {
     parsedUrl = new URL(libraryUrl);
