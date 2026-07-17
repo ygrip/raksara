@@ -33,6 +33,10 @@
 		__raksaraAdcashZones?: Set<string>;
 	};
 
+	type NavigatorWithActivation = Navigator & {
+		userActivation?: { hasBeenActive?: boolean };
+	};
+
 	const DEFAULT_LIBRARY_URL = 'https://acscdn.com/script/aclib.js';
 	const INTERACTION_EVENTS = ['pointerdown', 'scroll', 'keydown'] as const;
 
@@ -107,6 +111,11 @@
 			};
 
 			if ((adcash.load_strategy ?? 'interaction') === 'immediate') {
+				start();
+				return;
+			}
+
+			if ((navigator as NavigatorWithActivation).userActivation?.hasBeenActive) {
 				start();
 				return;
 			}
