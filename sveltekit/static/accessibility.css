@@ -1,0 +1,63 @@
+/* Accessibility overrides loaded after the application styles. */
+
+/*
+ * Accent palettes can be too bright for white text, especially green and yellow.
+ * Mixing every accent with black keeps the branding hue while maintaining strong
+ * contrast across all supported palettes.
+ */
+.home-btn-primary {
+	background: color-mix(in srgb, var(--accent) 60%, #000) !important;
+	background-image: none !important;
+	border-color: color-mix(in srgb, var(--accent) 72%, #000) !important;
+	color: #fff !important;
+	text-shadow: none !important;
+}
+
+.home-btn-primary:hover {
+	background: color-mix(in srgb, var(--accent) 55%, #000) !important;
+	border-color: color-mix(in srgb, var(--accent) 65%, #000) !important;
+	color: #fff !important;
+}
+
+.home-btn-primary:active {
+	background: color-mix(in srgb, var(--accent) 50%, #000) !important;
+}
+
+/* Visible keyboard focus that works in both light and dark themes. */
+.home-btn:focus-visible,
+.home-section-header a:focus-visible,
+.home-link-item:focus-visible,
+.home-info-card-link:focus-visible {
+	outline: 3px solid var(--text-primary);
+	outline-offset: 4px;
+	box-shadow: 0 0 0 6px var(--bg-base);
+}
+
+/* Keep descriptive section links large enough to operate on touch screens. */
+.home-section-header a {
+	display: inline-flex;
+	align-items: center;
+	min-height: 44px;
+	padding-inline: 0.35rem;
+	text-underline-offset: 0.22em;
+}
+
+.home-section-header a:hover {
+	text-decoration: underline;
+}
+
+@media (forced-colors: active) {
+	.home-btn-primary {
+		background: ButtonFace !important;
+		border: 2px solid ButtonText !important;
+		color: ButtonText !important;
+	}
+
+	.home-btn:focus-visible,
+	.home-section-header a:focus-visible,
+	.home-link-item:focus-visible,
+	.home-info-card-link:focus-visible {
+		outline: 3px solid Highlight;
+		box-shadow: none;
+	}
+}
