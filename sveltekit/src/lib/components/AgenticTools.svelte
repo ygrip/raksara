@@ -78,20 +78,38 @@
 		return '/';
 	}
 
-	function installOriginTrialToken(token: string) {
-		const value = token.trim();
-		if (!value) return;
+	function delay(ms: number, signal: AbortSignal): Promise<void> {
+		return new Promise((resolve) => {
+			if (signal.aborted) {
+				resolve();
+				return;
+			}
 
-		let meta = document.querySelector<HTMLMetaElement>(
-			'meta[http-equiv="origin-trial"][data-raksara-agentic]',
-		);
-		if (!meta) {
-			meta = document.createElement('meta');
-			meta.httpEquiv = 'origin-trial';
-			meta.dataset.raksaraAgentic = 'true';
-			document.head.appendChild(meta);
+			const timer = window.setTimeout(resolve, ms);
+			signal.addEventListener(
+				'abort',
+				() => {
+					window.clearTimeout(timer);
+					resolve();
+				},
+				{ once: true },
+			);
+		});
+	}
+
+	async function waitForModelContext(
+		signal: AbortSignal,
+		timeoutMs = 2500,
+	): Promise<ModelContext | null> {
+		const startedAt = performance.now();
+
+		while (!signal.aborted && performance.now() - startedAt < timeoutMs) {
+			const modelContext = (document as AgenticDocument).modelContext;
+			if (modelContext?.registerTool) return modelContext;
+			await delay(50, signal);
 		}
-		meta.content = value;
+
+		return null;
 	}
 
 	async function loadSearchEngine(): Promise<SearchEngine> {
@@ -197,12 +215,11 @@
 			const webmcp = agentic?.webmcp;
 			if (disposed || agentic?.enabled !== true || webmcp?.enabled !== true) return;
 
-			installOriginTrialToken(String(webmcp.origin_trial_token ?? ''));
-			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-			if (disposed) return;
-
-			const modelContext = (document as AgenticDocument).modelContext;
-			if (!modelContext?.registerTool) return;
+			const modelContext = await waitForModelContext(controller.signal);
+			if (disposed || !modelContext) {
+				if (!disposed) console.info('[agentic] WebMCP is unavailable in this browser or audit runtime.');
+				return;
+			}
 
 			await registerSearchTool(modelContext, webmcp.search ?? {}, controller.signal);
 		})().catch((error) => {
