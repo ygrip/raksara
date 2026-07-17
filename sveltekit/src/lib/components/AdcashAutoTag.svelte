@@ -15,6 +15,7 @@
 		library_url?: string;
 		load_strategy?: LoadStrategy;
 		allow_localhost?: boolean;
+		excluded_paths?: string[];
 		auto_tag?: AdcashAutoTagConfig;
 	}
 
@@ -38,14 +39,30 @@
 	};
 
 	const DEFAULT_LIBRARY_URL = 'https://acscdn.com/script/aclib.js';
+	const DEFAULT_EXCLUDED_PATHS = ['/admin'];
 	const INTERACTION_EVENTS = ['pointerdown', 'scroll', 'keydown'] as const;
 
 	function clean(value: unknown): string {
 		return String(value ?? '').trim();
 	}
 
+	function normalizePath(value: unknown): string {
+		const path = clean(value);
+		if (!path || path === '/') return '/';
+		return `/${path.replace(/^\/+/, '').replace(/\/+$/, '')}`;
+	}
+
 	function isLocalHost(hostname: string): boolean {
 		return ['localhost', '127.0.0.1', '::1'].includes(hostname);
+	}
+
+	function isExcludedPath(pathname: string, configuredPaths?: string[]): boolean {
+		const current = normalizePath(pathname);
+		const excluded = configuredPaths?.length ? configuredPaths : DEFAULT_EXCLUDED_PATHS;
+		return excluded.some((value) => {
+			const path = normalizePath(value);
+			return path === '/' ? current === '/' : current === path || current.startsWith(`${path}/`);
+		});
 	}
 
 	function loadLibrary(src: string): Promise<void> {
@@ -100,6 +117,7 @@
 			const adcash = siteConfig.advertising?.adcash;
 			if (disposed || adcash?.enabled !== true || adcash.auto_tag?.enabled !== true) return;
 			if (isLocalHost(location.hostname) && adcash.allow_localhost !== true) return;
+			if (isExcludedPath(location.pathname, adcash.excluded_paths)) return;
 
 			start = () => {
 				for (const eventName of INTERACTION_EVENTS) {
