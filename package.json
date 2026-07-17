@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "A GitHub-native static content platform that builds a navigable metadata tree from repository files and renders blogs, portfolios, and pages with search, tags, and pagination.",
   "scripts": {
-    "build:metadata": "node scripts/build-metadata.js && node scripts/build-agentic.js && node scripts/build-sitelinks.js",
-    "build:metadata:strict": "node scripts/build-metadata.js --strict && node scripts/build-agentic.js --strict && node scripts/build-sitelinks.js",
+    "build:metadata": "node scripts/build-metadata.js && node scripts/build-agentic.js && node scripts/build-sitelinks.js && node scripts/validate-advertising-config.js",
+    "build:metadata:strict": "node scripts/build-metadata.js --strict && node scripts/build-agentic.js --strict && node scripts/build-sitelinks.js && node scripts/validate-advertising-config.js",
     "build:sveltekit": "cd sveltekit && npm run build",
     "check:sveltekit": "cd sveltekit && npm run check",
     "validate:seo:build": "node scripts/validate-seo-build.js",
