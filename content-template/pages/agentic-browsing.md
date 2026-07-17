@@ -48,14 +48,7 @@ agentic:
 
 When enabled, the metadata build writes `/llms.txt` into the static site root. Relative links are converted to absolute URLs using `site_url`.
 
-The generator requires:
-
-- a site title;
-- a concise summary;
-- at least one section;
-- at least one valid link per section.
-
-In strict builds, invalid configuration fails the build. Disabling the feature removes a stale generated file.
+The generator requires a site title, a concise summary, at least one section, and at least one valid link per section. In strict builds, invalid configuration fails the build. Disabling the feature removes a stale generated file.
 
 ## WebMCP search
 
@@ -63,7 +56,7 @@ When `document.modelContext` is available, Raksara registers a search tool backe
 
 The tool is read-only and does not submit or modify content.
 
-WebMCP is experimental and may require a Chrome origin-trial token registered for the production origin. When the token is empty or the API is unavailable, ordinary site search continues to work without WebMCP.
+WebMCP is experimental and may require a Chrome origin-trial token registered for the production origin. When the token is empty, expired, obsolete, or the API is unavailable, ordinary site search continues to work without WebMCP.
 
 ## Verification
 
