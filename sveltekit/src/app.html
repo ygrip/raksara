@@ -11,6 +11,12 @@
 				document.documentElement.setAttribute('data-theme', 'dark');
 			}
 		</script>
+		<!--
+			Load the generated origin-trial bootstrap before Svelte hydration.
+			It is intentionally an external script because Chrome requires that
+			for third-party origin-trial tokens.
+		-->
+		<script src="/webmcp-origin-trial.js"></script>
 		<!-- Favicon + webmanifest (files served from /static) -->
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="icon" type="image/x-icon" href="/favicon.ico" />
