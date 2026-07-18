@@ -8,6 +8,7 @@
 	import { goto } from '$app/navigation';
 	import { metadataUrl } from '$lib/metadata';
 	import AgenticTools from '$lib/components/AgenticTools.svelte';
+	import AdcashAutoTag from '$lib/components/AdcashAutoTag.svelte';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -156,6 +157,7 @@
 </script>
 
 <AgenticTools />
+<AdcashAutoTag />
 
 {#if open}
 	<div class="search-overlay" role="dialog" aria-modal="true" aria-label="Search" tabindex="0" onkeydown={handleKeydown}>
