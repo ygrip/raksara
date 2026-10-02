@@ -546,36 +546,12 @@
         }
         paint((now - start) / 1000, true, now);
       }
-      const mobileIdle =
-        lowPower.matches &&
-        !pointerActive &&
-        pointerLift < 0.01 &&
-        ripples.length === 0;
-
-      if (mobileIdle) {
-        paint(0, false, now);
-        return;
-      }
-
       frame = requestAnimationFrame(tick);
     };
 
     const schedule = () => {
       if (disposed) return;
       if (!canAnimate()) {
-        cancelAnimationFrame(frame);
-        frame = 0;
-        paint(0, false);
-        return;
-      }
-
-      const mobileIdle =
-        lowPower.matches &&
-        !pointerActive &&
-        pointerLift < 0.01 &&
-        ripples.length === 0;
-
-      if (mobileIdle) {
         cancelAnimationFrame(frame);
         frame = 0;
         paint(0, false);
@@ -630,7 +606,7 @@
 
     const themeObserver = new MutationObserver(() => {
       readTheme();
-      if (!canAnimate() || lowPower.matches) paint(0, false);
+      if (!canAnimate()) paint(0, false);
     });
     themeObserver.observe(document.documentElement, {
       attributes: true,
