@@ -1234,7 +1234,7 @@ a.home-info-card-link:hover,
 /* Keep long-form reading comfortable even though the overall page canvas is wider. */
 .article-top-bar,
 .article-header,
-.article-body:not(.profile-body-shell .article-body),
+.article-body,
 .post-nav,
 .giscus-container {
     width: min(100%, 54rem);
@@ -2159,7 +2159,7 @@ a.home-info-card-link:hover,
 
     .article-top-bar,
     .article-header,
-    .article-body:not(.profile-body-shell .article-body),
+    .article-body,
     .post-nav,
     .giscus-container {
         width: 100%;
