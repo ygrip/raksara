@@ -522,7 +522,7 @@
 			{@render children()}
 		</div>
 		{#if !routeUsesLocalFooter}
-			<ContentFooter author={config?.author} />
+			<ContentFooter author={config?.author} logo={config?.logo} />
 		{/if}
 	</main>
 </div>
