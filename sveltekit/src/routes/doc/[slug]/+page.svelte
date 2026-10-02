@@ -2,9 +2,9 @@
 	import { tick } from 'svelte';
 	import { renderMarkdown, initArticleFeatures } from '$lib/markdown';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
+	import type { PageData } from './$types';
 
-	type DocNav = { href: string; title: string };
-	let { data }: { data: { doc?: { title?: string; summary?: string }; markdown?: string | null; slug: string; config?: { hero_title?: string; author?: string }; nextPage?: DocNav | null; previousPage?: DocNav | null } } = $props();
+	let { data }: { data: PageData } = $props();
 	const doc = $derived(data.doc);
 	const markdown = $derived(data.markdown);
 	const slug = $derived(data.slug);
