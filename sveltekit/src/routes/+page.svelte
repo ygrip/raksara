@@ -90,7 +90,11 @@
 				<p class="home-hero-eyebrow">{hero.eyebrow}</p>
 			{/if}
 			<h1 class="home-hero-title" aria-label={heroTitle}>
-				<span class="accent-gradient" use:heroTyping={heroTitle}></span>
+				{#if heroPortrait}
+					<span class="accent-gradient">{heroTitle}</span>
+				{:else}
+					<span class="accent-gradient" use:heroTyping={heroTitle}></span>
+				{/if}
 			</h1>
 			{#if heroSubtitle}
 				<p class="home-hero-subtitle">{heroSubtitle}</p>
