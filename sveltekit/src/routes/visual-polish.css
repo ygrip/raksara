@@ -1231,6 +1231,10 @@ a.home-info-card-link:hover,
     padding-inline: clamp(24px, 3.2vw, 44px);
 }
 
+.home-section {
+    width: min(72rem, calc(100vw - var(--sidebar-width) - 64px));
+}
+
 /* Keep long-form reading comfortable even though the overall page canvas is wider. */
 .article-top-bar,
 .article-header,
