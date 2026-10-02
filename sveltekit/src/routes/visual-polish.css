@@ -2627,9 +2627,6 @@ a.home-info-card-link:hover,
         inset: -80px -110px -80px -100px;
     }
 
-    .home-hero.ascii-hero .home-hero-visual {
-        transform: translateX(-50%);
-    }
 }
 
 @media (max-width: 768px) {
