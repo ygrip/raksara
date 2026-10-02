@@ -2361,7 +2361,11 @@ async function renderProfilePagePrerender(pages, imageManifest, portfolioItems =
       )}></div>`
     : "";
 
-  const bodyHtml = await renderCustomMarkdownForPrerender(body || "", { portfolioItems, posts, imageManifest });
+  let bodyHtml = await renderCustomMarkdownForPrerender(body || "", { portfolioItems, posts, imageManifest });
+  bodyHtml = bodyHtml.replace(
+    /(<h2(?:\s+[^>]*)?>Skills<\/h2>[\s\S]*?)(?=<h2(?:\s|>)|$)/i,
+    '<section class="profile-skills-panel">$1</section>',
+  );
 
   return `<div class="profile-hero" id="profile-hero">
       <div class="profile-hero-bg" id="profile-hero-bg" data-src="${escapeHtml(coverPublicUrl)}"${heroBgStyle}></div>
@@ -2369,17 +2373,21 @@ async function renderProfilePagePrerender(pages, imageManifest, portfolioItems =
       <div class="profile-hero-overlay"></div>
       <div class="profile-hero-share">${shareButtonHtml}</div>
       <div class="profile-hero-content">
-        ${avatarHtml}
-        <div class="profile-info">
-          <h1>${escapeHtml(name)}</h1>
-          ${role ? `<div class="profile-role">${escapeHtml(role)}</div>` : ""}
-          ${links.length ? `<div class="profile-links">${links.join("")}</div>` : ""}
+        <div class="profile-card">
+          ${avatarHtml}
+          <div class="profile-info">
+            <h1>${escapeHtml(name)}</h1>
+            ${role ? `<div class="profile-role">${escapeHtml(role)}</div>` : ""}
+            ${links.length ? `<div class="profile-links">${links.join("")}</div>` : ""}
+          </div>
         </div>
       </div>
       ${waveSvg}
     </div>
-    ${metaHtml}
-    <div class="article-body">${bodyHtml}</div>`;
+    <div class="profile-body-shell">
+      ${metaHtml}
+      <div class="article-body">${bodyHtml}</div>
+    </div>`;
 }
 
 async function prerender(posts, thoughts, portfolio, gallery, config, imageManifest, pages) {
