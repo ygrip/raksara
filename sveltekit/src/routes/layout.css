@@ -6088,3 +6088,257 @@ body.gallery-lightbox-open .gallery-lightbox-overlay {
         transform: translateX(240%);
     }
 }
+
+
+/* ── Punakawan-inspired rounded bento visual system ───────── */
+/*
+   Keeps Raksara's glass, dark mode, aurora and sidebar model, while giving
+   content a calmer rounded/bento hierarchy. Accent remains site-configurable.
+*/
+
+:root {
+    --radius-sm: 10px;
+    --radius-md: 14px;
+    --radius-lg: 18px;
+    --radius-xl: 24px;
+    --radius-2xl: 28px;
+    --card-shadow: 0 12px 32px var(--shadow-color);
+    --card-shadow-hover: 0 18px 48px var(--accent-glow), 0 8px 22px var(--shadow-color);
+}
+
+[data-theme="light"] {
+    --bg-base: #faf9f6;
+    --bg-primary: rgba(255, 255, 255, 0.88);
+    --bg-secondary: rgba(250, 249, 246, 0.82);
+    --bg-card: rgba(255, 255, 255, 0.78);
+    --bg-glass: rgba(255, 255, 255, 0.68);
+    --bg-glass-heavy: rgba(255, 255, 255, 0.92);
+    --border-color: rgba(28, 25, 23, 0.09);
+    --border-subtle: rgba(28, 25, 23, 0.055);
+    --border-glass: rgba(28, 25, 23, 0.09);
+    --text-primary: #1c1917;
+    --text-secondary: #57534e;
+    --text-tertiary: #78716c;
+    --shadow-color: rgba(28, 25, 23, 0.07);
+    --shadow-heavy: rgba(28, 25, 23, 0.14);
+}
+
+[data-theme="dark"] {
+    --bg-card: rgba(20, 20, 26, 0.72);
+    --bg-glass: rgba(255, 255, 255, 0.045);
+    --bg-glass-heavy: rgba(18, 18, 24, 0.9);
+    --border-glass: rgba(255, 255, 255, 0.09);
+}
+
+#sidebar {
+    border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
+    box-shadow: 10px 0 36px var(--shadow-color);
+}
+
+.search-trigger,
+.nav-link {
+    border-radius: var(--radius-md);
+}
+
+.home-hero-content {
+    max-width: 1080px;
+    width: min(1080px, calc(100% - 48px));
+    padding: 36px 40px 40px;
+    margin-bottom: 76px;
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-2xl);
+    background: color-mix(in srgb, var(--bg-glass-heavy) 88%, transparent);
+    box-shadow: var(--card-shadow);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+
+.home-hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 6px 10px;
+    border: 1px solid var(--accent-border);
+    border-radius: 999px;
+    background: var(--accent-subtle);
+    letter-spacing: 0.08em;
+}
+
+.home-hero-description {
+    max-width: 72ch;
+}
+
+.home-btn {
+    padding: 0.65rem 1.15rem;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+}
+
+.home-section {
+    width: min(1080px, calc(100vw - var(--sidebar-width) - 64px));
+    margin-left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 4rem;
+}
+
+.home-section-header {
+    margin-bottom: 1rem;
+}
+
+.home-section-header h2 {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+}
+
+.home-section-desc {
+    margin-bottom: 1.1rem;
+}
+
+.home-section .post-list {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.home-section .post-card {
+    grid-column: span 4;
+    min-width: 0;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+}
+
+.home-section .post-card.has-thumb {
+    flex-direction: column;
+}
+
+.home-section .post-card-thumb {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+}
+
+.home-section .post-card.has-thumb .post-card-body {
+    padding: 20px;
+}
+
+.home-section .post-card:hover,
+.home-section .portfolio-card:hover,
+.home-info-card-link:hover,
+.thought-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--card-shadow-hover);
+}
+
+.home-info-cards {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+.home-info-card,
+.home-link-item,
+.thought-card {
+    border-radius: var(--radius-xl);
+    box-shadow: var(--card-shadow);
+}
+
+.home-info-card {
+    padding: 1.35rem 1.4rem;
+    min-height: 180px;
+}
+
+.home-info-card-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: var(--accent-subtle);
+    color: var(--accent);
+}
+
+.home-section .portfolio-grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.home-section .portfolio-card {
+    grid-column: span 5;
+    min-height: 210px;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--card-shadow);
+}
+
+.home-section .portfolio-card:nth-child(4n + 1),
+.home-section .portfolio-card:nth-child(4n + 4) {
+    grid-column: span 7;
+}
+
+.home-section .portfolio-card:last-child:nth-child(odd) {
+    grid-column: span 12;
+}
+
+.home-section .thoughts-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.gallery-window {
+    border-radius: var(--radius-xl);
+    box-shadow: var(--card-shadow);
+}
+
+.gallery-stack-card {
+    border-radius: var(--radius-lg);
+}
+
+@media (max-width: 980px) {
+    .home-section .post-card,
+    .home-section .portfolio-card,
+    .home-section .portfolio-card:nth-child(4n + 1),
+    .home-section .portfolio-card:nth-child(4n + 4),
+    .home-section .portfolio-card:last-child:nth-child(odd) {
+        grid-column: span 12;
+    }
+
+    .home-section .thoughts-list {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    #sidebar {
+        border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
+    }
+
+    .home-hero-content {
+        width: calc(100% - 28px);
+        padding: 26px 22px 28px;
+        margin-bottom: 58px;
+        border-radius: 22px;
+    }
+
+    .home-section {
+        width: calc(100vw - 28px);
+        margin-bottom: 3rem;
+    }
+
+    .home-info-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .home-info-card {
+        min-height: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .home-section .post-card:hover,
+    .home-section .portfolio-card:hover,
+    .home-info-card-link:hover,
+    .thought-card:hover {
+        transform: none;
+    }
+}
