@@ -2700,6 +2700,37 @@ a.home-info-card-link:hover,
     max-width: none;
 }
 
+.page-content > :where(
+    div,
+    section,
+    article,
+    header,
+    nav,
+    ul,
+    ol,
+    form
+) {
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.page-content > :where(
+    .page-header,
+    .dir-controls,
+    .active-filters,
+    .blog-dir-folders,
+    .post-list,
+    .timeline,
+    .portfolio-grid,
+    .gallery-grid,
+    .gallery-list,
+    .thoughts-list,
+    .pagination
+) {
+    width: 100%;
+}
+
 .page-content :where(
     .post-list,
     .portfolio-grid,
