@@ -520,10 +520,10 @@
 	<main id="content">
 		<div class="page-content">
 			{@render children()}
+			{#if !routeUsesLocalFooter}
+				<ContentFooter author={config?.author} logo={config?.logo} />
+			{/if}
 		</div>
-		{#if !routeUsesLocalFooter}
-			<ContentFooter author={config?.author} logo={config?.logo} />
-		{/if}
 	</main>
 </div>
 
