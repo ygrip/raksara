@@ -97,6 +97,23 @@
 		});
 	}
 
+	function loadOriginTrialBootstrap(signal: AbortSignal): Promise<void> {
+		if (signal.aborted) return Promise.resolve();
+
+		return new Promise((resolve) => {
+			const script = document.createElement('script');
+			const finish = () => resolve();
+
+			script.src = '/webmcp-origin-trial.js';
+			script.async = true;
+			script.dataset.raksaraWebmcpOriginTrial = 'true';
+			script.addEventListener('load', finish, { once: true });
+			script.addEventListener('error', finish, { once: true });
+			signal.addEventListener('abort', finish, { once: true });
+			document.head.appendChild(script);
+		});
+	}
+
 	async function waitForModelContext(
 		signal: AbortSignal,
 		timeoutMs = 2500,
@@ -215,7 +232,18 @@
 			const webmcp = agentic?.webmcp;
 			if (disposed || agentic?.enabled !== true || webmcp?.enabled !== true) return;
 
-			const modelContext = await waitForModelContext(controller.signal);
+			let modelContext = (document as AgenticDocument).modelContext ?? null;
+
+			if (!modelContext && String(webmcp.origin_trial_token ?? '').trim()) {
+				if (document.readyState !== 'complete') {
+					await new Promise<void>((resolve) => window.addEventListener('load', () => resolve(), { once: true }));
+				}
+				if (!disposed && !controller.signal.aborted) {
+					await loadOriginTrialBootstrap(controller.signal);
+					modelContext = await waitForModelContext(controller.signal);
+				}
+			}
+
 			if (disposed || !modelContext) {
 				if (!disposed) console.info('[agentic] WebMCP is unavailable in this browser or audit runtime.');
 				return;
