@@ -39,7 +39,7 @@
 			if ('requestIdleCallback' in window) {
 				idleHandle = window.requestIdleCallback(() => void loadDotField(), { timeout: 1800 });
 			} else {
-				timeoutHandle = window.setTimeout(() => void loadDotField(), 600);
+				timeoutHandle = globalThis.setTimeout(() => void loadDotField(), 600);
 			}
 		};
 
