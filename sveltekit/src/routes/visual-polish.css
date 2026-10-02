@@ -2503,6 +2503,18 @@ a.home-info-card-link:hover,
     --dot-field-strength: 1;
 }
 
+@media (max-width: 767px) {
+    .home-hero.dot-hero {
+        --dot-field-ambient: 0.15;
+        --dot-field-strength: 0.98;
+    }
+
+    [data-theme="light"] .home-hero.dot-hero {
+        --dot-field-ambient: 0.22;
+        --dot-field-strength: 1.04;
+    }
+}
+
 .home-hero.dot-hero .hero-dot-field {
     z-index: 1;
     /* Fade the field into the page at the top and into the waves at the bottom. */
