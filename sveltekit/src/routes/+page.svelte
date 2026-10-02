@@ -110,27 +110,22 @@
 		</div>
 
 		<div class="home-hero-visual" aria-hidden="true">
-			<div class="hero-visual-grid"></div>
-			<div class="hero-visual-glow hero-visual-glow-a"></div>
-			<div class="hero-visual-glow hero-visual-glow-b"></div>
-
 			{#if heroPortrait}
 				<div class="hero-ascii-frame">
-					<span class="hero-ascii-backdrop"></span>
 					<AsciiArt
 						src={heroPortrait}
 						resolution={140}
 						charset="dots"
 						color="var(--accent)"
 						backgroundColor="transparent"
-						objectFit="cover"
+						objectFit="contain"
 						className="hero-ascii-art"
 					/>
-					<span class="hero-ascii-vignette"></span>
 				</div>
-				<div class="hero-glass-orbit hero-glass-orbit-a"></div>
-				<div class="hero-glass-orbit hero-glass-orbit-b"></div>
 			{:else}
+				<div class="hero-visual-grid"></div>
+				<div class="hero-visual-glow hero-visual-glow-a"></div>
+				<div class="hero-visual-glow hero-visual-glow-b"></div>
 				<div class="hero-fluid hero-fluid-back"></div>
 				<div class="hero-fluid hero-fluid-mid"></div>
 				<div class="hero-fluid hero-fluid-front"></div>
@@ -141,12 +136,11 @@
 					<span class="hero-core-ring hero-core-ring-a"></span>
 					<span class="hero-core-ring hero-core-ring-b"></span>
 				</div>
+				<div class="hero-float-chip hero-float-chip-a"><span></span></div>
+				<div class="hero-float-chip hero-float-chip-b"><span></span></div>
+				<div class="hero-float-chip hero-float-chip-c"><span></span></div>
 			{/if}
-
-			<div class="hero-float-chip hero-float-chip-a"><span></span></div>
-			<div class="hero-float-chip hero-float-chip-b"><span></span></div>
-			<div class="hero-float-chip hero-float-chip-c"><span></span></div>
-		</div>
+		</div>>
 	</div>
 	<div class="hero-waves" aria-hidden="true">
 		<svg class="hero-wave hero-wave-back" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,45 C100,20 200,55 360,30 C480,12 560,50 720,35 C850,22 1000,55 1140,28 C1280,8 1380,42 1440,38 L1440,80 L0,80 Z"/></svg>
