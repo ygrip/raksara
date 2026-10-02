@@ -17,11 +17,8 @@
 			for third-party origin-trial tokens.
 		-->
 		<script src="/webmcp-origin-trial.js"></script>
-		<!-- Favicon + webmanifest (files served from /static) -->
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" type="image/x-icon" href="/favicon.ico" />
-		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-		<link rel="manifest" href="/site.webmanifest" />
+		<!-- Accent-aware favicon/PWA links are emitted from +layout.svelte so their
+		     version changes whenever the configured accent or logo changes. -->
 		<!-- Font preconnect is injected dynamically only when config.font is set (see +layout.svelte) -->
 		%sveltekit.head%
 		<style>
