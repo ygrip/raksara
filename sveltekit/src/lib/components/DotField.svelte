@@ -532,7 +532,7 @@
     const tick = (now: number) => {
       frame = 0;
       if (disposed || !visible) return;
-      // 60fps while the pointer or a ripple is active, 30fps when idle.
+      // Desktop keeps modest motion; coarse/mobile pointers use a single static frame.
       const interactive = pointerLift > 0.01 || ripples.length > 0;
       if (now - lastPaint >= (interactive ? FRAME_MS_ACTIVE : FRAME_MS)) {
         lastPaint = now;
