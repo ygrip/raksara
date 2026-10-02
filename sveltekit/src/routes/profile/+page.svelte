@@ -137,28 +137,37 @@
 	}
 
 	function initProfileShare() {
-		const button = containerEl?.querySelector<HTMLButtonElement>('.profile-hero-share .share-btn');
-		if (!button || button.dataset['shareInit'] === '1') return;
-		button.dataset['shareInit'] = '1';
-		button.addEventListener('click', async () => {
-			const label = button.querySelector('span');
-			const original = label?.textContent ?? 'Share';
-			if (label) label.textContent = 'Generating...';
-			button.disabled = true;
-			await shareContent({
-				title: profile?.title ?? 'Profile',
-				summary: profile?.summary,
-				author: config?.author,
-				coverUrl: profile?.cover,
-				avatarUrl: profile?.avatar,
-				role: profile?.role,
-				metadata: (profile?.metadata ?? []).map((item) => typeof item === 'string' ? { label: item, value: '' } : { label: item.label, value: item.value }),
-				variant: 'profile',
-				url: location.href,
+		const buttons = Array.from(
+			containerEl?.querySelectorAll<HTMLButtonElement>('.profile-hero-share .share-btn, .profile-card-share .share-btn') ?? []
+		);
+		if (!buttons.length) return;
+
+		for (const button of buttons) {
+			if (button.dataset['shareInit'] === '1') continue;
+			button.dataset['shareInit'] = '1';
+			button.addEventListener('click', async () => {
+				const label = button.querySelector('span');
+				const original = label?.textContent ?? 'Share';
+				if (label) label.textContent = 'Generating...';
+				buttons.forEach((candidate) => (candidate.disabled = true));
+				try {
+					await shareContent({
+						title: profile?.title ?? 'Profile',
+						summary: profile?.summary,
+						author: config?.author,
+						coverUrl: profile?.cover,
+						avatarUrl: profile?.avatar,
+						role: profile?.role,
+						metadata: (profile?.metadata ?? []).map((item) => typeof item === 'string' ? { label: item, value: '' } : { label: item.label, value: item.value }),
+						variant: 'profile',
+						url: location.href,
+					});
+				} finally {
+					buttons.forEach((candidate) => (candidate.disabled = false));
+					if (label) label.textContent = original;
+				}
 			});
-			button.disabled = false;
-			if (label) label.textContent = original;
-		});
+		}
 	}
 
 	onMount(async () => {
@@ -222,18 +231,20 @@
 
 {#if prerenderHtml}
 	<!-- Render the pre-built profile HTML (includes .profile-hero, .profile-metadata, .article-body) -->
-	<div bind:this={containerEl}>
+	<div class="profile-page-root" bind:this={containerEl}>
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 		{@html prerenderHtml}
 	</div>
 {:else}
 	<!-- Fallback: minimal profile when prerender is unavailable -->
-	<div class="profile-hero" aria-label="Profile hero"></div>
-	<div class="mt-8" style="color: var(--text-primary);">
-		<h1 class="text-3xl font-bold">{profile?.title ?? 'Profile'}</h1>
-		{#if profile?.summary}
-			<p class="mt-2 text-lg" style="color: var(--text-secondary);">{profile.summary}</p>
-		{/if}
+	<div class="profile-page-root">
+		<div class="profile-hero" aria-label="Profile hero"></div>
+		<div class="mt-8" style="color: var(--text-primary);">
+			<h1 class="text-3xl font-bold">{profile?.title ?? 'Profile'}</h1>
+			{#if profile?.summary}
+				<p class="mt-2 text-lg" style="color: var(--text-secondary);">{profile.summary}</p>
+			{/if}
+		</div>
 	</div>
 {/if}
 
