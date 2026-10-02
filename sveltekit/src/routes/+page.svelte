@@ -82,7 +82,7 @@
 </svelte:head>
 
 <!-- ── Hero ─────────────────────────────────────────── -->
-<section class="home-hero" class:ascii-hero={!!heroPortrait} id="profile-hero">
+<section class="home-hero{heroPortrait ? ' ascii-hero' : ''}" id="profile-hero">
 	<div class="home-hero-aurora" aria-hidden="true"></div>
 	<div class="home-hero-content">
 		<div class="home-hero-copy">
