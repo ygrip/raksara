@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { assetUrl } from '$lib/utils';
   interface FooterLink {
     label: string;
     href: string;
@@ -6,6 +7,7 @@
 
   interface Props {
     author?: string;
+    logo?: string;
     year?: number;
     links?: FooterLink[];
   }
@@ -18,9 +20,32 @@
 
   let {
     author,
+    logo,
     year = new Date().getFullYear(),
     links = defaultLinks,
   }: Props = $props();
+
+  let logoSvg = $state('');
+
+  $effect(() => {
+    const source = logo;
+    logoSvg = '';
+    if (!source) return;
+
+    let cancelled = false;
+    fetch(assetUrl(source))
+      .then((response) => (response.ok ? response.text() : Promise.reject()))
+      .then((svg) => {
+        if (!cancelled) logoSvg = svg;
+      })
+      .catch(() => {
+        if (!cancelled) logoSvg = '';
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  });
 </script>
 
 <footer class="content-footer">
@@ -29,7 +54,11 @@
 
   {#if author}
     <div class="content-footer-identity">
-      <span class="content-footer-mark" aria-hidden="true"><span></span></span>
+      {#if logo}
+        <span class="content-footer-mark logo-icon" aria-hidden="true">
+          <span class="content-footer-logo-svg">{@html logoSvg}</span>
+        </span>
+      {/if}
       <div class="content-footer-copy-wrap">
         <strong>{author}</strong>
         <p class="content-footer-copy">&copy; {year}. All rights reserved.</p>
@@ -75,6 +104,7 @@
       inset 0 1px 0 color-mix(in srgb, white 45%, transparent);
     color: var(--text-tertiary);
     font-size: 0.8rem;
+    text-align: left;
   }
 
   .content-footer-grid {
@@ -118,41 +148,30 @@
     flex: 0 0 2.65rem;
     display: grid;
     place-items: center;
-    border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border-color));
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border-color));
     border-radius: 0.9rem;
     background:
-      linear-gradient(145deg, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%),
+      linear-gradient(145deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
       var(--bg-glass-heavy);
     box-shadow:
       inset 0 1px 0 color-mix(in srgb, white 42%, transparent),
       0 8px 22px color-mix(in srgb, var(--accent) 10%, transparent);
+    color: var(--accent);
   }
 
-  .content-footer-mark::before,
-  .content-footer-mark::after,
-  .content-footer-mark > span {
-    content: "";
-    position: absolute;
-    border-radius: 999px;
-    background: var(--accent);
-    box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 30%, transparent);
+  .content-footer-logo-svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    display: grid;
+    place-items: center;
+    color: inherit;
   }
 
-  .content-footer-mark::before {
-    width: 1.1rem;
-    height: 0.2rem;
-    transform: rotate(45deg);
-  }
-
-  .content-footer-mark::after {
-    width: 1.1rem;
-    height: 0.2rem;
-    transform: rotate(-45deg);
-  }
-
-  .content-footer-mark > span {
-    width: 0.34rem;
-    height: 0.34rem;
+  .content-footer-logo-svg :global(svg) {
+    display: block;
+    width: 1.25rem;
+    height: 1.25rem;
+    color: inherit;
   }
 
   .content-footer-copy-wrap {
@@ -219,26 +238,40 @@
 
   @media (max-width: 640px) {
     .content-footer {
-      align-items: stretch;
+      align-items: flex-start;
       flex-direction: column;
       margin-top: 3rem;
       padding: 1.1rem;
       border-radius: 1.25rem;
+      text-align: left;
+    }
+
+    .content-footer-identity,
+    .content-footer-copy-wrap {
+      width: 100%;
+      text-align: left;
     }
 
     .content-footer-links {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 0.55rem;
+      text-align: left;
     }
 
     .content-footer-links a {
-      justify-content: center;
+      justify-content: flex-start;
+      text-align: left;
     }
   }
 
   @media (max-width: 420px) {
     .content-footer-links {
-      grid-template-columns: 1fr;
+      flex-direction: column;
+      align-items: flex-start;
     }
   }
 </style>
