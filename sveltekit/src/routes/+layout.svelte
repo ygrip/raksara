@@ -448,8 +448,10 @@
 		<meta property="og:image:width" content="1200" />
 		<meta property="og:image:height" content="630" />
 	{/if}
-	<link id="hljs-dark" rel="stylesheet" href="/vendor/hljs/styles/github-dark.min.css" media={currentTheme === 'light' ? 'not all' : 'all'} />
-	<link id="hljs-light" rel="stylesheet" href="/vendor/hljs/styles/github.min.css" media={currentTheme === 'light' ? 'all' : 'not all'} />
+{#if routeUsesLocalFooter}
+		<link id="hljs-dark" rel="stylesheet" href="/vendor/hljs/styles/github-dark.min.css" media={currentTheme === 'light' ? 'not all' : 'all'} />
+		<link id="hljs-light" rel="stylesheet" href="/vendor/hljs/styles/github.min.css" media={currentTheme === 'light' ? 'all' : 'not all'} />
+	{/if}
 </svelte:head>
 
 <!-- Fixed background gradient -->
