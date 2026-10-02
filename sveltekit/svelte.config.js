@@ -37,6 +37,10 @@ const config = {
 		}
 	},
 	kit: {
+		// The shared theme CSS is the only long render-blocking request on the
+		// prerendered shell. Inline it so first paint does not wait on a second
+		// network round trip; Cloudflare compression keeps transfer cost modest.
+		inlineStyleThreshold: 180_000,
 		adapter: adapter({
 			pages: 'build',
 			assets: 'build',
