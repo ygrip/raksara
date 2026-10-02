@@ -19,6 +19,7 @@ const PostSchema = z.object({
   date: ISODate,
   updated: ISODate.optional(),
   modified: ISODate.optional(),
+  schema_type: z.enum(["BlogPosting", "TechArticle"]).optional(),
 
   tags: z.array(z.string()).optional().default([]),
   category: z.string().optional(),
