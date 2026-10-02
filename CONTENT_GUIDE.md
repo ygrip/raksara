@@ -457,7 +457,7 @@ Both formats are supported. If `images` is present it takes priority over
 
 Edit `pages/profile.md` and set the `avatar` and `cover` fields:
 
-When an `avatar` is present, Raksara also uses it automatically as the homepage hero's Unicode Braille portrait source. The portrait is rendered responsively with `contain` fitting so the source image is not cropped. No separate hero image setting is required.
+When an `avatar` is present, Raksara also uses it automatically as the homepage hero's ASCII-dots portrait source. The portrait is rendered responsively with `contain` fitting inside a rounded safe frame so the source image is not cropped. No separate hero image setting is required.
 
 ```yaml
 ---
