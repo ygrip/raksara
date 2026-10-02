@@ -2656,6 +2656,14 @@ a.home-info-card-link:hover,
 }
 
 /* Article chrome, cover, body, navigation and comments share one rail. */
+.page-content > article {
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+    box-sizing: border-box;
+}
+
 .page-content :where(
     .article-top-bar,
     .article-header,
