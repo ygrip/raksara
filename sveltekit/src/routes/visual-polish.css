@@ -2487,12 +2487,22 @@ a.home-info-card-link:hover,
 
 .home-hero.ascii-hero .hero-ascii-frame {
     position: absolute;
-    inset: 0;
+    inset: 2% 1%;
     display: grid;
     place-items: center;
-    overflow: visible;
-    border-radius: 0;
-    background: transparent;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--accent) 10%, var(--border-color));
+    border-radius: clamp(28px, 3.2vw, 46px);
+    background:
+        radial-gradient(
+            ellipse 74% 84% at 50% 48%,
+            color-mix(in srgb, var(--accent) 5%, transparent),
+            transparent 74%
+        ),
+        color-mix(in srgb, var(--bg-card) 26%, transparent);
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, white 18%, transparent),
+        0 18px 44px -34px color-mix(in srgb, var(--shadow-heavy) 68%, transparent);
     -webkit-mask-image: none;
     mask-image: none;
     animation: none !important;
@@ -2628,152 +2638,120 @@ a.home-info-card-link:hover,
     }
 }
 
+/* ── Shared content rail + article-only glass ───────────── */
+:root {
+    --page-rail-width: 72rem;
+}
 
-
-/* ── Full-width readable page canvas ─────────────────────── */
 .page-content {
-    position: relative;
-    isolation: isolate;
-    width: calc(100% - clamp(20px, 2vw, 32px));
-    max-width: none;
-    min-width: 0;
-    margin: clamp(10px, 1.2vw, 18px) auto 0;
-    padding:
-        clamp(32px, 4vw, 52px)
-        clamp(24px, 3.4vw, 52px)
-        clamp(72px, 7vw, 96px);
-    box-sizing: border-box;
-    border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
-    border-radius: clamp(22px, 2vw, 30px);
-    background:
-        linear-gradient(
-            145deg,
-            color-mix(in srgb, var(--accent) 2.5%, transparent),
-            transparent 38%
-        ),
-        color-mix(in srgb, var(--bg-primary) 88%, transparent);
-    -webkit-backdrop-filter: blur(24px) saturate(1.06);
-    backdrop-filter: blur(24px) saturate(1.06);
-    box-shadow:
-        inset 0 1px 0 color-mix(in srgb, white 24%, transparent),
-        0 18px 48px -34px color-mix(in srgb, var(--shadow-heavy) 72%, transparent);
-}
-
-[data-theme="dark"] .page-content {
-    background:
-        linear-gradient(
-            145deg,
-            color-mix(in srgb, var(--accent) 3%, transparent),
-            transparent 42%
-        ),
-        color-mix(in srgb, var(--bg-primary) 92%, transparent);
-    border-color: color-mix(in srgb, var(--border-color) 82%, transparent);
-}
-
-.page-content > :where(
-    section,
-    article,
-    .page-header,
-    .blog-dir-folders,
-    .post-list,
-    .portfolio-grid,
-    .gallery-grid,
-    .gallery-list,
-    .thoughts-list,
-    .profile-body-shell,
-    .home-section
-) {
+    max-width: var(--page-rail-width);
     width: 100%;
-    max-width: none;
-    min-width: 0;
-    box-sizing: border-box;
+    margin-left: auto;
+    margin-right: auto;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
 }
 
-.page-content .home-section {
-    width: 100%;
-    margin-left: 0;
-    transform: none;
-}
-
-.page-content .profile-body-shell {
-    width: 100%;
-    max-width: none;
-}
-
-.page-content > :where(
-    div,
-    section,
-    article,
-    header,
-    nav,
-    ul,
-    ol,
-    form
-) {
-    max-width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-}
-
-.page-content > :where(
-    .page-header,
-    .dir-controls,
-    .active-filters,
-    .blog-dir-folders,
-    .post-list,
-    .timeline,
-    .portfolio-grid,
-    .gallery-grid,
-    .gallery-list,
-    .thoughts-list,
-    .pagination
-) {
-    width: 100%;
-}
-
-.page-content :where(
-    .post-list,
-    .portfolio-grid,
-    .gallery-grid,
-    .gallery-list,
-    .thoughts-list,
-    .blog-dir-folders,
-    .home-info-cards,
-    .home-links-grid
-) {
-    width: 100%;
-    max-width: none;
-    min-width: 0;
-}
-
-/* Keep text readable without making the page itself artificially narrow. */
+/* Article chrome, cover, body, navigation and comments share one rail. */
 .page-content :where(
     .article-top-bar,
     .article-header,
+    .article-cover,
     .article-body,
     .post-nav,
     .giscus-container
 ) {
-    max-width: min(100%, 56rem);
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+    box-sizing: border-box;
 }
 
-.page-content .profile-body-shell .article-body {
+/* Only the readable article surface gets the glass treatment. */
+.article-body {
+    position: relative;
+    padding: clamp(24px, 3.2vw, 38px);
+    border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
+    border-radius: clamp(20px, 2.2vw, 28px);
+    background:
+        linear-gradient(
+            145deg,
+            color-mix(in srgb, var(--accent) 2.5%, transparent),
+            transparent 44%
+        ),
+        color-mix(in srgb, var(--bg-primary) 90%, transparent);
+    -webkit-backdrop-filter: blur(20px) saturate(1.05);
+    backdrop-filter: blur(20px) saturate(1.05);
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, white 22%, transparent),
+        0 18px 46px -34px color-mix(in srgb, var(--shadow-heavy) 66%, transparent);
+}
+
+[data-theme="dark"] .article-body {
+    background:
+        linear-gradient(
+            145deg,
+            color-mix(in srgb, var(--accent) 3%, transparent),
+            transparent 48%
+        ),
+        color-mix(in srgb, var(--bg-primary) 93%, transparent);
+}
+
+/* Keep ordinary prose comfortable while allowing media/custom components to use the rail. */
+.article-body > :where(
+    p,
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6,
+    ul,
+    ol,
+    blockquote
+) {
+    max-width: 56rem;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.article-body > :where(
+    table,
+    figure,
+    pre,
+    .rk-grid,
+    .content-cards,
+    .content-carousel,
+    .panel,
+    .container
+) {
+    max-width: 100%;
+}
+
+.profile-body-shell .article-body {
+    width: 100%;
     max-width: none;
 }
 
 @media (max-width: 768px) {
     .page-content {
-        width: calc(100% - 16px);
-        margin-top: 8px;
-        padding: 26px 16px 64px;
+        max-width: none;
+    }
+
+    .article-body {
+        padding: 22px 18px;
         border-radius: 20px;
-        -webkit-backdrop-filter: blur(18px) saturate(1.04);
-        backdrop-filter: blur(18px) saturate(1.04);
+        -webkit-backdrop-filter: blur(16px) saturate(1.04);
+        backdrop-filter: blur(16px) saturate(1.04);
     }
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .page-content {
+    .article-body {
         background: color-mix(in srgb, var(--bg-primary) 97%, var(--bg-card) 3%);
     }
 }
