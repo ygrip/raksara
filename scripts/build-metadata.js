@@ -2404,9 +2404,11 @@ async function prerender(posts, thoughts, portfolio, gallery, config, imageManif
   // Emit a slim home-bundle.json combining the three critical-path files so the
   // home route can be bootstrapped with a single fetch instead of three separate ones.
   try {
+    const profilePage = (pages || []).find((page) => page.slug === "profile");
     const homeBundle = {
       config,
       posts: posts.slice(0, SEO_INITIAL_COUNT),
+      profile: profilePage?.avatar ? { avatar: profilePage.avatar } : undefined,
       homePrerender: { html: homeMarkup },
     };
     const bundleCacheFile = path.join(METADATA_DIR, "home-bundle.json");
