@@ -11,12 +11,9 @@
 				document.documentElement.setAttribute('data-theme', 'dark');
 			}
 		</script>
-		<!--
-			Load the generated origin-trial bootstrap before Svelte hydration.
-			It is intentionally an external script because Chrome requires that
-			for third-party origin-trial tokens.
-		-->
-		<script src="/webmcp-origin-trial.js"></script>
+		<!-- WebMCP origin-trial bootstrap is loaded after window.load by AgenticTools.
+		     Third-party trial tokens still require an external script, but they do
+		     not need to block HTML parsing or the initial render. -->
 		<!-- Accent-aware favicon/PWA links are emitted from +layout.svelte so their
 		     version changes whenever the configured accent or logo changes. -->
 		<!-- Font preconnect is injected dynamically only when config.font is set (see +layout.svelte) -->
