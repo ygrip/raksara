@@ -1,5 +1,6 @@
 <script lang="ts">
 	import './layout.css';
+	import './visual-polish.css';
 	import { onMount } from 'svelte';
 	import { navigating, page } from '$app/stores';
 	import { goto } from '$app/navigation';
