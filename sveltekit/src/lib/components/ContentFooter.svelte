@@ -55,7 +55,7 @@
   {#if author}
     <div class="content-footer-identity">
       {#if logo}
-        <span class="content-footer-mark logo-icon" aria-hidden="true">
+        <span class="content-footer-mark" aria-hidden="true">
           <span class="content-footer-logo-svg">{@html logoSvg}</span>
         </span>
       {/if}
