@@ -175,10 +175,10 @@ if (config && agentic?.enabled === true) {
         error('Built homepage is missing while validating WebMCP bootstrap delivery');
       } else {
         const html = fs.readFileSync(BUILD_HOME_PATH, 'utf-8');
-        if (!/<script\s+src=["']\/webmcp-origin-trial\.js["'][^>]*><\/script>/i.test(html)) {
-          error('Built homepage does not load /webmcp-origin-trial.js before hydration');
+        if (/<script\s+src=["']\/webmcp-origin-trial\.js["'][^>]*><\/script>/i.test(html)) {
+          error('Built homepage loads /webmcp-origin-trial.js in the critical HTML path');
         } else {
-          ok('Built homepage loads the WebMCP origin-trial bootstrap');
+          ok('Built homepage defers the WebMCP origin-trial bootstrap');
         }
       }
     }
