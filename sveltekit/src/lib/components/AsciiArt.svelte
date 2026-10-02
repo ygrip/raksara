@@ -223,18 +223,9 @@
     height: 100%;
     opacity: 0;
     filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 16%, transparent));
-    transition:
-      opacity 700ms cubic-bezier(0.16, 1, 0.3, 1),
-      filter 220ms ease;
   }
 
   .ready canvas {
     opacity: 0.96;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    canvas {
-      transition: none;
-    }
   }
 </style>
