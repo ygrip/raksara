@@ -369,6 +369,11 @@ body {
     margin: 0 auto;
     padding: 48px 32px 80px;
 }
+
+/* Profile owns the top edge: keep generic page spacing off this route. */
+.page-content:has(.profile-page-root) {
+    padding-top: 0;
+}
 /* Reserve hero height to prevent CLS when home prerender is inlined */
 .home-hero {
     position: relative;
@@ -460,7 +465,8 @@ body {
     width: calc(100vw - var(--sidebar-width));
     margin-left: calc(-50vw + 50% + var(--sidebar-width) / 2);
     margin-right: calc(-50vw + 50% - var(--sidebar-width) / 2);
-    margin-top: -52px;
+    margin-top: 0;
+    padding-top: 0;
     height: 420px;
     overflow: hidden;
 }
@@ -473,6 +479,12 @@ body {
 .profile-hero-share,
 .profile-hero-content {
     position: absolute;
+}
+.profile-card {
+    position: relative;
+}
+.profile-card-share {
+    display: none;
 }
 .profile-avatar-wrap {
     position: relative;
@@ -488,10 +500,25 @@ body {
     object-fit: cover;
 }
 @media (max-width: 768px) {
+    #content:has(.profile-page-root) {
+        padding-top: 0;
+    }
     .profile-hero {
         width: 100vw;
         margin-left: calc(-50vw + 50%);
         margin-right: calc(-50vw + 50%);
+        margin-top: 0;
+        padding-top: 0;
+    }
+    .profile-hero-share.profile-share-desktop {
+        display: none;
+    }
+    .profile-card-share.profile-share-mobile {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        z-index: 8;
+        display: flex;
     }
 }
 
@@ -3020,8 +3047,9 @@ a.home-info-card-link:hover .home-info-card-arrow {
     width: calc(100vw - var(--sidebar-width));
     margin-left: calc(-50vw + 50% + var(--sidebar-width) / 2);
     margin-right: calc(-50vw + 50% - var(--sidebar-width) / 2);
-    margin-top: -52px;
+    margin-top: 0;
     margin-bottom: 0;
+    padding-top: 0;
     height: 420px;
     overflow: hidden;
 }
@@ -4523,8 +4551,9 @@ body.reading-mode .reading-mode-btn {
         width: 100vw;
         margin-left: calc(-50vw + 50%);
         margin-right: calc(-50vw + 50%);
-        margin-top: -52px;
+        margin-top: 0;
         margin-bottom: 0;
+        padding-top: 0;
         height: 360px;
     }
     .profile-hero-bg::before {
