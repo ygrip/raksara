@@ -6593,3 +6593,375 @@ a.home-info-card-link:hover,
         background: var(--bg-primary);
     }
 }
+
+
+/* ── Punakawan component fidelity: shell, headers, badges, cards ── */
+:root {
+    /* Keep the content offset separate from the floating sidebar width. */
+    --sidebar-width: 276px;
+    --punakawan-glass: color-mix(in srgb, var(--bg-card) 82%, transparent);
+    --punakawan-glass-strong: color-mix(in srgb, var(--bg-glass-heavy) 92%, transparent);
+    --punakawan-glass-soft: color-mix(in srgb, var(--bg-secondary) 76%, transparent);
+    --punakawan-glass-border: color-mix(in srgb, var(--border-color) 76%, white 24%);
+    --punakawan-float-shadow: 0 18px 48px var(--shadow-color), 0 2px 10px color-mix(in srgb, var(--shadow-color) 60%, transparent);
+}
+
+[data-theme="dark"] {
+    --punakawan-glass: color-mix(in srgb, var(--bg-card) 78%, transparent);
+    --punakawan-glass-strong: color-mix(in srgb, var(--bg-glass-heavy) 88%, transparent);
+    --punakawan-glass-soft: color-mix(in srgb, var(--bg-secondary) 72%, transparent);
+    --punakawan-glass-border: color-mix(in srgb, var(--border-color) 88%, white 12%);
+    --punakawan-float-shadow: 0 22px 56px rgb(0 0 0 / 0.34), 0 2px 12px rgb(0 0 0 / 0.24);
+}
+
+/* Floating Punakawan-style sidebar, with Raksara's accent and content model. */
+#sidebar {
+    top: 12px;
+    left: 12px;
+    bottom: 12px;
+    width: 252px;
+    min-width: 252px;
+    border: 1px solid var(--punakawan-glass-border);
+    border-right: 1px solid var(--punakawan-glass-border);
+    border-radius: 28px;
+    background:
+        linear-gradient(155deg, color-mix(in srgb, var(--accent) 6%, transparent), transparent 34%),
+        linear-gradient(25deg, color-mix(in srgb, var(--gradient-3) 4%, transparent), transparent 38%),
+        var(--punakawan-glass);
+    backdrop-filter: blur(26px) saturate(1.28);
+    -webkit-backdrop-filter: blur(26px) saturate(1.28);
+    box-shadow: var(--punakawan-float-shadow), inset 0 1px 0 color-mix(in srgb, white 52%, transparent);
+}
+
+[data-theme="dark"] #sidebar {
+    box-shadow: var(--punakawan-float-shadow), inset 0 1px 0 rgb(255 255 255 / 0.045);
+}
+
+.sidebar-header {
+    margin: 0 12px 6px;
+    padding: 12px 0 14px;
+    border-bottom-color: color-mix(in srgb, var(--border-color) 62%, transparent);
+}
+
+.sidebar-header .logo {
+    gap: 11px;
+}
+
+.sidebar-header .logo-icon {
+    width: 46px;
+    height: 46px;
+    flex: 0 0 46px;
+    border: 1px solid transparent;
+    border-radius: 17px;
+    background:
+        linear-gradient(var(--punakawan-glass-strong), var(--punakawan-glass-strong)) padding-box,
+        linear-gradient(135deg, var(--gradient-1), var(--gradient-2), var(--gradient-3)) border-box;
+    box-shadow: 0 10px 24px var(--accent-glow), inset 0 1px 0 color-mix(in srgb, white 65%, transparent);
+    justify-content: center;
+}
+
+.sidebar-header .logo-icon img,
+.sidebar-header .logo-icon svg {
+    width: 29px;
+    height: 29px;
+}
+
+.sidebar-header .logo-text {
+    font-size: 1.03rem;
+    font-weight: 750;
+    letter-spacing: -0.015em;
+}
+
+.sidebar-header .icon-btn,
+.mobile-header .icon-btn {
+    min-width: 36px;
+    min-height: 36px;
+    border: 1px solid var(--punakawan-glass-border);
+    border-radius: 13px;
+    background: var(--punakawan-glass-soft);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, white 42%, transparent);
+}
+
+.sidebar-header .icon-btn:hover,
+.mobile-header .icon-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent-border);
+    background: var(--accent-subtle);
+}
+
+.search-trigger {
+    min-height: 44px;
+    margin: 10px 12px 7px;
+    padding: 9px 11px;
+    border: 1px solid var(--punakawan-glass-border);
+    border-radius: 17px;
+    background: var(--punakawan-glass-soft);
+    backdrop-filter: blur(16px) saturate(1.15);
+    -webkit-backdrop-filter: blur(16px) saturate(1.15);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, white 38%, transparent);
+}
+
+.search-trigger kbd {
+    padding: 3px 7px;
+    border-radius: 8px;
+    background: var(--punakawan-glass-strong);
+}
+
+.sidebar-nav {
+    gap: 5px;
+    padding: 8px 12px;
+}
+
+.nav-link {
+    min-height: 48px;
+    gap: 10px;
+    padding: 7px 9px;
+    border: 1px solid transparent;
+    border-radius: 19px;
+    font-size: 0.88rem;
+    font-weight: 620;
+    transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+
+.nav-link svg {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    padding: 8px;
+    border: 1px solid color-mix(in srgb, currentColor 17%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, currentColor 9%, transparent);
+    opacity: 0.78;
+    stroke-width: 1.75;
+}
+
+.nav-link:hover {
+    border-color: color-mix(in srgb, var(--border-color) 70%, transparent);
+    background: color-mix(in srgb, var(--punakawan-glass-strong) 88%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, white 44%, transparent);
+    transform: translateX(2px);
+}
+
+.nav-link.active {
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 24%, var(--border-color));
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, transparent), transparent 72%),
+        var(--punakawan-glass-strong);
+    box-shadow: 0 8px 20px var(--accent-glow), inset 0 1px 0 color-mix(in srgb, white 56%, transparent);
+}
+
+/* Headers use the same floating glass language without hiding hierarchy. */
+.page-header,
+.article-header {
+    position: relative;
+    overflow: hidden;
+    padding: 20px 22px;
+    margin-bottom: 30px;
+    border: 1px solid var(--punakawan-glass-border);
+    border-radius: 24px;
+    background:
+        linear-gradient(270deg, color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 72%) top right / 100% 10px no-repeat,
+        var(--punakawan-glass);
+    backdrop-filter: blur(18px) saturate(1.16);
+    -webkit-backdrop-filter: blur(18px) saturate(1.16);
+    box-shadow: var(--card-shadow), inset 0 1px 0 color-mix(in srgb, white 46%, transparent);
+}
+
+.article-header {
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--punakawan-glass-border);
+}
+
+.page-header::after,
+.article-header::after {
+    content: "";
+    position: absolute;
+    top: -1px;
+    right: -1px;
+    width: 38px;
+    height: 38px;
+    border-top: 2px solid color-mix(in srgb, var(--accent) 58%, transparent);
+    border-right: 2px solid color-mix(in srgb, var(--accent) 58%, transparent);
+    border-top-right-radius: inherit;
+    pointer-events: none;
+    opacity: 0.82;
+}
+
+/* Punakawan-style badge family: compact, bordered, subtle tinted fill. */
+.tag,
+.post-card-category,
+.status-chip {
+    min-height: 24px;
+    padding: 3px 9px;
+    gap: 6px;
+    border: 1px solid var(--punakawan-glass-border);
+    border-radius: 999px;
+    background: var(--punakawan-glass-soft);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.35;
+    box-shadow: inset 0 1px 0 color-mix(in srgb, white 30%, transparent);
+}
+
+.post-card-category {
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 28%, var(--border-color));
+    background: color-mix(in srgb, var(--accent) 9%, var(--bg-card));
+}
+
+.status-chip::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    flex: 0 0 6px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.status-draft {
+    color: var(--text-tertiary);
+    border-color: var(--border-color);
+    background: var(--punakawan-glass-soft);
+}
+
+.status-ongoing {
+    color: var(--orange);
+    border-color: color-mix(in srgb, var(--orange) 32%, var(--border-color));
+    background: color-mix(in srgb, var(--orange) 10%, var(--bg-card));
+}
+
+.status-completed {
+    color: var(--green);
+    border-color: color-mix(in srgb, var(--green) 30%, var(--border-color));
+    background: color-mix(in srgb, var(--green) 10%, var(--bg-card));
+}
+
+/* Shared card treatment: translucent glass + restrained accent sheen/corner. */
+.home-section .post-card,
+.home-section .portfolio-card,
+.home-info-card,
+.home-link-item,
+.thought-card,
+.gallery-window {
+    position: relative;
+    border-color: var(--punakawan-glass-border);
+    background:
+        linear-gradient(270deg, color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 72%) top right / 100% 10px no-repeat,
+        linear-gradient(270deg, color-mix(in srgb, var(--accent) 24%, white) 0%, transparent 82%) top right / 100% 1px no-repeat,
+        var(--punakawan-glass);
+    backdrop-filter: blur(18px) saturate(1.16);
+    -webkit-backdrop-filter: blur(18px) saturate(1.16);
+    box-shadow: var(--card-shadow), inset 0 1px 0 color-mix(in srgb, white 44%, transparent);
+}
+
+[data-theme="dark"] .home-section .post-card,
+[data-theme="dark"] .home-section .portfolio-card,
+[data-theme="dark"] .home-info-card,
+[data-theme="dark"] .home-link-item,
+[data-theme="dark"] .thought-card,
+[data-theme="dark"] .gallery-window,
+[data-theme="dark"] .page-header,
+[data-theme="dark"] .article-header {
+    box-shadow: var(--card-shadow), inset 0 1px 0 rgb(255 255 255 / 0.045);
+}
+
+.home-section .post-card::after,
+.home-section .portfolio-card::after,
+.home-info-card::after,
+.home-link-item::after,
+.thought-card::after {
+    content: "";
+    position: absolute;
+    top: -1px;
+    right: -1px;
+    width: 36px;
+    height: 36px;
+    border-top: 2px solid color-mix(in srgb, var(--accent) 58%, transparent);
+    border-right: 2px solid color-mix(in srgb, var(--accent) 58%, transparent);
+    border-top-right-radius: inherit;
+    pointer-events: none;
+    opacity: 0.76;
+}
+
+/* Preserve the gallery image overlay pseudo-element by using its chrome as the accent line. */
+.gallery-window-chrome {
+    border-bottom-color: color-mix(in srgb, var(--accent) 12%, var(--border-color));
+    background: var(--punakawan-glass-soft);
+    backdrop-filter: blur(18px) saturate(1.15);
+    -webkit-backdrop-filter: blur(18px) saturate(1.15);
+}
+
+/* Floating glass mobile header mirrors Punakawan's top bar. */
+@media (max-width: 768px) {
+    :root { --sidebar-width: 0px; }
+
+    .mobile-header {
+        top: 10px;
+        left: 10px;
+        right: 10px;
+        height: 54px;
+        padding: 0 10px;
+        border: 1px solid var(--punakawan-glass-border);
+        border-radius: 20px;
+        background: var(--punakawan-glass);
+        backdrop-filter: blur(22px) saturate(1.24);
+        -webkit-backdrop-filter: blur(22px) saturate(1.24);
+        box-shadow: 0 10px 30px var(--shadow-color), inset 0 1px 0 color-mix(in srgb, white 48%, transparent);
+    }
+
+    .mobile-header::before {
+        content: "";
+        position: absolute;
+        inset: -1px 20px auto;
+        height: 2px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        opacity: 0.78;
+    }
+
+    .mobile-header .logo-icon {
+        width: 30px;
+        height: 30px;
+        justify-content: center;
+        border-radius: 10px;
+        background: var(--accent-subtle);
+    }
+
+    .mobile-header .logo-icon img,
+    .mobile-header .logo-icon svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    #content {
+        padding-top: 74px;
+    }
+
+    .home-hero {
+        margin-top: -74px;
+        padding-top: 84px;
+    }
+
+    #sidebar {
+        top: 10px;
+        left: 10px;
+        bottom: 10px;
+        width: min(300px, calc(100vw - 28px));
+        min-width: min(300px, calc(100vw - 28px));
+        transform: translateX(calc(-100% - 24px));
+    }
+
+    #sidebar.open {
+        transform: translateX(0);
+        box-shadow: var(--punakawan-float-shadow);
+    }
+
+    .page-header,
+    .article-header {
+        padding: 17px 18px;
+        border-radius: 20px;
+    }
+}
