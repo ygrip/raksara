@@ -2347,7 +2347,7 @@ async function renderProfilePagePrerender(pages, imageManifest, portfolioItems =
   }
 
   const waveSvg = `<div class="hero-waves"><svg class="hero-wave hero-wave-back" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,45 C100,20 200,55 360,30 C480,12 560,50 720,35 C850,22 1000,55 1140,28 C1280,8 1380,42 1440,38 L1440,80 L0,80 Z"/></svg><svg class="hero-wave hero-wave-front" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,38 C80,52 180,15 320,42 C430,60 540,18 700,40 C820,55 960,12 1100,45 C1220,62 1340,22 1440,35 L1440,80 L0,80 Z"/></svg></div>`;
-  const shareButtonHtml = `<button class="share-btn" aria-label="Share"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M4 8.5v5a1 1 0 001 1h6a1 1 0 001-1v-5M8 1v8.5M5 4l3-3 3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Share</span></button>`;
+  const shareButtonHtml = `<button class="share-btn profile-share-btn" aria-label="Share"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M4 8.5v5a1 1 0 001 1h6a1 1 0 001-1v-5M8 1v8.5M5 4l3-3 3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Share</span></button>`;
 
   const avatarHtml = avatarUrl
     ? `<div class="profile-avatar-wrap is-loading"><img ${buildResponsiveImageAttrsPrerender(
@@ -2367,9 +2367,10 @@ async function renderProfilePagePrerender(pages, imageManifest, portfolioItems =
       <div class="profile-hero-bg" id="profile-hero-bg" data-src="${escapeHtml(coverPublicUrl)}"${heroBgStyle}></div>
       <div class="profile-hero-skeleton"></div>
       <div class="profile-hero-overlay"></div>
-      <div class="profile-hero-share">${shareButtonHtml}</div>
+      <div class="profile-hero-share profile-share-desktop">${shareButtonHtml}</div>
       <div class="profile-hero-content">
         <div class="profile-card">
+          <div class="profile-card-share profile-share-mobile">${shareButtonHtml}</div>
           ${avatarHtml}
           <div class="profile-info">
             <h1>${escapeHtml(name)}</h1>
