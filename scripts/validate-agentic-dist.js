@@ -8,6 +8,7 @@ const BUILD_LLMS_PATH = path.join(ROOT, 'sveltekit', 'build', 'llms.txt');
 const STATIC_ORIGIN_TRIAL_SCRIPT = path.join(ROOT, 'sveltekit', 'static', 'webmcp-origin-trial.js');
 const BUILD_ORIGIN_TRIAL_SCRIPT = path.join(ROOT, 'sveltekit', 'build', 'webmcp-origin-trial.js');
 const BUILD_HOME_PATH = path.join(ROOT, 'sveltekit', 'build', 'index.html');
+const AGENTIC_TOOLS_PATH = path.join(ROOT, 'sveltekit', 'src', 'lib', 'components', 'AgenticTools.svelte');
 
 let errors = 0;
 let warnings = 0;
@@ -175,10 +176,21 @@ if (config && agentic?.enabled === true) {
         error('Built homepage is missing while validating WebMCP bootstrap delivery');
       } else {
         const html = fs.readFileSync(BUILD_HOME_PATH, 'utf-8');
-        if (!/<script\s+src=["']\/webmcp-origin-trial\.js["'][^>]*><\/script>/i.test(html)) {
-          error('Built homepage does not load /webmcp-origin-trial.js before hydration');
+        if (/<script\s+src=["']\/webmcp-origin-trial\.js["'][^>]*><\/script>/i.test(html)) {
+          error('Built homepage eagerly loads /webmcp-origin-trial.js on the critical parser path');
         } else {
-          ok('Built homepage loads the WebMCP origin-trial bootstrap');
+          ok('Built homepage keeps the WebMCP origin-trial bootstrap off the critical parser path');
+        }
+      }
+
+      if (!fs.existsSync(AGENTIC_TOOLS_PATH)) {
+        error('AgenticTools.svelte is missing while validating deferred WebMCP delivery');
+      } else {
+        const source = fs.readFileSync(AGENTIC_TOOLS_PATH, 'utf-8');
+        if (!source.includes('/webmcp-origin-trial.js')) {
+          error('AgenticTools does not lazy-load /webmcp-origin-trial.js');
+        } else {
+          ok('AgenticTools lazy-loads the WebMCP origin-trial bootstrap after page load');
         }
       }
     }
