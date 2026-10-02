@@ -21,6 +21,7 @@ export interface Post {
 
   updated?: string;
   modified?: string;
+  schema_type?: 'BlogPosting' | 'TechArticle';
 
   tags?: string[];
   category?: string;

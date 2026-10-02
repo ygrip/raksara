@@ -67,10 +67,13 @@ export function buildPostMeta(
   const updatedDate = (post as Post & { updated?: string; modified?: string }).updated
     ?? (post as Post & { updated?: string; modified?: string }).modified
     ?? post.date;
+  const articleSchemaType = isPost && post.schema_type === 'TechArticle'
+    ? 'TechArticle'
+    : 'BlogPosting';
 
   const jsonLd: JsonLdObject = {
     '@context': 'https://schema.org',
-    '@type': isPost ? 'BlogPosting' : 'SoftwareApplication',
+    '@type': isPost ? articleSchemaType : 'SoftwareApplication',
     headline: post.title,
     description: post.summary ?? '',
     author: [
