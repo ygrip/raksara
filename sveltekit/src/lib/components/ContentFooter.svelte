@@ -107,17 +107,33 @@
     text-align: left;
   }
 
+  /* Same accent dot language as the hero/page canvas, fading from the right. */
   .content-footer-grid {
     position: absolute;
     inset: 0;
     z-index: -2;
-    background-image:
-      linear-gradient(color-mix(in srgb, var(--accent) 7%, transparent) 1px, transparent 1px),
-      linear-gradient(90deg, color-mix(in srgb, var(--accent) 7%, transparent) 1px, transparent 1px);
-    background-size: 26px 26px;
-    opacity: 0.6;
-    -webkit-mask-image: radial-gradient(ellipse 72% 100% at 100% 0%, #000 0%, transparent 76%);
-    mask-image: radial-gradient(ellipse 72% 100% at 100% 0%, #000 0%, transparent 76%);
+    background-image: var(
+      --dot-pattern,
+      radial-gradient(circle at center, color-mix(in srgb, var(--accent) 58%, transparent) 0 1px, transparent 1.6px)
+    );
+    background-size: 14px 14px;
+    background-position: right 7px top 7px;
+    opacity: 0.7;
+    -webkit-mask-image: radial-gradient(ellipse 60% 140% at 100% 50%, #000 0%, transparent 72%);
+    mask-image: radial-gradient(ellipse 60% 140% at 100% 50%, #000 0%, transparent 72%);
+    pointer-events: none;
+  }
+
+  /* Accent hairline along the top edge. */
+  .content-footer::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 1.5rem;
+    right: 1.5rem;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 70%, transparent), transparent);
+    opacity: 0.8;
     pointer-events: none;
   }
 
@@ -270,8 +286,12 @@
 
   @media (max-width: 420px) {
     .content-footer-links {
-      flex-direction: column;
-      align-items: flex-start;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+    }
+
+    .content-footer-links a {
+      justify-content: center;
     }
   }
 </style>

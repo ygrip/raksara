@@ -19,6 +19,9 @@
     --raksara-glass-border: color-mix(in srgb, var(--border-color) 72%, white 28%);
     --raksara-edge-border: color-mix(in srgb, var(--accent) 14%, var(--raksara-glass-border));
     --raksara-grid-line: color-mix(in srgb, var(--accent) 8%, transparent);
+    /* Shared dot language: hero field, profile hero, page canvas. */
+    --dot-gap: 18px;
+    --dot-pattern: radial-gradient(circle at center, color-mix(in srgb, var(--accent) 58%, transparent) 0 1px, transparent 1.6px);
     --card-shadow: 0 12px 32px var(--shadow-color), inset 0 1px 0 color-mix(in srgb, white 48%, transparent);
     --card-shadow-hover: 0 18px 48px var(--accent-glow), 0 8px 22px var(--shadow-color), inset 0 1px 0 color-mix(in srgb, white 54%, transparent);
 }
@@ -696,6 +699,28 @@ a.home-info-card-link:hover,
     opacity: 0.82;
 }
 
+/* Same accent dot language as the hero, fading in from the right edge. */
+.page-header::before,
+.article-header::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-image: var(--dot-pattern);
+    background-size: 14px 14px;
+    background-position: right 7px top 7px;
+    -webkit-mask-image: linear-gradient(270deg, #000 0%, rgba(0, 0, 0, 0.35) 30%, transparent 58%);
+    mask-image: linear-gradient(270deg, #000 0%, rgba(0, 0, 0, 0.35) 30%, transparent 58%);
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+.page-header > *,
+.article-header > * {
+    position: relative;
+    z-index: 1;
+}
+
 /* Punakawan-style badge family: compact, bordered, subtle tinted fill. */
 .tag,
 .post-card-category,
@@ -853,13 +878,17 @@ a.home-info-card-link:hover,
         padding-top: 84px;
     }
 
+    /* Drawer opens beneath the floating header (10px inset + 54px tall + 8px gap)
+       so its top is never hidden behind it; the header stays tappable to close. */
     #sidebar {
-        top: 10px;
+        top: 72px;
         left: 10px;
         bottom: 10px;
-        width: min(300px, calc(100vw - 28px));
-        min-width: min(300px, calc(100vw - 28px));
+        width: min(300px, calc(100vw - 20px));
+        min-width: min(300px, calc(100vw - 20px));
         transform: translateX(calc(-100% - 24px));
+        overflow-y: auto;
+        overscroll-behavior: contain;
     }
 
     #sidebar.open {
@@ -898,18 +927,18 @@ a.home-info-card-link:hover,
     --noise-opacity: 0.022;
 }
 
+/* Page canvas uses the same accent dot language as the hero, just quieter. */
 .bg-gradient {
-    --ambient-grid: rgba(28, 25, 23, 0.038);
+    --ambient-dot: color-mix(in srgb, var(--accent) 16%, rgba(28, 25, 23, 0.10));
     background-image:
-        linear-gradient(var(--ambient-grid) 1px, transparent 1px),
-        linear-gradient(90deg, var(--ambient-grid) 1px, transparent 1px),
+        radial-gradient(circle at center, var(--ambient-dot) 0 1px, transparent 1.5px),
         var(--gradient-bg);
-    background-size: 32px 32px, 32px 32px, auto;
-    background-position: center, center, center;
+    background-size: 24px 24px, auto;
+    background-position: center, center;
 }
 
 [data-theme="dark"] .bg-gradient {
-    --ambient-grid: color-mix(in srgb, var(--accent) 11%, rgba(255, 255, 255, 0.055));
+    --ambient-dot: color-mix(in srgb, var(--accent) 22%, rgba(255, 255, 255, 0.07));
     opacity: 1;
 }
 
@@ -1231,8 +1260,11 @@ a.home-info-card-link:hover,
     padding-inline: clamp(24px, 3.2vw, 44px);
 }
 
+/* Home sections sit on the same rail as every other page's content. */
 .home-section {
-    width: min(72rem, calc(100vw - var(--sidebar-width) - 64px));
+    width: 100%;
+    margin-left: 0;
+    transform: none;
 }
 
 /* Keep long-form reading comfortable even though the overall page canvas is wider. */
@@ -1486,74 +1518,6 @@ a.home-info-card-link:hover,
     filter: drop-shadow(0 34px 54px color-mix(in srgb, var(--shadow-heavy) 48%, transparent));
 }
 
-.hero-ascii-frame {
-    position: absolute;
-    z-index: 1;
-    inset: 3% 7% 1% 7%;
-    isolation: isolate;
-    overflow: hidden;
-    border-radius: 42% 38% 44% 36% / 30% 42% 34% 46%;
-    background:
-        radial-gradient(ellipse 68% 72% at 50% 48%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 72%),
-        linear-gradient(145deg, rgb(255 255 255 / 0.055), transparent 54%);
-    -webkit-mask-image: radial-gradient(ellipse 74% 88% at 50% 52%, #000 0 62%, rgba(0,0,0,.86) 72%, transparent 94%);
-    mask-image: radial-gradient(ellipse 74% 88% at 50% 52%, #000 0 62%, rgba(0,0,0,.86) 72%, transparent 94%);
-    animation: heroAsciiFloat 8.8s ease-in-out infinite alternate;
-}
-
-.hero-ascii-backdrop {
-    position: absolute;
-    z-index: -2;
-    inset: 12% 15%;
-    border-radius: 46% 54% 58% 42% / 50% 38% 62% 50%;
-    background:
-        radial-gradient(circle at 40% 38%, color-mix(in srgb, var(--gradient-1) 30%, transparent), transparent 52%),
-        radial-gradient(circle at 66% 62%, color-mix(in srgb, var(--gradient-3) 22%, transparent), transparent 58%);
-    filter: blur(28px);
-    opacity: 0.9;
-    transform: scale(1.12);
-}
-
-.hero-ascii-art {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    width: 100%;
-    height: 100%;
-    opacity: 0.96;
-    filter:
-        contrast(1.06)
-        drop-shadow(0 0 22px color-mix(in srgb, var(--accent) 22%, transparent));
-}
-
-.hero-ascii-vignette {
-    position: absolute;
-    z-index: 2;
-    inset: 0;
-    pointer-events: none;
-    background:
-        linear-gradient(90deg, var(--bg-base) 0%, transparent 18%, transparent 82%, var(--bg-base) 100%),
-        linear-gradient(180deg, var(--bg-base) 0%, transparent 14%, transparent 82%, var(--bg-base) 100%),
-        radial-gradient(ellipse 64% 78% at 50% 50%, transparent 48%, color-mix(in srgb, var(--bg-base) 44%, transparent) 82%, var(--bg-base) 100%);
-    opacity: 0.34;
-    mix-blend-mode: multiply;
-}
-
-[data-theme="dark"] .hero-ascii-vignette {
-    opacity: 0.52;
-    mix-blend-mode: normal;
-}
-
-@keyframes heroAsciiFloat {
-    0% {
-        transform: translate3d(-1.5%, 1%, 0) rotate(-1.2deg) scale(0.985);
-        filter: saturate(0.98);
-    }
-    100% {
-        transform: translate3d(1.5%, -1.5%, 0) rotate(1.2deg) scale(1.018);
-        filter: saturate(1.08);
-    }
-}
 
 .hero-visual-grid {
     position: absolute;
@@ -1869,10 +1833,10 @@ a.home-info-card-link:hover,
 .profile-hero-bg::after {
     inset: 0;
     background-image: var(--profile-hero-image);
-    background-position: center;
+    background-position: center 38%;
     background-repeat: no-repeat;
-    background-size: min(900px, 76vw) auto;
-    opacity: 0.62;
+    background-size: cover;
+    opacity: 0.78;
     filter: saturate(1.04);
 }
 
@@ -1881,14 +1845,12 @@ a.home-info-card-link:hover,
     position: absolute;
     z-index: 1;
     inset: 0;
-    background-image:
-        linear-gradient(color-mix(in srgb, var(--accent) 11%, transparent) 1px, transparent 1px),
-        linear-gradient(90deg, color-mix(in srgb, var(--accent) 11%, transparent) 1px, transparent 1px);
-    background-size: 36px 36px;
-    mask-image: linear-gradient(to bottom, transparent 0%, black 26%, black 82%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 26%, black 82%, transparent 100%);
-    opacity: 0.38;
-    animation: profileGridDrift 20s linear infinite;
+    background-image: var(--dot-pattern);
+    background-size: var(--dot-gap) var(--dot-gap);
+    mask-image: linear-gradient(to bottom, transparent 0%, black 30%, black 78%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 30%, black 78%, transparent 100%);
+    opacity: 0.5;
+    animation: dotGridDrift 26s linear infinite, dotGridBreathe 7s ease-in-out infinite alternate;
     pointer-events: none;
 }
 
@@ -1908,6 +1870,7 @@ a.home-info-card-link:hover,
 .profile-hero-overlay {
     z-index: 3;
     background:
+        linear-gradient(to bottom, transparent 72%, var(--bg-base) 100%),
         radial-gradient(circle at 50% 58%, transparent 0 23%, rgb(4 8 13 / 0.12) 54%, rgb(4 8 13 / 0.42) 100%),
         linear-gradient(to bottom, rgb(4 8 13 / 0.04) 0%, rgb(4 8 13 / 0.15) 46%, rgb(4 8 13 / 0.68) 100%);
 }
@@ -2147,8 +2110,13 @@ a.home-info-card-link:hover,
     background: color-mix(in srgb, var(--bg-glass-heavy) 84%, transparent);
 }
 
-@keyframes profileGridDrift {
-    to { background-position: 36px 36px, 36px 36px; }
+@keyframes dotGridDrift {
+    to { background-position: var(--dot-gap) var(--dot-gap); }
+}
+
+@keyframes dotGridBreathe {
+    from { opacity: 0.32; }
+    to { opacity: 0.58; }
 }
 
 @keyframes profileLightSweep {
@@ -2274,8 +2242,7 @@ a.home-info-card-link:hover,
     }
 
     .profile-hero-bg::after {
-        background-size: min(760px, 110vw) auto;
-        opacity: 0.52;
+        opacity: 0.66;
     }
 
     .profile-hero-share {
@@ -2434,207 +2401,214 @@ a.home-info-card-link:hover,
 }
 
 
-/* ── Responsive safe-zone ASCII portrait hero ───────────── */
-.home-hero.ascii-hero {
-    min-height: 720px;
+/* ── Full-bleed heroes: span the viewport, content stays on the main rail ── */
+/* The desktop sidebar floats over the hero; padding keeps copy centred in the
+   area right of it. --sidebar-width is 0 on mobile, so one rule covers both. */
+.home-hero,
+.profile-hero {
+    box-sizing: border-box;
+    width: 100vw;
+    margin-left: calc(50% - 50vw - var(--sidebar-width) / 2);
+    margin-right: calc(50% - 50vw + var(--sidebar-width) / 2);
+    padding-left: var(--sidebar-width);
+}
+
+.profile-hero-share,
+.profile-hero-content {
+    left: calc(50% + var(--sidebar-width) / 2);
+}
+
+.profile-hero-share {
+    width: min(64rem, calc(100% - var(--sidebar-width) - 56px));
+}
+
+.profile-hero-content {
+    width: min(64rem, calc(100% - var(--sidebar-width) - 56px));
+}
+
+/* ── Dot hero: one accent dot field across the whole hero ─────────── */
+.home-hero.dot-hero {
+    --dot-field-ambient: 0.13;
+    --dot-field-strength: 0.92;
+    min-height: min(860px, max(680px, 100svh));
     overflow: hidden;
 }
 
-.home-hero.ascii-hero .home-hero-aurora,
-.home-hero.ascii-hero .hero-wave-back,
-.home-hero.ascii-hero .hero-wave-front {
-    animation: none !important;
-    transform: none !important;
+[data-theme="light"] .home-hero.dot-hero {
+    --dot-field-ambient: 0.2;
+    --dot-field-strength: 1;
 }
 
-.home-hero.ascii-hero .home-hero-content {
-    position: relative;
-    display: grid;
-    grid-template-columns: minmax(0, 0.82fr) minmax(430px, 1.18fr);
-    align-items: center;
-    gap: clamp(56px, 7vw, 112px);
-    min-height: 610px;
-    width: min(78rem, calc(100% - 72px));
-    margin: auto auto 76px;
-    padding: 54px 0 72px;
+.home-hero.dot-hero .hero-dot-field {
+    z-index: 1;
+    /* Fade the field into the page at the top and into the waves at the bottom. */
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 9%, #000 80%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 9%, #000 80%, transparent 100%);
 }
 
-.home-hero.ascii-hero .home-hero-copy {
-    position: relative;
-    z-index: 4;
-    width: min(100%, 540px);
-    padding: 0;
-}
-
-.home-hero.ascii-hero .home-hero-copy::before {
-    display: none;
-}
-
-.home-hero.ascii-hero .home-hero-visual {
-    position: relative;
-    z-index: 2;
-    width: min(100%, 760px);
-    height: clamp(440px, 52vw, 590px);
-    max-width: none;
-    aspect-ratio: auto;
-    justify-self: end;
-    overflow: visible;
-    isolation: isolate;
-    filter: none;
-    transform: none;
+/* Copy legibility over the field: a soft pool of page colour behind the text. */
+.home-hero.dot-hero .home-hero-copy::before {
+    content: "";
+    display: block;
+    position: absolute;
+    z-index: -1;
+    inset: -18% -22% -18% -30%;
+    background: radial-gradient(ellipse 60% 56% at 44% 50%, color-mix(in srgb, var(--bg-base) 72%, transparent), transparent 74%);
     pointer-events: none;
 }
 
-.home-hero.ascii-hero .hero-ascii-frame {
-    position: absolute;
-    inset: 2% 1%;
+.home-hero.dot-hero .home-hero-content {
+    position: relative;
+    z-index: 2;
     display: grid;
-    place-items: center;
-    overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--accent) 10%, var(--border-color));
-    border-radius: clamp(28px, 3.2vw, 46px);
-    background:
-        radial-gradient(
-            ellipse 74% 84% at 50% 48%,
-            color-mix(in srgb, var(--accent) 5%, transparent),
-            transparent 74%
-        ),
-        color-mix(in srgb, var(--bg-card) 26%, transparent);
-    box-shadow:
-        inset 0 1px 0 color-mix(in srgb, white 18%, transparent),
-        0 18px 44px -34px color-mix(in srgb, var(--shadow-heavy) 68%, transparent);
-    -webkit-mask-image: none;
-    mask-image: none;
-    animation: none !important;
-    transform: none !important;
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+    align-items: center;
+    gap: clamp(28px, 4vw, 64px);
+    /* Matches .page-content's inner width so hero copy lines up with sections. */
+    width: min(992px, calc(100% - 88px));
+    min-height: 600px;
+    margin: auto auto 76px;
+    padding: 48px 0 72px;
 }
 
-.home-hero.ascii-hero .hero-ascii-art {
-    position: absolute;
-    inset: 0;
+.home-hero.dot-hero .home-hero-copy {
+    position: relative;
+    z-index: 4;
     width: 100%;
-    height: 100%;
-    opacity: 0.78;
-    filter:
-        contrast(1.03)
-        drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 6%, transparent));
+    padding: 0;
 }
 
-.home-hero.ascii-hero .hero-visual-grid,
-.home-hero.ascii-hero .hero-visual-glow,
-.home-hero.ascii-hero .hero-fluid,
-.home-hero.ascii-hero .hero-glass-orbit,
-.home-hero.ascii-hero .hero-glass-core,
-.home-hero.ascii-hero .hero-float-chip {
-    display: none !important;
-    animation: none !important;
+/* Layout slot only: DotField reads this box to place the portrait. */
+.home-hero.dot-hero .home-hero-visual {
+    width: 100%;
+    height: clamp(440px, 46vw, 620px);
+    max-width: none;
+    aspect-ratio: auto;
+    justify-self: stretch;
+    filter: none;
+    pointer-events: none;
 }
 
-.home-hero.ascii-hero .home-hero-title {
-    max-width: 9.5ch;
+/* One line while it fits: the title may run across the column gap (the portrait
+   is feathered, so the gap is empty) and only wraps before reaching the face. */
+.home-hero.dot-hero .home-hero-title {
+    max-width: none;
+    margin-right: calc(-1 * clamp(28px, 4vw, 64px));
+    text-wrap: balance;
 }
 
-.home-hero.ascii-hero .home-hero-subtitle,
-.home-hero.ascii-hero .home-hero-description {
+/* background-clip:text paints only inside the box; with tight line-height and
+   negative tracking, descenders (g) and the last glyph's overhang were clipped.
+   Pad the paint box and cancel the padding so layout is unchanged. */
+.home-hero-title .accent-gradient {
+    padding: 0.04em 0.12em 0.16em 0.02em;
+    margin: -0.04em -0.12em -0.16em -0.02em;
+}
+
+.home-hero.dot-hero .home-hero-subtitle,
+.home-hero.dot-hero .home-hero-description {
     max-width: 52ch;
 }
 
-.home-hero.ascii-hero .home-hero-actions {
+.home-hero.dot-hero .home-hero-actions {
     margin-top: 28px;
 }
 
 @media (max-width: 1100px) {
-    .home-hero.ascii-hero .home-hero-content {
-        grid-template-columns: minmax(0, 0.9fr) minmax(360px, 1.1fr);
-        gap: clamp(38px, 5vw, 68px);
-        width: min(68rem, calc(100% - 48px));
+    .home-hero.dot-hero .home-hero-content {
+        gap: clamp(28px, 4vw, 56px);
+    }
+}
+
+@media (max-width: 980px) {
+    .home-hero.dot-hero .home-hero-content {
+        width: calc(100% - 48px);
+        text-align: left;
     }
 
-    .home-hero.ascii-hero .home-hero-visual {
-        height: clamp(400px, 52vw, 520px);
+    /* Undo the generic ≤980px centred hero; the dot hero keeps copy left-aligned. */
+    .home-hero.dot-hero .home-hero-copy {
+        justify-items: start;
+    }
+
+    .home-hero.dot-hero .home-hero-subtitle,
+    .home-hero.dot-hero .home-hero-description {
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    .home-hero.dot-hero .home-hero-actions {
+        justify-content: flex-start;
+    }
+
+    .home-hero.dot-hero .home-hero-visual {
+        height: clamp(400px, 50vw, 520px);
     }
 }
 
 @media (max-width: 860px) {
-    .home-hero.ascii-hero {
-        min-height: 860px;
+    .home-hero.dot-hero {
+        min-height: 0;
     }
 
-    .home-hero.ascii-hero .home-hero-content {
+    .home-hero.dot-hero .home-hero-content {
         grid-template-columns: 1fr;
-        align-content: center;
-        gap: 30px;
-        width: min(44rem, calc(100% - 40px));
-        min-height: 750px;
-        padding: 62px 0 84px;
-        text-align: left;
+        align-content: start;
+        gap: 8px;
+        min-height: 0;
+        padding: 24px 0 88px;
     }
 
-    .home-hero.ascii-hero .home-hero-copy {
-        width: min(100%, 600px);
-    }
-
-    .home-hero.ascii-hero .home-hero-visual {
+    .home-hero.dot-hero .home-hero-visual {
         grid-row: 1;
-        width: min(100%, 620px);
-        height: clamp(330px, 56vw, 440px);
-        justify-self: center;
+        height: clamp(300px, 62vw, 440px);
     }
 
-    .home-hero.ascii-hero .home-hero-copy {
+    .home-hero.dot-hero .home-hero-title {
+        margin-right: 0;
+    }
+
+    .home-hero.dot-hero .home-hero-copy {
         grid-row: 2;
-        justify-self: center;
+        justify-self: stretch;
+        width: 100%;
     }
 }
 
 @media (max-width: 768px) {
-    .home-hero.ascii-hero {
-        min-height: 820px;
+    .home-hero.dot-hero {
         margin-top: -68px;
-        padding-top: 84px;
+        padding-top: 72px;
     }
 
-    .home-hero.ascii-hero .home-hero-content {
-        width: calc(100% - 28px);
-        min-height: 700px;
-        gap: 28px;
-        padding: 38px 0 72px;
+    .home-hero.dot-hero .home-hero-content {
+        width: calc(100% - 32px);
+        padding-bottom: 76px;
     }
 
-    .home-hero.ascii-hero .home-hero-visual {
-        width: min(100%, 520px);
-        height: clamp(300px, 82vw, 410px);
-    }
-
-    .home-hero.ascii-hero .home-hero-copy {
-        width: 100%;
-        padding: 0 4px;
-        text-align: left;
-    }
-
-    .home-hero.ascii-hero .home-hero-actions {
-        justify-content: flex-start;
+    .home-hero.dot-hero .home-hero-visual {
+        height: clamp(280px, 86vw, 400px);
     }
 }
 
 @media (max-width: 480px) {
-    .home-hero.ascii-hero {
-        min-height: 760px;
+    .home-hero.dot-hero .home-hero-title {
+        font-size: clamp(38px, 11.5vw, 52px);
     }
 
-    .home-hero.ascii-hero .home-hero-content {
-        min-height: 650px;
-        gap: 22px;
-        padding-bottom: 62px;
-    }
-
-    .home-hero.ascii-hero .home-hero-visual {
+    .home-hero.dot-hero .home-hero-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
         width: 100%;
-        height: 300px;
     }
 
-    .home-hero.ascii-hero .home-hero-title {
-        max-width: 11ch;
+    .home-hero.dot-hero .home-hero-actions .home-btn:first-child {
+        grid-column: 1 / -1;
+    }
+
+    .home-hero.dot-hero .home-hero-actions .home-btn {
+        justify-content: center;
+        text-align: center;
     }
 }
 
@@ -2761,5 +2735,158 @@ a.home-info-card-link:hover,
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .article-body {
         background: color-mix(in srgb, var(--bg-primary) 97%, var(--bg-card) 3%);
+    }
+}
+
+/* ── Gallery cards: same glass card family as posts/projects ──────── */
+.gallery-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+    gap: 20px;
+}
+
+.gallery-card {
+    grid-template-rows: auto 1fr;
+    border: 1px solid color-mix(in srgb, var(--accent) 8%, var(--raksara-glass-border));
+    border-radius: var(--radius-lg);
+    background: var(--raksara-glass);
+    box-shadow: var(--card-shadow);
+    transition:
+        transform 0.32s var(--smooth, ease),
+        border-color 0.32s ease,
+        box-shadow 0.32s ease;
+}
+
+.gallery-card::after {
+    content: "";
+    position: absolute;
+    z-index: 3;
+    top: 0;
+    right: 0;
+    width: 34px;
+    height: 34px;
+    border-top: 2px solid color-mix(in srgb, var(--accent) 58%, transparent);
+    border-right: 2px solid color-mix(in srgb, var(--accent) 58%, transparent);
+    border-top-right-radius: inherit;
+    pointer-events: none;
+    opacity: 0.78;
+}
+
+.gallery-card:hover,
+.gallery-card:focus-within {
+    border-color: color-mix(in srgb, var(--accent) 28%, var(--border-color));
+    transform: translateY(-3px);
+    box-shadow: var(--card-shadow-hover);
+}
+
+/* Framed media well: blurred LQIP fills the letterbox, image stays uncropped. */
+.gallery-card-img {
+    margin: 10px 10px 0;
+    width: auto;
+    aspect-ratio: 4 / 3;
+    min-height: 0;
+    block-size: auto;
+    border-radius: calc(var(--radius-lg) - 8px);
+    background:
+        radial-gradient(ellipse at 50% 40%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%),
+        color-mix(in srgb, var(--bg-base) 60%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-color) 80%, transparent);
+}
+
+.gallery-card-img img {
+    transition:
+        opacity 0.35s ease,
+        transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    filter: drop-shadow(0 14px 28px rgb(0 0 0 / 0.28));
+}
+
+.gallery-card:hover .gallery-card-img img {
+    transform: scale(1.025);
+}
+
+.gallery-card-img:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.gallery-list .gallery-card .gallery-card-info {
+    min-height: 0;
+    padding: 16px 18px 18px;
+    border-top: 0;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+[data-theme="light"] .gallery-list .gallery-card .gallery-card-info {
+    background: transparent;
+}
+
+.gallery-card-title {
+    font-size: 16.5px;
+    letter-spacing: -0.015em;
+}
+
+.gallery-card-caption {
+    margin-bottom: 14px;
+    line-height: 1.55;
+}
+
+.gallery-card-footer {
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-top: 12px;
+    border-top: 1px dashed color-mix(in srgb, var(--accent) 14%, var(--border-color));
+}
+
+.gallery-card-footer .gallery-card-tags {
+    min-height: 0;
+    min-width: 0;
+}
+
+.gallery-card-footer .tag {
+    padding: 2px 9px;
+    font-size: 11px;
+}
+
+.gallery-card-date {
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+.gallery-image-count {
+    top: 10px;
+    right: 10px;
+    padding: 5px 10px;
+    border: 1px solid rgb(255 255 255 / 0.16);
+    background: rgb(6 10 16 / 0.58);
+    box-shadow: 0 6px 18px rgb(0 0 0 / 0.24);
+}
+
+@media (max-width: 640px) {
+    .gallery-list {
+        gap: 16px;
+    }
+
+    .gallery-card-img {
+        margin: 8px 8px 0;
+    }
+
+    .gallery-list .gallery-card .gallery-card-info {
+        padding: 14px 14px 16px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gallery-card,
+    .gallery-card-img img {
+        transition: none;
+    }
+
+    .gallery-card:hover,
+    .gallery-card:focus-within,
+    .gallery-card:hover .gallery-card-img img {
+        transform: none;
     }
 }

@@ -2,7 +2,7 @@
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
 	import { heroTyping } from '$lib/actions/typing';
-	import AsciiArt from '$lib/components/AsciiArt.svelte';
+	import DotField from '$lib/components/DotField.svelte';
 	import { assetUrl, formatDate } from '$lib/utils';
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import { buildWebSiteSchema, buildPersonSchema, serializeJsonLd } from '$lib/seo';
@@ -19,6 +19,7 @@
 	const heroTitle    = $derived(hero?.title ?? config?.hero_title ?? config?.title ?? '');
 	const heroSubtitle = $derived(hero?.subtitle ?? config?.hero_subtitle ?? config?.description ?? '');
 	const heroPortrait = $derived(bundle?.profile?.avatar ? assetUrl(bundle.profile.avatar) : '');
+	let heroVisual: HTMLDivElement | null = $state(null);
 
 	// SEO
 	const seoTitle       = $derived(homePageConfig?.seo?.title ?? config?.hero_title ?? config?.title ?? '');
@@ -82,8 +83,16 @@
 </svelte:head>
 
 <!-- ── Hero ─────────────────────────────────────────── -->
-<section class="home-hero{heroPortrait ? ' ascii-hero' : ''}" id="profile-hero">
+<section class="home-hero{heroPortrait ? ' dot-hero' : ''}" id="profile-hero">
 	<div class="home-hero-aurora" aria-hidden="true"></div>
+	{#if heroPortrait}
+		<DotField
+			src={heroPortrait}
+			anchor={heroVisual}
+			label={`Dot portrait of ${heroTitle}`}
+			className="hero-dot-field"
+		/>
+	{/if}
 	<div class="home-hero-content">
 		<div class="home-hero-copy">
 			{#if hero?.eyebrow}
@@ -113,20 +122,8 @@
 			{/if}
 		</div>
 
-		<div class="home-hero-visual" aria-hidden="true">
-			{#if heroPortrait}
-				<div class="hero-ascii-frame">
-					<AsciiArt
-						src={heroPortrait}
-						resolution={120}
-						charset="dots"
-						color="var(--text-tertiary)"
-						backgroundColor="transparent"
-						objectFit="contain"
-						className="hero-ascii-art"
-					/>
-				</div>
-			{:else}
+		<div class="home-hero-visual" aria-hidden="true" bind:this={heroVisual}>
+			{#if !heroPortrait}
 				<div class="hero-visual-grid"></div>
 				<div class="hero-visual-glow hero-visual-glow-a"></div>
 				<div class="hero-visual-glow hero-visual-glow-b"></div>
