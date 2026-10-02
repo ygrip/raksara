@@ -80,8 +80,8 @@
     position: relative;
     isolation: isolate;
     overflow: hidden;
-    width: min(100%, 72rem);
-    margin: 4rem auto 0;
+    width: 100%;
+    margin: 4rem 0 0;
     padding: clamp(1.25rem, 2.4vw, 1.7rem);
     border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
     border-radius: 1.5rem;
