@@ -838,7 +838,7 @@ Animated progress bar counting from 0 to the target value on scroll-into-view.
 |---|---|---|
 | `total` | `100` | Maximum integer value |
 | `current` | `0` | Current integer value (clamped to `total`) |
-| `color` | accent | `red` `purple` `green` `blue` `white` `yellow` `orange` or any CSS color |
+| `color` | accent | `red` `purple` `green` `blue` `white` `yellow` `amber` `orange` or any CSS color |
 | `border` | — | Optional border color for the bar wrapper |
 
 `<bar>` attributes:
