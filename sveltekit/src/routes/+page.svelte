@@ -118,9 +118,9 @@
 				<div class="hero-ascii-frame">
 					<AsciiArt
 						src={heroPortrait}
-						resolution={140}
-						charset="dots"
-						color="var(--accent)"
+						resolution={112}
+						charset="braille"
+						color="var(--text-tertiary)"
 						backgroundColor="transparent"
 						objectFit="contain"
 						className="hero-ascii-art"
