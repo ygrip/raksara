@@ -207,7 +207,6 @@
   aria-label="ASCII portrait generated from the profile image"
 >
   <canvas bind:this={canvas} aria-hidden="true"></canvas>
-  <span class="ascii-art-scan" aria-hidden="true"></span>
 </div>
 
 <style>
@@ -233,44 +232,7 @@
     opacity: 0.96;
   }
 
-  .ascii-art-scan {
-    position: absolute;
-    inset: -24% -12%;
-    background: linear-gradient(
-      105deg,
-      transparent 36%,
-      color-mix(in srgb, var(--accent) 13%, white 7%) 49%,
-      transparent 62%
-    );
-    mix-blend-mode: screen;
-    transform: translateX(-62%) rotate(-8deg);
-    animation: ascii-scan 7.5s ease-in-out infinite;
-    pointer-events: none;
-  }
-
-  @keyframes ascii-scan {
-    0%, 22% {
-      transform: translateX(-68%) rotate(-8deg);
-      opacity: 0;
-    }
-    34% {
-      opacity: 0.72;
-    }
-    66% {
-      opacity: 0.5;
-    }
-    78%, 100% {
-      transform: translateX(68%) rotate(-8deg);
-      opacity: 0;
-    }
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .ascii-art-scan {
-      animation: none;
-      opacity: 0;
-    }
-
     canvas {
       transition: none;
     }
