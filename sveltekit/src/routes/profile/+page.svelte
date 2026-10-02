@@ -149,7 +149,9 @@
 				const label = button.querySelector('span');
 				const original = label?.textContent ?? 'Share';
 				if (label) label.textContent = 'Generating...';
-				buttons.forEach((candidate) => (candidate.disabled = true));
+				buttons.forEach((candidate) => {
+					candidate.disabled = true;
+				});
 				try {
 					await shareContent({
 						title: profile?.title ?? 'Profile',
@@ -163,7 +165,9 @@
 						url: location.href,
 					});
 				} finally {
-					buttons.forEach((candidate) => (candidate.disabled = false));
+					buttons.forEach((candidate) => {
+						candidate.disabled = false;
+					});
 					if (label) label.textContent = original;
 				}
 			});
