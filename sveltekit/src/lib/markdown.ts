@@ -594,7 +594,7 @@ function preprocessProgress(md: string): string {
 function progressColor(name: string): string {
   const map: Record<string, string> = {
     red: '#ef4444', purple: 'var(--accent)', green: '#22c55e',
-    blue: '#3b82f6', white: '#ffffff', yellow: '#eab308', orange: '#f97316',
+    blue: '#3b82f6', white: '#ffffff', yellow: '#eab308', amber: '#d97706', orange: '#f97316',
   };
   return map[name.toLowerCase()] || escapeHtml(name || 'var(--accent)');
 }
