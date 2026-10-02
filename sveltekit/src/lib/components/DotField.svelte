@@ -387,7 +387,7 @@
 
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const lowPower = window.matchMedia('(max-width: 767px), (pointer: coarse)');
-    const shouldAnimate = () => !reducedMotion.matches && !lowPower.matches;
+    const canAnimate = () => !reducedMotion.matches;
     let disposed = false;
     let image: HTMLImageElement | null = null;
     let field: Field | null = null;
@@ -546,24 +546,48 @@
         }
         paint((now - start) / 1000, true, now);
       }
+      const mobileIdle =
+        lowPower.matches &&
+        !pointerActive &&
+        pointerLift < 0.01 &&
+        ripples.length === 0;
+
+      if (mobileIdle) {
+        paint(0, false, now);
+        return;
+      }
+
       frame = requestAnimationFrame(tick);
     };
 
     const schedule = () => {
       if (disposed) return;
-      if (!shouldAnimate()) {
+      if (!canAnimate()) {
         cancelAnimationFrame(frame);
         frame = 0;
         paint(0, false);
         return;
       }
+
+      const mobileIdle =
+        lowPower.matches &&
+        !pointerActive &&
+        pointerLift < 0.01 &&
+        ripples.length === 0;
+
+      if (mobileIdle) {
+        cancelAnimationFrame(frame);
+        frame = 0;
+        paint(0, false);
+        return;
+      }
+
       if (!frame && visible) frame = requestAnimationFrame(tick);
     };
 
     const rebuild = () => {
       readTheme();
       resize();
-      if (!shouldAnimate()) paint(0, false);
       ready = Boolean(field);
       schedule();
     };
@@ -606,7 +630,7 @@
 
     const themeObserver = new MutationObserver(() => {
       readTheme();
-      if (!shouldAnimate()) paint(0, false);
+      if (!canAnimate() || lowPower.matches) paint(0, false);
     });
     themeObserver.observe(document.documentElement, {
       attributes: true,
@@ -644,15 +668,18 @@
         pointerY = p.y;
       }
       pointerActive = true;
+      schedule();
     };
     const release = () => {
       pointerActive = false;
+      schedule();
     };
     const addRipple = (clientX: number, clientY: number) => {
       const p = toLocal(clientX, clientY);
       if (!p) return;
       ripples.push({ x: p.x, y: p.y, t: performance.now() });
       if (ripples.length > MAX_RIPPLES) ripples.shift();
+      schedule();
     };
     const onPointerMove = (event: PointerEvent) => {
       if (event.pointerType === 'touch') return;
@@ -672,7 +699,7 @@
       const touch = event.touches[0];
       if (touch) track(touch.clientX, touch.clientY);
     };
-    const interactive = shouldAnimate();
+    const interactive = canAnimate();
     if (interactive) {
       pointerTarget.addEventListener('pointermove', onPointerMove, { passive: true });
       pointerTarget.addEventListener('pointerdown', onPointerDown, { passive: true });
