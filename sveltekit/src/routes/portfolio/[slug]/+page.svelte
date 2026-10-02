@@ -100,18 +100,27 @@
 		<h1>{item?.title ?? ''}</h1>
 
 		<div class="article-meta">
-			{#if item?.category}
-				<a href="/category/{item.category}" class="post-card-category">{item.category}</a>
+			<div class="article-meta-primary">
+				{#if item?.date}
+					<time class="article-date" datetime={item.date}>
+						<svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+						{formatDate(item.date)}
+					</time>
+				{/if}
+				{#if item?.category}
+					<a href="/category/{item.category}" class="post-card-category">{item.category}</a>
+				{/if}
+				{#if item?.status}
+					<span class="status-chip status-{item.status}">{item.status}</span>
+				{/if}
+			</div>
+			{#if item?.tags?.length}
+				<div class="article-tags">
+					{#each item.tags as tag}
+						<a href="/tag/{tag}" class="tag">{tag}</a>
+					{/each}
+				</div>
 			{/if}
-			{#if item?.status}
-				<span class="status-chip status-{item.status}">{item.status}</span>
-			{/if}
-			{#if item?.date}
-				<time>{formatDate(item.date)}</time>
-			{/if}
-			{#each (item?.tags ?? []) as tag}
-				<a href="/tag/{tag}" class="tag">{tag}</a>
-			{/each}
 		</div>
 
 		<div class="portfolio-detail-links">

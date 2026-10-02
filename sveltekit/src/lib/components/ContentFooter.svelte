@@ -48,6 +48,9 @@
   });
 </script>
 
+<!-- Grows inside .page-content's flex column so the footer sits at the bottom
+     of short pages; its min height is the footer's top spacing. -->
+<div class="content-footer-spacer" aria-hidden="true"></div>
 <footer class="content-footer">
   <span class="content-footer-grid" aria-hidden="true"></span>
   <span class="content-footer-glow" aria-hidden="true"></span>
@@ -76,12 +79,22 @@
 </footer>
 
 <style>
+  .content-footer-spacer {
+    flex: 1 0 4rem;
+  }
+
+  /* The spacer owns the gap; drop the preceding block's bottom margin so it
+     doesn't stack on top (flex items don't collapse margins). */
+  :global(.page-content > :has(+ .content-footer-spacer)) {
+    margin-bottom: 0;
+  }
+
   .content-footer {
     position: relative;
     isolation: isolate;
     overflow: hidden;
     width: 100%;
-    margin: 4rem 0 0;
+    margin: 0;
     padding: clamp(1.25rem, 2.4vw, 1.7rem);
     border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
     border-radius: 1.5rem;
@@ -253,10 +266,13 @@
   }
 
   @media (max-width: 640px) {
+    .content-footer-spacer {
+      flex-basis: 3rem;
+    }
+
     .content-footer {
       align-items: flex-start;
       flex-direction: column;
-      margin-top: 3rem;
       padding: 1.1rem;
       border-radius: 1.25rem;
       text-align: left;

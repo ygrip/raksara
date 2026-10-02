@@ -320,8 +320,8 @@
 							<div class="thought-card">
 								<p class="thought-body">{thought.body ?? thought.title}</p>
 								<div class="thought-meta">
-									{#if thought.title}<span class="thought-title">{thought.title}</span><span>·</span>{/if}
-									<span>{formatDate(thought.date)}</span>
+									{#if thought.title}<span class="thought-title">{thought.title}</span>{/if}
+									<span class="thought-date">{formatDate(thought.date)}</span>
 								</div>
 							</div>
 						{/each}
@@ -492,8 +492,8 @@
 					<div class="thought-card">
 						<p class="thought-body">{thought.body ?? thought.title}</p>
 						<div class="thought-meta">
-							{#if thought.title}<span class="thought-title">{thought.title}</span><span>·</span>{/if}
-							<span>{formatDate(thought.date)}</span>
+							{#if thought.title}<span class="thought-title">{thought.title}</span>{/if}
+							<span class="thought-date">{formatDate(thought.date)}</span>
 						</div>
 					</div>
 				{/each}

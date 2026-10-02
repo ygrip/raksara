@@ -1804,18 +1804,14 @@ function renderPostCardPrerender(post, options = {}, imageManifest) {
 
 function renderThoughtCardPrerender(thought) {
   const tagsHtml = (thought.tags || [])
-    .map(
-      (tag) =>
-        `<span class="tag" style="padding:2px 8px;font-size:11px">${escapeHtml(tag)}</span>`,
-    )
+    .map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`)
     .join("");
   return `
       <div class="thought-card">
         <div class="thought-body">${escapeHtml(thought.body || "")}</div>
         <div class="thought-meta">
           <span class="thought-title">${escapeHtml(thought.title)}</span>
-          <span>·</span>
-          <span class="post-card-date">${formatDate(thought.date)}</span>
+          <span class="thought-date">${formatDate(thought.date)}</span>
           ${tagsHtml}
         </div>
       </div>`;

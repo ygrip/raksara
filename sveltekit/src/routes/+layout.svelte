@@ -539,8 +539,12 @@
 		flex-direction: column;
 	}
 
+	/* Column flex so ContentFooter's spacer can push the footer to the bottom
+	   on short pages. */
 	.page-content {
 		width: 100%;
-		flex: 1;
+		flex: 1 0 auto;
+		display: flex;
+		flex-direction: column;
 	}
 </style>

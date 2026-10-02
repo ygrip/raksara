@@ -1206,14 +1206,14 @@
 			? new Date(opts.date + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 			: '';
 		const tagsHtml = (opts.tags ?? [])
-			.map((t) => `<a href="#" class="tag" style="padding:2px 8px;font-size:11px" onclick="return false">${esc(t)}</a>`)
+			.map((t) => `<a href="#" class="tag" onclick="return false">${esc(t)}</a>`)
 			.join('');
 		return `<ul class="thoughts-list" style="pointer-events:none">
 			<li class="thought-card">
 				<div class="thought-body">${bodyHtml}</div>
 				<div class="thought-meta">
-					${title ? `<span class="thought-title">${esc(title)}</span><span>·</span>` : ''}
-					${dateStr ? `<span>${esc(dateStr)}</span>` : ''}
+					${title ? `<span class="thought-title">${esc(title)}</span>` : ''}
+					${dateStr ? `<span class="thought-date">${esc(dateStr)}</span>` : ''}
 					${tagsHtml}
 				</div>
 			</li>
@@ -2768,9 +2768,9 @@
 												<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 												<div bind:this={prPreviewEl} class="thought-body article-body">{@html prDetailPreviewHtml}</div>
 												<div class="thought-meta">
-													{#if fm.title}<span class="thought-title">{fm.title}</span><span>·</span>{/if}
-													{#if fm.date}<span>{fm.date}</span>{/if}
-													{#each fmTags as tag}<span class="tag" style="padding:2px 8px;font-size:11px">{tag}</span>{/each}
+													{#if fm.title}<span class="thought-title">{fm.title}</span>{/if}
+													{#if fm.date}<span class="thought-date">{fm.date}</span>{/if}
+													{#each fmTags as tag}<span class="tag">{tag}</span>{/each}
 												</div>
 											</li>
 										</ul>

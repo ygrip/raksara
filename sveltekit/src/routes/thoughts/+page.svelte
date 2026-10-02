@@ -101,11 +101,10 @@
 			<div class="thought-meta">
 				{#if thought.body && thought.title}
 					<span class="thought-title">{thought.title}</span>
-					<span>·</span>
 				{/if}
-				<span>{formatDate(thought.date)}</span>
+				<span class="thought-date">{formatDate(thought.date)}</span>
 				{#each (thought.tags ?? []) as tag}
-					<a href="/tag/{tag}" class="tag" style="padding:2px 8px;font-size:11px">{tag}</a>
+					<a href="/tag/{tag}" class="tag">{tag}</a>
 				{/each}
 			</div>
 		</li>

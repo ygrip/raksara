@@ -2683,8 +2683,10 @@ a.home-info-card-link:hover,
         color-mix(in srgb, var(--bg-primary) 93%, transparent);
 }
 
-/* Keep ordinary prose comfortable while allowing media/custom components to use the rail. */
-.article-body > :where(
+/* Keep ordinary prose comfortable while allowing media/custom components to use the rail.
+   :is() (not :where()) so this beats `.article-body h2 { margin: … 0 }` and headings
+   share the paragraphs' left edge. */
+.article-body > :is(
     p,
     h1,
     h2,
@@ -2888,5 +2890,526 @@ a.home-info-card-link:hover,
     .gallery-card:focus-within,
     .gallery-card:hover .gallery-card-img img {
         transform: none;
+    }
+}
+
+/* ── Chips & badges: readable text in both themes ──────────────────── */
+.tag {
+    border-color: color-mix(in srgb, var(--accent) 26%, var(--border-color));
+    background: color-mix(in srgb, var(--accent) 12%, var(--bg-card));
+    color: color-mix(in srgb, var(--accent) 34%, var(--text-primary));
+    font-weight: 600;
+}
+
+.tag:hover {
+    border-color: color-mix(in srgb, var(--accent) 52%, var(--border-color));
+    background: color-mix(in srgb, var(--accent) 20%, var(--bg-card));
+    color: var(--text-primary);
+}
+
+[data-theme="light"] .tag {
+    border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+    background: color-mix(in srgb, var(--accent) 9%, #ffffff);
+    /* Darken the accent so small chip text clears contrast on light fills. */
+    color: color-mix(in srgb, var(--accent) 55%, #10201a);
+}
+
+[data-theme="light"] .tag:hover {
+    background: color-mix(in srgb, var(--accent) 16%, #ffffff);
+    color: color-mix(in srgb, var(--accent) 40%, #0b1611);
+}
+
+[data-theme="light"] .post-card-category {
+    border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+    background: color-mix(in srgb, var(--accent) 15%, #ffffff);
+    color: color-mix(in srgb, var(--accent) 62%, #0b1611);
+}
+
+.chip {
+    gap: 7px;
+    padding: 5px 12px 5px 10px;
+    border-color: color-mix(in srgb, var(--accent) 18%, var(--border-color));
+    background: color-mix(in srgb, var(--accent) 6%, var(--bg-card));
+    line-height: 1.3;
+}
+
+.chip-label {
+    color: var(--text-primary);
+}
+
+.chip-label + .chip-text {
+    padding-left: 7px;
+    border-left: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border-color));
+}
+
+.chip-text {
+    color: color-mix(in srgb, var(--text-primary) 78%, var(--text-secondary));
+}
+
+.chip-icon-fallback::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+[data-theme="light"] .chip {
+    background: color-mix(in srgb, var(--accent) 5%, #ffffff);
+    border-color: color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
+[data-theme="light"] .chip-icon {
+    color: color-mix(in srgb, var(--accent) 70%, #0b1611);
+}
+
+[data-theme="light"] .chip-text {
+    color: #3f3a36;
+}
+
+/* ── Article header: meta row + tag row ───────────────────────────── */
+.article-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.article-meta-primary,
+.article-tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.article-tags {
+    gap: 6px;
+    width: 100%;
+    padding-top: 12px;
+    border-top: 1px dashed color-mix(in srgb, var(--accent) 16%, var(--border-color));
+}
+
+.article-meta .article-date {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 26px;
+    padding: 3px 11px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bg-card) 80%, transparent);
+    color: var(--text-secondary);
+    font-size: 12px;
+    letter-spacing: 0.01em;
+}
+
+.article-meta .article-date svg {
+    color: var(--accent);
+    flex-shrink: 0;
+}
+
+.article-author {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.article-author::before {
+    content: "by ";
+    color: var(--text-tertiary);
+}
+
+.poem-header .article-meta,
+.poem-header .article-meta-primary,
+.poem-header .article-tags {
+    align-items: center;
+    justify-content: center;
+}
+
+/* ── Profile carousel: always-visible, prominent prev/next ───────── */
+.content-carousel-btn {
+    width: var(--carousel-btn-size, 2.9rem);
+    height: var(--carousel-btn-size, 2.9rem);
+    opacity: 1;
+    border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border-color));
+    background: color-mix(in srgb, var(--accent) 16%, var(--bg-glass-heavy));
+    color: var(--accent);
+    backdrop-filter: blur(12px) saturate(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.2);
+    box-shadow:
+        0 10px 26px var(--shadow-color),
+        0 0 0 4px color-mix(in srgb, var(--accent) 10%, transparent),
+        inset 0 1px 0 color-mix(in srgb, white 30%, transparent);
+}
+
+.content-carousel-btn svg {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2.2;
+}
+
+.content-carousel-btn:hover,
+.content-carousel-btn:focus-visible {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #04120b;
+    box-shadow:
+        0 12px 30px var(--accent-glow),
+        0 0 0 5px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.content-carousel-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}
+
+.content-carousel-prev { left: 0.5rem; }
+.content-carousel-next { right: 0.5rem; }
+
+/* The stage's edge-fade mask also faded the buttons (a child's mask can't undo
+   its parent's). Union the fade with opaque discs exactly where the buttons sit. */
+.content-carousel-stage {
+    --carousel-btn-size: 2.9rem;
+    --carousel-btn-inset: 0.5rem;
+    --carousel-btn-mask: radial-gradient(circle closest-side, #000 calc(100% - 1px), transparent);
+    -webkit-mask-image:
+        var(--carousel-btn-mask),
+        var(--carousel-btn-mask),
+        linear-gradient(90deg, transparent 0%, #000 14%, #000 86%, transparent 100%);
+    mask-image:
+        var(--carousel-btn-mask),
+        var(--carousel-btn-mask),
+        linear-gradient(90deg, transparent 0%, #000 14%, #000 86%, transparent 100%);
+    -webkit-mask-size: var(--carousel-btn-size) var(--carousel-btn-size), var(--carousel-btn-size) var(--carousel-btn-size), 100% 100%;
+    mask-size: var(--carousel-btn-size) var(--carousel-btn-size), var(--carousel-btn-size) var(--carousel-btn-size), 100% 100%;
+    -webkit-mask-position: left var(--carousel-btn-inset) top 50%, right var(--carousel-btn-inset) top 50%, 0 0;
+    mask-position: left var(--carousel-btn-inset) top 50%, right var(--carousel-btn-inset) top 50%, 0 0;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    mask-composite: add;
+}
+
+@media (max-width: 640px) {
+    .content-carousel-stage {
+        --carousel-btn-size: 2.5rem;
+    }
+}
+
+/* ── Profile metadata: label-over-value tiles ─────────────────────── */
+.profile-metadata {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 168px), 1fr));
+    gap: 10px;
+    padding: 10px;
+}
+
+.profile-meta-chip {
+    position: relative;
+    display: grid;
+    align-content: center;
+    gap: 4px;
+    min-height: 64px;
+    padding: 11px 14px;
+    border: 1px solid color-mix(in srgb, var(--accent) 14%, var(--border-color));
+    border-radius: 16px;
+    color: var(--text-primary);
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.35;
+    white-space: normal;
+    text-decoration: none;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.profile-meta-chip .meta-label {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+[data-theme="light"] .profile-meta-chip .meta-label {
+    color: color-mix(in srgb, var(--accent) 65%, #0b1611);
+}
+
+.profile-meta-chip.has-link::after {
+    content: "↗";
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    color: var(--accent);
+    font-size: 13px;
+}
+
+.profile-meta-chip.has-link:hover {
+    transform: translateY(-2px);
+    color: var(--text-primary);
+    border-color: color-mix(in srgb, var(--accent) 50%, var(--border-color));
+    background: color-mix(in srgb, var(--accent) 10%, var(--punakawan-glass-strong));
+}
+
+@media (max-width: 768px) {
+    .profile-metadata {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    /* Odd count: let the last tile span the row instead of leaving a hole. */
+    .profile-meta-chip:last-child:nth-child(odd) {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 380px) {
+    .profile-metadata {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── Mermaid: framed diagrams; labels keep the author's colours ──── */
+.rk-mermaid {
+    display: flex;
+    justify-content: center;
+    margin: 1.75rem 0;
+    padding: clamp(14px, 2.4vw, 24px);
+    overflow-x: auto;
+    border: 1px solid color-mix(in srgb, var(--accent) 14%, var(--border-color));
+    border-radius: 18px;
+    background:
+        radial-gradient(circle at center, color-mix(in srgb, var(--accent) 12%, transparent) 0 1px, transparent 1.4px) 0 0 / 16px 16px,
+        color-mix(in srgb, var(--bg-card) 82%, transparent);
+}
+
+/* Site prose rules colour <p>/<span>; inside diagrams they must inherit the
+   label colour Mermaid sets (theme default or classDef `color:`), otherwise
+   light-on-light labels become unreadable in dark mode. */
+.article-body .rk-mermaid svg :is(p, span, li, strong, em) {
+    color: inherit !important;
+    margin: 0;
+    max-width: none;
+}
+
+/* ── Thoughts: quotation cards ────────────────────────────────────── */
+.thought-card {
+    display: flex;
+    flex-direction: column;
+    padding: 30px 28px 20px;
+    overflow: hidden;
+}
+
+.thought-card::before {
+    content: "\201C";
+    top: 6px;
+    left: 20px;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 76px;
+    font-weight: 700;
+    line-height: 1;
+    opacity: 0.9;
+    pointer-events: none;
+}
+
+.thought-body {
+    position: relative;
+    margin: 22px 0 0;
+    padding: 2px 0 2px 18px;
+    border-left: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+    color: color-mix(in srgb, var(--text-primary) 88%, var(--text-secondary));
+    font-size: 16px;
+    line-height: 1.75;
+    letter-spacing: -0.005em;
+}
+
+.thought-body > :first-child { margin-top: 0; }
+.thought-body > :last-child { margin-bottom: 0; }
+
+/* Closing mark, tucked to the bottom-right of the quote. */
+.thought-body::after {
+    content: "\201D";
+    position: absolute;
+    right: -6px;
+    bottom: -30px;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 54px;
+    line-height: 1;
+    color: var(--accent);
+    opacity: 0.35;
+    pointer-events: none;
+}
+
+.thought-meta {
+    align-items: center;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 26px;
+}
+
+.thought-meta::before {
+    content: "";
+    flex-basis: 100%;
+    height: 1px;
+    margin-bottom: 6px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 30%, transparent), transparent 80%);
+}
+
+.thought-title {
+    margin-right: auto;
+    color: var(--text-primary);
+    font-size: 13.5px;
+    font-weight: 650;
+}
+
+.thought-title::before {
+    content: "— ";
+    color: var(--accent);
+}
+
+.thought-date {
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    white-space: nowrap;
+}
+
+.thought-meta .tag {
+    padding: 2px 9px;
+    font-size: 11px;
+}
+
+@media (max-width: 640px) {
+    .thought-card {
+        padding: 26px 20px 18px;
+    }
+
+    .thought-card::before {
+        left: 14px;
+        font-size: 64px;
+    }
+
+    .thought-body {
+        font-size: 15px;
+    }
+
+    /* Attribution gets its own line; date + tags wrap beneath it. */
+    .thought-title {
+        flex-basis: 100%;
+    }
+}
+
+/* ── Reading mode: focused, wide-enough paper column ───────────────── */
+body.reading-mode .page-content {
+    width: min(1040px, calc(100% - 48px));
+    max-width: none;
+    margin: 0 auto;
+    padding: 28px 0 80px;
+}
+
+body.reading-mode .page-content > article {
+    max-width: none;
+}
+
+body.reading-mode .bg-gradient {
+    opacity: 0.3;
+}
+
+body.reading-mode .article-top-bar {
+    position: sticky;
+    top: 12px;
+    z-index: 50;
+    margin-bottom: 28px;
+    padding: 8px 10px 8px 18px;
+    border: 1px solid var(--punakawan-glass-border);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bg-glass-heavy) 86%, transparent);
+    backdrop-filter: blur(18px) saturate(1.2);
+    -webkit-backdrop-filter: blur(18px) saturate(1.2);
+    box-shadow: 0 10px 30px var(--shadow-color);
+}
+
+body.reading-mode .article-header {
+    padding: 12px 0 28px;
+    border: 0;
+    background: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    text-align: center;
+}
+
+body.reading-mode .article-header::before,
+body.reading-mode .article-header::after {
+    display: none;
+}
+
+body.reading-mode .article-header h1 {
+    max-width: 22ch;
+    margin-inline: auto;
+    font-size: clamp(32px, 4.2vw, 50px);
+    line-height: 1.08;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+}
+
+body.reading-mode .article-meta {
+    display: flex;
+    align-items: center;
+}
+
+body.reading-mode .article-meta-primary {
+    justify-content: center;
+}
+
+body.reading-mode .article-tags {
+    display: none;
+}
+
+body.reading-mode .article-cover {
+    margin-bottom: 32px;
+    border-radius: 24px;
+    overflow: hidden;
+}
+
+body.reading-mode .article-body {
+    padding: clamp(28px, 6vw, 76px) clamp(20px, 6vw, 88px);
+    border-radius: 28px;
+    background: color-mix(in srgb, var(--bg-primary) 97%, transparent);
+    font-size: 1.14rem;
+    line-height: 1.9;
+}
+
+[data-theme="light"] body.reading-mode .article-body {
+    background: #fffdf9;
+}
+
+/* Fixed measure (not ch) so headings and paragraphs share one left edge. */
+body.reading-mode .article-body > :where(p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote) {
+    max-width: 720px;
+}
+
+body.reading-mode .article-body > :where(h2, h3) {
+    margin-top: 2.4em;
+}
+
+body.reading-mode .article-body p,
+body.reading-mode .article-body li {
+    color: color-mix(in srgb, var(--text-primary) 92%, var(--text-secondary));
+}
+
+@media (max-width: 768px) {
+    body.reading-mode .page-content {
+        width: calc(100% - 24px);
+        padding-top: 14px;
+    }
+
+    body.reading-mode .article-top-bar {
+        top: 8px;
+        padding-left: 14px;
+    }
+
+    body.reading-mode .article-body {
+        font-size: 1.06rem;
+        line-height: 1.82;
+        border-radius: 20px;
     }
 }
