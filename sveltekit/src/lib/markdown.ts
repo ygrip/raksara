@@ -501,6 +501,17 @@ const CHIP_ICONS: Record<string, string> = {
   link: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 9a3 3 0 103-3M10 7a3 3 0 11-1.5 2.6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   user: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.2"/><path d="M2.5 14c0-3 2.5-4.5 5.5-4.5s5.5 1.5 5.5 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
   code: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4.5 3L1 8l3.5 5M11.5 3l3.5 5-3.5 5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  external: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M9 2.5h4.5V7M13.5 2.5L7 9M11.5 9.5v3a1 1 0 01-1 1h-7a1 1 0 01-1-1v-7a1 1 0 011-1h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  sparkles: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6.5 2l1.2 3.3L11 6.5 7.7 7.7 6.5 11 5.3 7.7 2 6.5l3.3-1.2L6.5 2zM12 9.5l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6.6-1.4z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>',
+  coffee: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2.5 6h9v3.5a3.5 3.5 0 01-3.5 3.5H6a3.5 3.5 0 01-3.5-3.5V6zM11.5 7h1a1.5 1.5 0 010 3h-1M5 2v2M7.5 2v2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  timer: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="9" r="5" stroke="currentColor" stroke-width="1.2"/><path d="M8 9V6.5M6.5 1.5h3M12 4.5l1-1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
+  clock: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M8 4.5V8l2.5 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  calendar: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
+  rocket: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M9.5 2.5c2-1 4-1 4-1s0 2-1 4L8.5 9.5l-2-2 3-5zM6.5 7.5L4 7l-2 2 2.5.5M8.5 9.5L9 12l-2 2-.5-2.5M4.5 11.5l-2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  bolt: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M9 1.5L3 9h4.5L7 14.5 13 7H8.5L9 1.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>',
+  book: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 2.5h7.5A2.5 2.5 0 0113 5v8.5H5.5A2.5 2.5 0 013 11V2.5zM3 11a2.5 2.5 0 012.5-2.5H13" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>',
+  heart: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 13.5S2 10 2 5.8A3 3 0 018 4.5a3 3 0 016 1.3C14 10 8 13.5 8 13.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>',
+  globe: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M2 8h12M8 2c1.7 1.6 2.5 3.6 2.5 6S9.7 12.4 8 14C6.3 12.4 5.5 10.4 5.5 8S6.3 3.6 8 2z" stroke="currentColor" stroke-width="1.2"/></svg>',
 };
 
 let _chipStorage: Array<{ icon: string | null; label: string | null; content: string }> = [];
@@ -520,7 +531,15 @@ function injectChips(html: string): string {
   if (_chipStorage.length === 0) return html;
   return html.replace(/\[\[RAKSARA_CHIP:(\d+)\]\]/g, (_m, idxStr) => {
     const { icon, label, content } = _chipStorage[parseInt(idxStr)] ?? { icon: null, label: null, content: '' };
-    const iconHtml = icon ? (CHIP_ICONS[icon] ? `<span class="chip-icon">${CHIP_ICONS[icon]}</span>` : `<span class="chip-icon-text">${escapeHtml(icon)}</span>`) : '';
+    // Known names → SVG; emoji/symbols → shown as-is; unknown plain words get a
+    // neutral dot instead of leaking the icon name into the chip as text.
+    const iconHtml = !icon
+      ? ''
+      : CHIP_ICONS[icon]
+        ? `<span class="chip-icon">${CHIP_ICONS[icon]}</span>`
+        : /^[a-z][a-z0-9_-]*$/i.test(icon)
+          ? `<span class="chip-icon chip-icon-fallback" aria-hidden="true"></span>`
+          : `<span class="chip-icon-text">${escapeHtml(icon)}</span>`;
     const labelHtml = label ? `<span class="chip-label">${escapeHtml(label)}</span>` : '';
     return `<span class="chip glass">${iconHtml}${labelHtml}<span class="chip-text">${escapeHtml(content)}</span></span>`;
   });
@@ -594,7 +613,7 @@ function preprocessProgress(md: string): string {
 function progressColor(name: string): string {
   const map: Record<string, string> = {
     red: '#ef4444', purple: 'var(--accent)', green: '#22c55e',
-    blue: '#3b82f6', white: '#ffffff', yellow: '#eab308', orange: '#f97316',
+    blue: '#3b82f6', white: '#ffffff', yellow: '#eab308', amber: '#b76e00', orange: '#f97316',
   };
   return map[name.toLowerCase()] || escapeHtml(name || 'var(--accent)');
 }

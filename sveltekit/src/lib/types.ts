@@ -262,6 +262,9 @@ export interface HomeBundle {
   portfolio: PortfolioItem[];
   gallery: GalleryItem[];
   config: SiteConfig;
+  profile?: {
+    avatar?: string;
+  };
 }
 
 export interface SearchResult {

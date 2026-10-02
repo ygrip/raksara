@@ -457,6 +457,8 @@ Both formats are supported. If `images` is present it takes priority over
 
 Edit `pages/profile.md` and set the `avatar` and `cover` fields:
 
+When an `avatar` is present, Raksara also uses it automatically as the homepage hero's dot portrait source. The hero renders one full-width accent-colored dot field; the portrait is analysed at runtime — the backdrop tone is sampled from the image border, the subject is cropped and contrast-stretched — so any avatar (studio backdrop, transparent PNG, dark photo) works without manual editing. Dots use the theme `--accent` color and animate subtly (staggered reveal, twinkle, slow glint, pointer lift); users with reduced motion get a static frame. No separate hero image setting is required. Remote avatars must be served with CORS headers, otherwise only the ambient dot field is shown.
+
 ```yaml
 ---
 title: "Your Name"
@@ -838,7 +840,7 @@ Animated progress bar counting from 0 to the target value on scroll-into-view.
 |---|---|---|
 | `total` | `100` | Maximum integer value |
 | `current` | `0` | Current integer value (clamped to `total`) |
-| `color` | accent | `red` `purple` `green` `blue` `white` `yellow` `orange` or any CSS color |
+| `color` | accent | `red` `purple` `green` `blue` `white` `yellow` `amber` `orange` or any CSS color |
 | `border` | — | Optional border color for the bar wrapper |
 
 `<bar>` attributes:

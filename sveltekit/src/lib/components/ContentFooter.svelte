@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { assetUrl } from '$lib/utils';
   interface FooterLink {
     label: string;
     href: string;
@@ -6,6 +7,7 @@
 
   interface Props {
     author?: string;
+    logo?: string;
     year?: number;
     links?: FooterLink[];
   }
@@ -18,39 +20,199 @@
 
   let {
     author,
+    logo,
     year = new Date().getFullYear(),
     links = defaultLinks,
   }: Props = $props();
+
+  let logoSvg = $state('');
+
+  $effect(() => {
+    const source = logo;
+    logoSvg = '';
+    if (!source) return;
+
+    let cancelled = false;
+    fetch(assetUrl(source))
+      .then((response) => (response.ok ? response.text() : Promise.reject()))
+      .then((svg) => {
+        if (!cancelled) logoSvg = svg;
+      })
+      .catch(() => {
+        if (!cancelled) logoSvg = '';
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  });
 </script>
 
+<!-- Grows inside .page-content's flex column so the footer sits at the bottom
+     of short pages; its min height is the footer's top spacing. -->
+<div class="content-footer-spacer" aria-hidden="true"></div>
 <footer class="content-footer">
+  <span class="content-footer-grid" aria-hidden="true"></span>
+  <span class="content-footer-glow" aria-hidden="true"></span>
+
   {#if author}
-    <p class="content-footer-copy">&copy; {year} {author}. All rights reserved.</p>
+    <div class="content-footer-identity">
+      {#if logo}
+        <span class="content-footer-mark" aria-hidden="true">
+          <span class="content-footer-logo-svg">{@html logoSvg}</span>
+        </span>
+      {/if}
+      <div class="content-footer-copy-wrap">
+        <strong>{author}</strong>
+        <p class="content-footer-copy">&copy; {year}. All rights reserved.</p>
+      </div>
+    </div>
   {/if}
 
   {#if links.length > 0}
     <nav class="content-footer-links" aria-label="Site information">
       {#each links as link}
-        <a href={link.href}>{link.label}</a>
+        <a href={link.href}>{link.label}<span aria-hidden="true">↗</span></a>
       {/each}
     </nav>
   {/if}
 </footer>
 
 <style>
+  .content-footer-spacer {
+    flex: 1 0 4rem;
+  }
+
+  /* The spacer owns the gap; drop the preceding block's bottom margin so it
+     doesn't stack on top (flex items don't collapse margins). */
+  :global(.page-content > :has(+ .content-footer-spacer)) {
+    margin-bottom: 0;
+  }
+
   .content-footer {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
     width: 100%;
-    max-width: 800px;
-    margin: auto auto 0;
-    padding: 1.5rem 2rem 2rem;
-    border-top: 1px solid var(--border-color);
+    margin: 0;
+    padding: clamp(1.25rem, 2.4vw, 1.7rem);
+    border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
+    border-radius: 1.5rem;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 0.75rem 1.25rem;
+    gap: 1rem 1.5rem;
+    background:
+      linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--bg-glass-heavy) 92%, white 3%),
+        color-mix(in srgb, var(--bg-card) 92%, transparent)
+      );
+    -webkit-backdrop-filter: blur(18px) saturate(1.12);
+    backdrop-filter: blur(18px) saturate(1.12);
+    box-shadow:
+      0 1px 2px color-mix(in srgb, var(--shadow-color) 58%, transparent),
+      0 22px 54px -30px color-mix(in srgb, var(--shadow-heavy) 88%, transparent),
+      inset 0 1px 0 color-mix(in srgb, white 45%, transparent);
     color: var(--text-tertiary);
     font-size: 0.8rem;
+    text-align: left;
+  }
+
+  /* Same accent dot language as the hero/page canvas, fading from the right. */
+  .content-footer-grid {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    background-image: var(
+      --dot-pattern,
+      radial-gradient(circle at center, color-mix(in srgb, var(--accent) 58%, transparent) 0 1px, transparent 1.6px)
+    );
+    background-size: 14px 14px;
+    background-position: right 7px top 7px;
+    opacity: 0.7;
+    -webkit-mask-image: radial-gradient(ellipse 60% 140% at 100% 50%, #000 0%, transparent 72%);
+    mask-image: radial-gradient(ellipse 60% 140% at 100% 50%, #000 0%, transparent 72%);
+    pointer-events: none;
+  }
+
+  /* Accent hairline along the top edge. */
+  .content-footer::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 1.5rem;
+    right: 1.5rem;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 70%, transparent), transparent);
+    opacity: 0.8;
+    pointer-events: none;
+  }
+
+  .content-footer-glow {
+    position: absolute;
+    z-index: -1;
+    top: -70%;
+    right: -12%;
+    width: 46%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    filter: blur(46px);
+    pointer-events: none;
+  }
+
+  .content-footer-identity {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+  }
+
+  .content-footer-mark {
+    position: relative;
+    width: 2.65rem;
+    height: 2.65rem;
+    flex: 0 0 2.65rem;
+    display: grid;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border-color));
+    border-radius: 0.9rem;
+    background:
+      linear-gradient(145deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
+      var(--bg-glass-heavy);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, white 42%, transparent),
+      0 8px 22px color-mix(in srgb, var(--accent) 10%, transparent);
+    color: var(--accent);
+  }
+
+  .content-footer-logo-svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    display: grid;
+    place-items: center;
+    color: inherit;
+  }
+
+  .content-footer-logo-svg :global(svg) {
+    display: block;
+    width: 1.25rem;
+    height: 1.25rem;
+    color: inherit;
+  }
+
+  .content-footer-copy-wrap {
+    min-width: 0;
+    display: grid;
+    gap: 0.2rem;
+  }
+
+  .content-footer-copy-wrap strong {
+    color: var(--text-primary);
+    font-size: 0.92rem;
+    letter-spacing: -0.015em;
   }
 
   .content-footer-copy {
@@ -61,26 +223,91 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem 1rem;
+    gap: 0.55rem;
   }
 
   .content-footer-links a {
+    min-height: 2.35rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+    border-radius: 0.85rem;
+    background: color-mix(in srgb, var(--bg-glass-heavy) 88%, transparent);
     color: var(--text-secondary);
+    font-weight: 650;
     text-decoration: none;
-    text-underline-offset: 0.2em;
+    transition:
+      transform 160ms ease,
+      color 160ms ease,
+      border-color 160ms ease,
+      background 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .content-footer-links a span {
+    color: var(--accent);
+    opacity: 0.8;
   }
 
   .content-footer-links a:hover,
   .content-footer-links a:focus-visible {
-    color: var(--accent);
-    text-decoration: underline;
+    color: var(--text-primary);
+    border-color: color-mix(in srgb, var(--accent) 46%, var(--border-color));
+    background: color-mix(in srgb, var(--accent) 7%, var(--bg-glass-heavy));
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 10%, transparent);
+    transform: translateY(-2px);
+  }
+
+  .content-footer-links a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 
   @media (max-width: 640px) {
+    .content-footer-spacer {
+      flex-basis: 3rem;
+    }
+
     .content-footer {
       align-items: flex-start;
       flex-direction: column;
-      padding: 1.25rem 1rem 1.5rem;
+      padding: 1.1rem;
+      border-radius: 1.25rem;
+      text-align: left;
+    }
+
+    .content-footer-identity,
+    .content-footer-copy-wrap {
+      width: 100%;
+      text-align: left;
+    }
+
+    .content-footer-links {
+      width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 0.55rem;
+      text-align: left;
+    }
+
+    .content-footer-links a {
+      justify-content: flex-start;
+      text-align: left;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .content-footer-links {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+    }
+
+    .content-footer-links a {
+      justify-content: center;
     }
   }
 </style>

@@ -40,7 +40,7 @@ The `<rk-progress>` component renders an animated progress bar that counts from 
 
 ### Named Colors
 
-`red` · `purple` · `green` · `blue` · `white` · `yellow` · `orange`
+`red` · `purple` · `green` · `blue` · `white` · `yellow` · `amber` · `orange`
 
 Any CSS color string (hex, `rgb()`, etc.) also works for `color` and `border`.
 

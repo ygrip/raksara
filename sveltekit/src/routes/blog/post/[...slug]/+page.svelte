@@ -255,21 +255,30 @@
 	<header class="article-header" class:poem-header={isPoem}>
 		<h1>{post?.title ?? ''}</h1>
 		<div class="article-meta">
-			{#if post?.date}
-				<time>{formatDate(post.date)}</time>
+			<div class="article-meta-primary">
+				{#if post?.date}
+					<time class="article-date" datetime={post.date}>
+						<svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+						{formatDate(post.date)}
+					</time>
+				{/if}
+				{#if post?.status}
+					<span class="status-chip status-{post.status}">{post.status}</span>
+				{/if}
+				{#if post?.category}
+					<a href="/category/{post.category}" class="post-card-category">{post.category}</a>
+				{/if}
+				{#if post?.author}
+					<span class="article-author">{post.author}</span>
+				{/if}
+			</div>
+			{#if post?.tags?.length}
+				<div class="article-tags">
+					{#each post.tags as tag}
+						<a href="/tag/{tag}" class="tag">{tag}</a>
+					{/each}
+				</div>
 			{/if}
-			{#if post?.status}
-				<span class="status-chip status-{post.status}">{post.status}</span>
-			{/if}
-			{#if post?.category}
-				<a href="/category/{post.category}" class="post-card-category">{post.category}</a>
-			{/if}
-			{#if post?.author}
-				<span>{post.author}</span>
-			{/if}
-			{#each (post?.tags ?? []) as tag}
-				<a href="/tag/{tag}" class="tag">{tag}</a>
-			{/each}
 		</div>
 	</header>
 
@@ -322,7 +331,7 @@
 		/>
 	{/if}
 </article>
-<ContentFooter author={config?.author} />
+<ContentFooter author={config?.author} logo={config?.logo} />
 
 <style>
 	.poem-layout :global(.article-body p) {
@@ -333,14 +342,6 @@
 	.novel-layout :global(.article-body) {
 		font-size: 1.1rem;
 		line-height: 1.85;
-	}
-	/* BL-009: reading mode */
-	.reading-mode {
-		max-width: 65ch;
-	}
-	.reading-mode :global(.article-body) {
-		font-size: 1.125rem;
-		line-height: 1.9;
 	}
 	.article-actions {
 		display: flex;

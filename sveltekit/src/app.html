@@ -27,19 +27,31 @@
 		<style>
 			/* Keep white CTA text readable across every supported accent palette. */
 			.home-btn-primary {
-				background: color-mix(in srgb, var(--accent) 60%, #000) !important;
-				background-image: none !important;
-				border-color: color-mix(in srgb, var(--accent) 72%, #000) !important;
+				background:
+					linear-gradient(135deg,
+						color-mix(in srgb, var(--accent) 92%, white 8%),
+						color-mix(in srgb, var(--accent) 68%, #111 32%)) !important;
+				border-color: color-mix(in srgb, var(--accent) 82%, white 8%) !important;
 				color: #fff !important;
-				text-shadow: none !important;
+				text-shadow: 0 1px 1px rgb(0 0 0 / 0.2) !important;
+				box-shadow:
+					inset 0 1px 0 rgb(255 255 255 / 0.32),
+					0 8px 24px var(--accent-glow) !important;
 			}
 			.home-btn-primary:hover {
-				background: color-mix(in srgb, var(--accent) 55%, #000) !important;
-				border-color: color-mix(in srgb, var(--accent) 65%, #000) !important;
+				background:
+					linear-gradient(135deg,
+						color-mix(in srgb, var(--accent) 100%, white 0%),
+						color-mix(in srgb, var(--accent) 76%, #111 24%)) !important;
+				border-color: color-mix(in srgb, var(--accent) 84%, white 16%) !important;
 				color: #fff !important;
+				box-shadow:
+					inset 0 1px 0 rgb(255 255 255 / 0.38),
+					0 12px 30px color-mix(in srgb, var(--accent) 22%, transparent) !important;
 			}
 			.home-btn-primary:active {
-				background: color-mix(in srgb, var(--accent) 50%, #000) !important;
+				background: color-mix(in srgb, var(--accent) 62%, #111) !important;
+				box-shadow: inset 0 2px 5px rgb(0 0 0 / 0.2) !important;
 			}
 
 			/* Visible keyboard focus in both light and dark themes. */

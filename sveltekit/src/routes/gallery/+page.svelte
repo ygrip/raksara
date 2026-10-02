@@ -296,14 +296,14 @@
 				</div>
 				<div class="gallery-card-caption" aria-hidden={!item.caption}>{item.caption || '\u00a0'}</div>
 				<div class="gallery-card-footer">
+					<div class="gallery-card-tags" aria-hidden={!item.tags?.length}>
+						{#if item.tags?.length}
+							{#each item.tags.slice(0, 4) as tag}
+								<a href="/gallery?tag={tag}" class="tag">{tag}</a>
+							{/each}
+						{/if}
+					</div>
 					<div class="gallery-card-date">{formatDate(item.date)}</div>
-				</div>
-				<div class="gallery-card-tags" aria-hidden={!item.tags?.length}>
-					{#if item.tags?.length}
-						{#each item.tags.slice(0, 4) as tag}
-							<a href="/gallery?tag={tag}" class="tag" style="padding:2px 8px;font-size:11px">{tag}</a>
-						{/each}
-					{/if}
 				</div>
 			</div>
 		</li>

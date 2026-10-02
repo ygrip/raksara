@@ -1,5 +1,6 @@
 <script lang="ts">
 	import './layout.css';
+	import './visual-polish.css';
 	import { onMount } from 'svelte';
 	import { navigating, page } from '$app/stores';
 	import { goto } from '$app/navigation';
@@ -208,6 +209,7 @@
 		blue: { accent: '#3b82f6', hoverDark: '#60a5fa', hoverLight: '#2563eb', g1: '#3b82f6', g2: '#06b6d4', g3: '#0ea5e9', rgb: '59,130,246' },
 		red: { accent: '#ef4444', hoverDark: '#f87171', hoverLight: '#dc2626', g1: '#ef4444', g2: '#f43f5e', g3: '#ec4899', rgb: '239,68,68' },
 		yellow: { accent: '#eab308', hoverDark: '#facc15', hoverLight: '#ca8a04', g1: '#eab308', g2: '#f59e0b', g3: '#f97316', rgb: '234,179,8' },
+		amber: { accent: '#b76e00', hoverDark: '#efc06e', hoverLight: '#9a5c00', g1: '#e5a940', g2: '#b76e00', g3: '#7c4a03', rgb: '183,110,0' },
 		green: { accent: '#22c55e', hoverDark: '#4ade80', hoverLight: '#16a34a', g1: '#22c55e', g2: '#10b981', g3: '#14b8a6', rgb: '34,197,94' },
 		orange: { accent: '#f97316', hoverDark: '#fb923c', hoverLight: '#ea580c', g1: '#f97316', g2: '#fb923c', g3: '#fbbf24', rgb: '249,115,22' },
 	};
@@ -518,10 +520,10 @@
 	<main id="content">
 		<div class="page-content">
 			{@render children()}
+			{#if !routeUsesLocalFooter}
+				<ContentFooter author={config?.author} logo={config?.logo} />
+			{/if}
 		</div>
-		{#if !routeUsesLocalFooter}
-			<ContentFooter author={config?.author} />
-		{/if}
 	</main>
 </div>
 
@@ -537,8 +539,12 @@
 		flex-direction: column;
 	}
 
+	/* Column flex so ContentFooter's spacer can push the footer to the bottom
+	   on short pages. */
 	.page-content {
 		width: 100%;
-		flex: 1;
+		flex: 1 0 auto;
+		display: flex;
+		flex-direction: column;
 	}
 </style>

@@ -30,6 +30,7 @@ const COLOR_TONES = {
   blue: { accent: "#3b82f6", hoverDark: "#60a5fa", hoverLight: "#2563eb", g1: "#3b82f6", g2: "#06b6d4", g3: "#0ea5e9", rgb: "59,130,246" },
   red: { accent: "#ef4444", hoverDark: "#f87171", hoverLight: "#dc2626", g1: "#ef4444", g2: "#f43f5e", g3: "#ec4899", rgb: "239,68,68" },
   yellow: { accent: "#eab308", hoverDark: "#facc15", hoverLight: "#ca8a04", g1: "#eab308", g2: "#f59e0b", g3: "#f97316", rgb: "234,179,8" },
+  amber: { accent: "#b76e00", hoverDark: "#efc06e", hoverLight: "#9a5c00", g1: "#e5a940", g2: "#b76e00", g3: "#7c4a03", rgb: "183,110,0" },
   green: { accent: "#22c55e", hoverDark: "#4ade80", hoverLight: "#16a34a", g1: "#22c55e", g2: "#10b981", g3: "#14b8a6", rgb: "34,197,94" },
   orange: { accent: "#f97316", hoverDark: "#fb923c", hoverLight: "#ea580c", g1: "#f97316", g2: "#fb923c", g3: "#fbbf24", rgb: "249,115,22" },
 };
@@ -1803,18 +1804,14 @@ function renderPostCardPrerender(post, options = {}, imageManifest) {
 
 function renderThoughtCardPrerender(thought) {
   const tagsHtml = (thought.tags || [])
-    .map(
-      (tag) =>
-        `<span class="tag" style="padding:2px 8px;font-size:11px">${escapeHtml(tag)}</span>`,
-    )
+    .map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`)
     .join("");
   return `
       <div class="thought-card">
         <div class="thought-body">${escapeHtml(thought.body || "")}</div>
         <div class="thought-meta">
           <span class="thought-title">${escapeHtml(thought.title)}</span>
-          <span>·</span>
-          <span class="post-card-date">${formatDate(thought.date)}</span>
+          <span class="thought-date">${formatDate(thought.date)}</span>
           ${tagsHtml}
         </div>
       </div>`;
@@ -2360,7 +2357,11 @@ async function renderProfilePagePrerender(pages, imageManifest, portfolioItems =
       )}></div>`
     : "";
 
-  const bodyHtml = await renderCustomMarkdownForPrerender(body || "", { portfolioItems, posts, imageManifest });
+  let bodyHtml = await renderCustomMarkdownForPrerender(body || "", { portfolioItems, posts, imageManifest });
+  bodyHtml = bodyHtml.replace(
+    /(<h2(?:\s+[^>]*)?>Skills<\/h2>[\s\S]*?)(?=<h2(?:\s|>)|$)/i,
+    '<section class="profile-skills-panel">$1</section>',
+  );
 
   return `<div class="profile-hero" id="profile-hero">
       <div class="profile-hero-bg" id="profile-hero-bg" data-src="${escapeHtml(coverPublicUrl)}"${heroBgStyle}></div>
@@ -2368,17 +2369,21 @@ async function renderProfilePagePrerender(pages, imageManifest, portfolioItems =
       <div class="profile-hero-overlay"></div>
       <div class="profile-hero-share">${shareButtonHtml}</div>
       <div class="profile-hero-content">
-        ${avatarHtml}
-        <div class="profile-info">
-          <h1>${escapeHtml(name)}</h1>
-          ${role ? `<div class="profile-role">${escapeHtml(role)}</div>` : ""}
-          ${links.length ? `<div class="profile-links">${links.join("")}</div>` : ""}
+        <div class="profile-card">
+          ${avatarHtml}
+          <div class="profile-info">
+            <h1>${escapeHtml(name)}</h1>
+            ${role ? `<div class="profile-role">${escapeHtml(role)}</div>` : ""}
+            ${links.length ? `<div class="profile-links">${links.join("")}</div>` : ""}
+          </div>
         </div>
       </div>
       ${waveSvg}
     </div>
-    ${metaHtml}
-    <div class="article-body">${bodyHtml}</div>`;
+    <div class="profile-body-shell">
+      ${metaHtml}
+      <div class="article-body">${bodyHtml}</div>
+    </div>`;
 }
 
 async function prerender(posts, thoughts, portfolio, gallery, config, imageManifest, pages) {
@@ -2395,9 +2400,11 @@ async function prerender(posts, thoughts, portfolio, gallery, config, imageManif
   // Emit a slim home-bundle.json combining the three critical-path files so the
   // home route can be bootstrapped with a single fetch instead of three separate ones.
   try {
+    const profilePage = (pages || []).find((page) => page.slug === "profile");
     const homeBundle = {
       config,
       posts: posts.slice(0, SEO_INITIAL_COUNT),
+      profile: profilePage?.avatar ? { avatar: profilePage.avatar } : undefined,
       homePrerender: { html: homeMarkup },
     };
     const bundleCacheFile = path.join(METADATA_DIR, "home-bundle.json");
