@@ -78,4 +78,4 @@
 </nav>
 {/if}
 
-<ContentFooter author={config?.author} />
+<ContentFooter author={config?.author} logo={config?.logo} />
