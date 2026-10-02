@@ -2,6 +2,7 @@
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
 	import { heroTyping } from '$lib/actions/typing';
+	import AsciiArt from '$lib/components/AsciiArt.svelte';
 	import { assetUrl, formatDate } from '$lib/utils';
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import { buildWebSiteSchema, buildPersonSchema, serializeJsonLd } from '$lib/seo';
@@ -17,6 +18,7 @@
 	const hero         = $derived(homePageConfig?.hero);
 	const heroTitle    = $derived(hero?.title ?? config?.hero_title ?? config?.title ?? '');
 	const heroSubtitle = $derived(hero?.subtitle ?? config?.hero_subtitle ?? config?.description ?? '');
+	const heroPortrait = $derived(bundle?.profile?.avatar ? assetUrl(bundle.profile.avatar) : '');
 
 	// SEO
 	const seoTitle       = $derived(homePageConfig?.seo?.title ?? config?.hero_title ?? config?.title ?? '');
@@ -111,20 +113,40 @@
 			<div class="hero-visual-grid"></div>
 			<div class="hero-visual-glow hero-visual-glow-a"></div>
 			<div class="hero-visual-glow hero-visual-glow-b"></div>
-			<div class="hero-fluid hero-fluid-back"></div>
-			<div class="hero-fluid hero-fluid-mid"></div>
-			<div class="hero-fluid hero-fluid-front"></div>
-			<div class="hero-glass-orbit hero-glass-orbit-a"></div>
-			<div class="hero-glass-orbit hero-glass-orbit-b"></div>
-			<div class="hero-glass-core">
-				<span class="hero-core-mark"></span>
-				<span class="hero-core-ring hero-core-ring-a"></span>
-				<span class="hero-core-ring hero-core-ring-b"></span>
-			</div>
+
+			{#if heroPortrait}
+				<div class="hero-ascii-frame">
+					<span class="hero-ascii-backdrop"></span>
+					<AsciiArt
+						src={heroPortrait}
+						resolution={84}
+						charset="dots"
+						color="var(--accent)"
+						backgroundColor="transparent"
+						objectFit="cover"
+						className="hero-ascii-art"
+					/>
+					<span class="hero-ascii-vignette"></span>
+				</div>
+				<div class="hero-glass-orbit hero-glass-orbit-a"></div>
+				<div class="hero-glass-orbit hero-glass-orbit-b"></div>
+			{:else}
+				<div class="hero-fluid hero-fluid-back"></div>
+				<div class="hero-fluid hero-fluid-mid"></div>
+				<div class="hero-fluid hero-fluid-front"></div>
+				<div class="hero-glass-orbit hero-glass-orbit-a"></div>
+				<div class="hero-glass-orbit hero-glass-orbit-b"></div>
+				<div class="hero-glass-core">
+					<span class="hero-core-mark"></span>
+					<span class="hero-core-ring hero-core-ring-a"></span>
+					<span class="hero-core-ring hero-core-ring-b"></span>
+				</div>
+			{/if}
+
 			<div class="hero-float-chip hero-float-chip-a"><span></span></div>
 			<div class="hero-float-chip hero-float-chip-b"><span></span></div>
 			<div class="hero-float-chip hero-float-chip-c"><span></span></div>
-		</div>
+		</div>>
 	</div>
 	<div class="hero-waves" aria-hidden="true">
 		<svg class="hero-wave hero-wave-back" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,45 C100,20 200,55 360,30 C480,12 560,50 720,35 C850,22 1000,55 1140,28 C1280,8 1380,42 1440,38 L1440,80 L0,80 Z"/></svg>
