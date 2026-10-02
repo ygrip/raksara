@@ -7907,3 +7907,36 @@ a.home-info-card-link:hover,
         animation: none !important;
     }
 }
+
+
+/* ── Final control/mobile alignment fixes ────────────────── */
+.search-trigger {
+    border-color: color-mix(in srgb, var(--accent) 34%, var(--border-color));
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 58%),
+        var(--punakawan-glass-strong);
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, white 34%, transparent),
+        0 0 0 1px color-mix(in srgb, var(--accent) 6%, transparent),
+        0 8px 22px color-mix(in srgb, var(--shadow-color) 62%, transparent);
+}
+
+.search-trigger:hover,
+.search-trigger:focus-visible {
+    color: var(--text-primary);
+    border-color: color-mix(in srgb, var(--accent) 66%, white 8%);
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 62%),
+        var(--punakawan-glass-strong);
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, white 42%, transparent),
+        0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent),
+        0 0 26px color-mix(in srgb, var(--accent) 14%, transparent),
+        0 10px 28px var(--shadow-color);
+}
+
+@media (max-width: 768px) {
+    .profile-hero {
+        margin-top: -74px;
+    }
+}
