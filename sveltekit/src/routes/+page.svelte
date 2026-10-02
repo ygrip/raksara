@@ -124,7 +124,7 @@
 			<div class="hero-float-chip hero-float-chip-a"><span></span></div>
 			<div class="hero-float-chip hero-float-chip-b"><span></span></div>
 			<div class="hero-float-chip hero-float-chip-c"><span></span></div>
-		</div>>
+		</div>
 	</div>
 	<div class="hero-waves" aria-hidden="true">
 		<svg class="hero-wave hero-wave-back" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,45 C100,20 200,55 360,30 C480,12 560,50 720,35 C850,22 1000,55 1140,28 C1280,8 1380,42 1440,38 L1440,80 L0,80 Z"/></svg>
