@@ -322,7 +322,7 @@
 		/>
 	{/if}
 </article>
-<ContentFooter author={config?.author} />
+<ContentFooter author={config?.author} logo={config?.logo} />
 
 <style>
 	.poem-layout :global(.article-body p) {
