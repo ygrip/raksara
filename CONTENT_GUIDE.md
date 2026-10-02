@@ -457,7 +457,7 @@ Both formats are supported. If `images` is present it takes priority over
 
 Edit `pages/profile.md` and set the `avatar` and `cover` fields:
 
-When an `avatar` is present, Raksara also uses it automatically as the homepage hero's dot portrait source. The hero renders one full-width accent-colored dot field; the portrait is analysed at runtime — the backdrop tone is sampled from the image border, the subject is cropped and contrast-stretched — so any avatar (studio backdrop, transparent PNG, dark photo) works without manual editing. Dots use the theme `--accent` color and animate subtly (staggered reveal, twinkle, slow glint, pointer lift); users with reduced motion get a static frame. No separate hero image setting is required. Remote avatars must be served with CORS headers, otherwise only the ambient dot field is shown.
+When an `avatar` is present, Raksara also uses it automatically as the homepage hero's dot portrait source. The hero renders one full-width accent-colored dot field; the portrait is analysed at runtime — the backdrop tone is sampled from the image border, the subject silhouette is extracted (enclosed areas such as skin close to the backdrop are filled, stray patches dropped), cropped and contrast-stretched — so any avatar (studio backdrop, transparent PNG, dark photo) works without manual editing. Dots use the theme `--accent` color and animate subtly (staggered reveal, twinkle, slow glint). Mouse hover and touch push nearby dots aside and light them up, and clicks/taps send a ripple; users with reduced motion get a static, non-interactive frame. No separate hero image setting is required. Remote avatars must be served with CORS headers, otherwise only the ambient dot field is shown.
 
 ```yaml
 ---

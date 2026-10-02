@@ -3,8 +3,9 @@
    * Full-bleed halftone dot field. Every dot sits on one shared grid that spans
    * the host; dots inside the `anchor` element's box are sized from the portrait
    * image, the rest form a faint ambient grid. Colour comes from `--accent`.
-   * Motion: staggered reveal, per-dot twinkle, a slow diagonal glint and a soft
-   * pointer lift. Reduced-motion users get a single static frame.
+   * Motion: staggered reveal, per-dot twinkle and a slow diagonal glint. Mouse
+   * and touch push nearby dots aside and light them up; clicks/taps send a
+   * ripple. Reduced-motion users get a single static, non-interactive frame.
    */
   interface Props {
     src?: string;
@@ -20,7 +21,15 @@
   let ready = $state(false);
 
   const FRAME_MS = 1000 / 30;
+  /** Frame budget while the pointer is engaged or a ripple is running. */
+  const FRAME_MS_ACTIVE = 1000 / 60;
+  const RIPPLE_SPEED = 520; // px/s
+  const RIPPLE_WIDTH = 34; // px, gaussian half-width of the ring
+  const RIPPLE_LIFE = 1.3; // s
+  const MAX_RIPPLES = 4;
   const ALPHA_LEVELS = 12;
+  /** Minimum tone for any dot inside the subject silhouette (see toneMap). */
+  const TONE_FLOOR = 0.3;
 
   type Field = {
     width: number;
@@ -97,11 +106,92 @@
     return current;
   }
 
-  /** Subject mask: |lum − backdrop| blurred, so plain backdrops drop out. */
+  /**
+   * Subject silhouette in [0, 1]. Pixels far from the backdrop luminance are
+   * subject; backdrop-like pixels are subject too unless they connect to the
+   * image border. That fills enclosed regions — skin close to a grey studio
+   * backdrop, eye sockets, shadows — which a plain threshold left as holes.
+   */
   function subjectMask(lum: Float32Array, backdrop: number, cols: number, rows: number): Float32Array {
-    const diff = new Float32Array(lum.length);
-    for (let i = 0; i < lum.length; i += 1) diff[i] = Math.abs(lum[i] - backdrop);
-    return boxBlur(diff, cols, rows, 2);
+    const size = lum.length;
+    const diff = new Float32Array(size);
+    for (let i = 0; i < size; i += 1) diff[i] = Math.abs(lum[i] - backdrop);
+    const contrast = boxBlur(diff, cols, rows, 2);
+
+    // Walls: clearly-not-backdrop cells, dilated one cell to seal thin gaps
+    // along soft edges so the flood fill can't leak into the face.
+    const wall = new Uint8Array(size);
+    for (let y = 0; y < rows; y += 1) {
+      for (let x = 0; x < cols; x += 1) {
+        if (contrast[y * cols + x] < 0.09) continue;
+        for (let oy = -1; oy <= 1; oy += 1) {
+          const yy = y + oy;
+          if (yy < 0 || yy >= rows) continue;
+          for (let ox = -1; ox <= 1; ox += 1) {
+            const xx = x + ox;
+            if (xx >= 0 && xx < cols) wall[yy * cols + xx] = 1;
+          }
+        }
+      }
+    }
+
+    // Flood the backdrop in from the border through non-wall cells.
+    const outside = new Uint8Array(size);
+    const queue = new Int32Array(size);
+    let head = 0;
+    let tail = 0;
+    const seed = (index: number) => {
+      if (wall[index] || outside[index]) return;
+      outside[index] = 1;
+      queue[tail++] = index;
+    };
+    for (let x = 0; x < cols; x += 1) {
+      seed(x);
+      seed((rows - 1) * cols + x);
+    }
+    for (let y = 0; y < rows; y += 1) {
+      seed(y * cols);
+      seed(y * cols + cols - 1);
+    }
+    while (head < tail) {
+      const index = queue[head++];
+      const x = index % cols;
+      if (x > 0) seed(index - 1);
+      if (x < cols - 1) seed(index + 1);
+      if (index >= cols) seed(index - cols);
+      if (index < size - cols) seed(index + cols);
+    }
+
+    // Keep only the largest connected subject region: stray fabric/backdrop
+    // patches otherwise show up as floating dot blobs next to the face.
+    const label = new Int32Array(size);
+    let best = 0;
+    let bestSize = 0;
+    let next = 0;
+    for (let start = 0; start < size; start += 1) {
+      if (outside[start] || label[start]) continue;
+      next += 1;
+      label[start] = next;
+      head = 0;
+      tail = 0;
+      queue[tail++] = start;
+      while (head < tail) {
+        const index = queue[head++];
+        const x = index % cols;
+        if (x > 0 && !outside[index - 1] && !label[index - 1]) { label[index - 1] = next; queue[tail++] = index - 1; }
+        if (x < cols - 1 && !outside[index + 1] && !label[index + 1]) { label[index + 1] = next; queue[tail++] = index + 1; }
+        if (index >= cols && !outside[index - cols] && !label[index - cols]) { label[index - cols] = next; queue[tail++] = index - cols; }
+        if (index < size - cols && !outside[index + cols] && !label[index + cols]) { label[index + cols] = next; queue[tail++] = index + cols; }
+      }
+      if (tail > bestSize) {
+        bestSize = tail;
+        best = next;
+      }
+    }
+
+    const solid = new Float32Array(size);
+    for (let i = 0; i < size; i += 1) solid[i] = best > 0 && label[i] === best ? 1 : 0;
+    return boxBlur(solid, cols, rows, 1);
   }
 
   /**
@@ -128,7 +218,7 @@
     let maxY = -1;
     for (let y = 0; y < rows; y += 1) {
       for (let x = 0; x < cols; x += 1) {
-        if (mask[y * cols + x] < 0.14) continue;
+        if (mask[y * cols + x] < 0.5) continue;
         if (x < minX) minX = x;
         if (x > maxX) maxX = x;
         if (y < minY) minY = y;
@@ -150,8 +240,9 @@
 
   /**
    * Light-on-dark halftone tone per grid dot (bright pixels → big dots), gated
-   * by the subject mask and contrast-stretched across the subject's own range.
-   * Edge strength keeps dark regions (hair, eyes) legible.
+   * by the solid subject silhouette and contrast-stretched across the subject's
+   * own range. A tone floor keeps every subject dot visible, so dark features
+   * (hair, eyes, beard) read as smaller dots instead of holes in the face.
    */
   function toneMap(
     image: HTMLImageElement,
@@ -165,7 +256,7 @@
     const mask = subjectMask(lum, backdrop, cols, rows);
 
     const subjectLum: number[] = [];
-    for (let i = 0; i < lum.length; i += 1) if (mask[i] > 0.14) subjectLum.push(lum[i]);
+    for (let i = 0; i < lum.length; i += 1) if (mask[i] > 0.5) subjectLum.push(lum[i]);
     subjectLum.sort((a, b) => a - b);
     const low = subjectLum[Math.floor(subjectLum.length * 0.04)] ?? 0;
     const high = subjectLum[Math.floor(subjectLum.length * 0.96)] ?? 1;
@@ -182,13 +273,13 @@
         const gy =
           at(x - 1, y + 1) + 2 * at(x, y + 1) + at(x + 1, y + 1) - at(x - 1, y - 1) - 2 * at(x, y - 1) - at(x + 1, y - 1);
         const index = y * cols + x;
-        const subject = smoothstep(0.05, 0.18, mask[index]);
+        const subject = smoothstep(0.15, 0.85, mask[index]);
         const stretched = Math.max(0, Math.min(1, (lum[index] - low) / range));
         // Lift midtones (skin) and add a high-pass term so features read at dot scale.
         const detail = (lum[index] - local[index]) / range;
-        const light = Math.max(0, Math.min(1, 0.08 + 0.92 * Math.pow(stretched, 0.72) + detail * 1.6));
+        const light = Math.max(0, Math.min(1, 0.04 + 0.96 * Math.pow(stretched, 0.95) + detail * 2.4));
         const edge = Math.min(1, Math.hypot(gx, gy) * 0.55);
-        tone[index] = Math.min(1, subject * Math.max(light, edge * 0.45));
+        tone[index] = subject * (TONE_FLOOR + (1 - TONE_FLOOR) * Math.min(1, Math.max(light, edge * 0.35)));
       }
     }
     return tone;
@@ -306,11 +397,19 @@
     let lastPaint = 0;
     let start = performance.now();
     let visible = true;
+    // Interaction: a smoothed pointer (mouse or touch) pushes nearby dots
+    // outward and lights them up; taps/clicks emit an expanding ripple.
     let pointerX = -1e4;
     let pointerY = -1e4;
+    let targetX = -1e4;
+    let targetY = -1e4;
+    let pointerActive = false;
     let pointerLift = 0;
+    const ripples: Array<{ x: number; y: number; t: number }> = [];
     let alphaOut = new Float32Array(0);
     let radiusOut = new Float32Array(0);
+    let drawX = new Float32Array(0);
+    let drawY = new Float32Array(0);
 
     const readTheme = () => {
       if (!host) return;
@@ -331,9 +430,11 @@
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       alphaOut = new Float32Array(field.count);
       radiusOut = new Float32Array(field.count);
+      drawX = new Float32Array(field.count);
+      drawY = new Float32Array(field.count);
     };
 
-    const paint = (elapsed: number, animate: boolean) => {
+    const paint = (elapsed: number, animate: boolean, now = performance.now()) => {
       if (!field) return;
       const { width, height, spacing, count, x, y, tone, phase, delay } = field;
       ctx.clearRect(0, 0, width, height);
@@ -343,10 +444,20 @@
       const span = width * 0.8 + height * 0.6;
       const band = Math.max(140, span * 0.12);
       const glintAt = animate ? ((elapsed * span) / 11) % (span + band * 4) - band * 2 : -1e6;
-      const pointerRadius2 = 2 * 110 * 110;
+      const pointerRadius = Math.max(90, Math.min(150, width * 0.09));
+      const pointerRadius2 = 2 * pointerRadius * pointerRadius;
+      const reach2 = pointerRadius2 * 4.5; // skip the exp() for far dots
+      const push = spacing * 1.6;
       const baseRadius = spacing * 0.1;
 
+      // Drop finished ripples; each lives RIPPLE_LIFE seconds.
+      for (let r = ripples.length - 1; r >= 0; r -= 1) {
+        if ((now - ripples[r].t) / 1000 > RIPPLE_LIFE) ripples.splice(r, 1);
+      }
+
       for (let i = 0; i < count; i += 1) {
+        drawX[i] = x[i];
+        drawY[i] = y[i];
         const reveal = animate ? smoothstep(0, 1, (elapsed - delay[i]) / 0.7) : 1;
         if (reveal <= 0) {
           alphaOut[i] = 0;
@@ -356,24 +467,44 @@
         const d = (x[i] * 0.8 + y[i] * 0.6 - glintAt) / band;
         const glint = Math.exp(-d * d);
         const wave = animate ? Math.sin(elapsed * (t > 0 ? 1.4 : 0.8) + phase[i]) : 0;
+
         let lift = 0;
-        if (pointerLift > 0) {
+        if (pointerLift > 0.002) {
           const pdx = x[i] - pointerX;
           const pdy = y[i] - pointerY;
-          lift = Math.exp(-(pdx * pdx + pdy * pdy) / pointerRadius2) * pointerLift;
+          const d2 = pdx * pdx + pdy * pdy;
+          if (d2 < reach2) {
+            lift = Math.exp(-d2 / pointerRadius2) * pointerLift;
+            // Push outward, strongest mid-radius so the cursor centre stays readable.
+            const dist = Math.sqrt(d2) || 1;
+            const shove = lift * push * Math.min(1, dist / (pointerRadius * 0.35));
+            drawX[i] += (pdx / dist) * shove;
+            drawY[i] += (pdy / dist) * shove;
+          }
         }
+
+        let ring = 0;
+        for (let r = 0; r < ripples.length; r += 1) {
+          const ripple = ripples[r];
+          const age = (now - ripple.t) / 1000;
+          const rdx = x[i] - ripple.x;
+          const rdy = y[i] - ripple.y;
+          const off = (Math.sqrt(rdx * rdx + rdy * rdy) - age * RIPPLE_SPEED) / RIPPLE_WIDTH;
+          if (off > -3 && off < 3) ring += Math.exp(-off * off) * (1 - age / RIPPLE_LIFE);
+        }
+        ring = Math.min(1, ring);
 
         let alpha: number;
         let radius: number;
         if (t > 0) {
-          alpha = (0.2 + 0.8 * t) * (0.86 + 0.14 * wave) * strength + glint * 0.18 + lift * 0.2;
-          radius = spacing * (0.12 + 0.3 * t) * (1 + glint * 0.12 + lift * 0.18);
+          alpha = (0.2 + 0.8 * t) * (0.86 + 0.14 * wave) * strength + glint * 0.18 + lift * 0.35 + ring * 0.45;
+          radius = spacing * (0.12 + 0.3 * t) * (1 + glint * 0.12 + lift * 0.35 + ring * 0.45);
         } else {
-          alpha = ambient * (0.75 + 0.25 * wave) + glint * ambient * 1.6 + lift * 0.22;
-          radius = baseRadius * (1 + glint * 0.6 + lift * 1.4) + 0.45;
+          alpha = ambient * (0.75 + 0.25 * wave) + glint * ambient * 1.6 + lift * 0.32 + ring * 0.38;
+          radius = baseRadius * (1 + glint * 0.6 + lift * 1.9 + ring * 2.2) + 0.45;
         }
         alphaOut[i] = Math.min(1, alpha * reveal);
-        radiusOut[i] = radius * (0.4 + 0.6 * reveal);
+        radiusOut[i] = Math.min(spacing * 0.48, radius * (0.4 + 0.6 * reveal));
       }
 
       // Batch dots into a few alpha levels: one path + fill per level.
@@ -387,8 +518,8 @@
           const a = alphaOut[i];
           if (a <= lo || a > hi || a < 0.015) continue;
           const r = radiusOut[i];
-          ctx.moveTo(x[i] + r, y[i]);
-          ctx.arc(x[i], y[i], r, 0, Math.PI * 2);
+          ctx.moveTo(drawX[i] + r, drawY[i]);
+          ctx.arc(drawX[i], drawY[i], r, 0, Math.PI * 2);
           any = true;
         }
         if (any) ctx.fill();
@@ -399,10 +530,19 @@
     const tick = (now: number) => {
       frame = 0;
       if (disposed || !visible) return;
-      if (now - lastPaint >= FRAME_MS) {
+      // 60fps while the pointer or a ripple is active, 30fps when idle.
+      const interactive = pointerLift > 0.01 || ripples.length > 0;
+      if (now - lastPaint >= (interactive ? FRAME_MS_ACTIVE : FRAME_MS)) {
         lastPaint = now;
-        pointerLift += ((pointerX > -1e3 ? 1 : 0) - pointerLift) * 0.12;
-        paint((now - start) / 1000, true);
+        pointerLift += ((pointerActive ? 1 : 0) - pointerLift) * 0.14;
+        if (pointerX < -1e3) {
+          pointerX = targetX;
+          pointerY = targetY;
+        } else {
+          pointerX += (targetX - pointerX) * 0.3;
+          pointerY += (targetY - pointerY) * 0.3;
+        }
+        paint((now - start) / 1000, true, now);
       }
       frame = requestAnimationFrame(tick);
     };
@@ -484,21 +624,61 @@
     document.addEventListener('visibilitychange', onVisibility);
 
     // Listen on the hero (host's parent) so the field reacts beneath the copy too.
+    // Mouse/pen use pointer events; touch also listens to passive touch events,
+    // because pointer events are cancelled as soon as the page starts scrolling.
     const pointerTarget = host.parentElement ?? host;
-    const finePointer = window.matchMedia('(pointer: fine)').matches;
-    const onPointerMove = (event: PointerEvent) => {
-      if (!host) return;
+    const toLocal = (clientX: number, clientY: number) => {
+      if (!host) return null;
       const rect = host.getBoundingClientRect();
-      pointerX = event.clientX - rect.left;
-      pointerY = event.clientY - rect.top;
+      return { x: clientX - rect.left, y: clientY - rect.top };
     };
-    const onPointerLeave = () => {
-      pointerX = -1e4;
-      pointerY = -1e4;
+    const track = (clientX: number, clientY: number) => {
+      const p = toLocal(clientX, clientY);
+      if (!p) return;
+      targetX = p.x;
+      targetY = p.y;
+      if (!pointerActive && pointerLift < 0.01) {
+        pointerX = p.x;
+        pointerY = p.y;
+      }
+      pointerActive = true;
     };
-    if (finePointer) {
+    const release = () => {
+      pointerActive = false;
+    };
+    const addRipple = (clientX: number, clientY: number) => {
+      const p = toLocal(clientX, clientY);
+      if (!p) return;
+      ripples.push({ x: p.x, y: p.y, t: performance.now() });
+      if (ripples.length > MAX_RIPPLES) ripples.shift();
+    };
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') return;
+      track(event.clientX, event.clientY);
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') return;
+      addRipple(event.clientX, event.clientY);
+    };
+    const onTouchStart = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch) return;
+      track(touch.clientX, touch.clientY);
+      addRipple(touch.clientX, touch.clientY);
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (touch) track(touch.clientX, touch.clientY);
+    };
+    const interactive = !reducedMotion.matches;
+    if (interactive) {
       pointerTarget.addEventListener('pointermove', onPointerMove, { passive: true });
-      pointerTarget.addEventListener('pointerleave', onPointerLeave);
+      pointerTarget.addEventListener('pointerdown', onPointerDown, { passive: true });
+      pointerTarget.addEventListener('pointerleave', release);
+      pointerTarget.addEventListener('touchstart', onTouchStart, { passive: true });
+      pointerTarget.addEventListener('touchmove', onTouchMove, { passive: true });
+      pointerTarget.addEventListener('touchend', release, { passive: true });
+      pointerTarget.addEventListener('touchcancel', release, { passive: true });
     }
 
     reducedMotion.addEventListener('change', rebuild);
@@ -512,9 +692,14 @@
       intersection.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
       reducedMotion.removeEventListener('change', rebuild);
-      if (finePointer) {
+      if (interactive) {
         pointerTarget.removeEventListener('pointermove', onPointerMove);
-        pointerTarget.removeEventListener('pointerleave', onPointerLeave);
+        pointerTarget.removeEventListener('pointerdown', onPointerDown);
+        pointerTarget.removeEventListener('pointerleave', release);
+        pointerTarget.removeEventListener('touchstart', onTouchStart);
+        pointerTarget.removeEventListener('touchmove', onTouchMove);
+        pointerTarget.removeEventListener('touchend', release);
+        pointerTarget.removeEventListener('touchcancel', release);
       }
       if (image) {
         image.onload = null;
