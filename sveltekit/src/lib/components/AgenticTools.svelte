@@ -97,6 +97,71 @@
 		});
 	}
 
+	async function waitForPageLoad(signal: AbortSignal): Promise<void> {
+		if (document.readyState === 'complete' || signal.aborted) return;
+
+		await new Promise<void>((resolve) => {
+			const finish = () => {
+				window.removeEventListener('load', finish);
+				signal.removeEventListener('abort', finish);
+				resolve();
+			};
+
+			window.addEventListener('load', finish, { once: true });
+			signal.addEventListener('abort', finish, { once: true });
+		});
+	}
+
+	async function loadOriginTrialBootstrap(signal: AbortSignal): Promise<void> {
+		if (signal.aborted) return;
+		if (document.querySelector('meta[http-equiv="origin-trial"][data-raksara-agentic]')) return;
+
+		// Do not let an experimental agent-facing capability compete with the
+		// page's critical rendering requests. The external script requirement
+		// still holds; only its scheduling changes.
+		await waitForPageLoad(signal);
+		await delay(0, signal);
+		if (signal.aborted) return;
+
+		const selector = 'script[data-raksara-webmcp-origin-trial]';
+		const existing = document.querySelector<HTMLScriptElement>(selector);
+		if (existing?.dataset.loaded === 'true') return;
+
+		await new Promise<void>((resolve) => {
+			const script = existing ?? document.createElement('script');
+			let settled = false;
+
+			const finish = () => {
+				if (settled) return;
+				settled = true;
+				script.removeEventListener('load', onLoad);
+				script.removeEventListener('error', onError);
+				signal.removeEventListener('abort', finish);
+				resolve();
+			};
+			const onLoad = () => {
+				script.dataset.loaded = 'true';
+				finish();
+			};
+			const onError = () => {
+				console.warn('[agentic] WebMCP origin-trial bootstrap failed to load.');
+				finish();
+			};
+
+			script.addEventListener('load', onLoad, { once: true });
+			script.addEventListener('error', onError, { once: true });
+			signal.addEventListener('abort', finish, { once: true });
+
+			if (!existing) {
+				script.src = '/webmcp-origin-trial.js';
+				script.async = true;
+				script.setAttribute('fetchpriority', 'low');
+				script.dataset.raksaraWebmcpOriginTrial = 'true';
+				document.head.appendChild(script);
+			}
+		});
+	}
+
 	async function waitForModelContext(
 		signal: AbortSignal,
 		timeoutMs = 2500,
@@ -214,6 +279,11 @@
 			const agentic = config.agentic;
 			const webmcp = agentic?.webmcp;
 			if (disposed || agentic?.enabled !== true || webmcp?.enabled !== true) return;
+
+			if (String(webmcp.origin_trial_token ?? '').trim()) {
+				await loadOriginTrialBootstrap(controller.signal);
+			}
+			if (disposed) return;
 
 			const modelContext = await waitForModelContext(controller.signal);
 			if (disposed || !modelContext) {
