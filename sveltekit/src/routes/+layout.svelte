@@ -5,8 +5,9 @@
 	import { navigating, page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import type { LayoutData } from './$types';
-	import SearchOverlay from '$lib/components/SearchOverlay.svelte';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
+	import AgenticTools from '$lib/components/AgenticTools.svelte';
+	import AdcashAutoTag from '$lib/components/AdcashAutoTag.svelte';
 	import { getAdsenseId, getGiscusConfig } from '$lib/seo';
 	import { assetUrl } from '$lib/utils';
 
@@ -196,11 +197,23 @@
 	}
 
 	let searchOpen = $state(false);
+	let SearchOverlay: any = $state(null);
+	let searchOverlayPromise: Promise<void> | null = null;
 	let currentTheme = $state('dark');
 	let sidebarOpen = $state(false);
 
 	$effect(() => {
-		if (searchOpen) sidebarOpen = false;
+		if (!searchOpen) return;
+		sidebarOpen = false;
+		if (!SearchOverlay && !searchOverlayPromise) {
+			searchOverlayPromise = import('$lib/components/SearchOverlay.svelte')
+				.then((module) => {
+					SearchOverlay = module.default;
+				})
+				.finally(() => {
+					searchOverlayPromise = null;
+				});
+		}
 	});
 
 	// BL-015: Named color palette system
@@ -362,6 +375,13 @@
 		document.addEventListener('load', onImageLoad, true);
 		document.addEventListener('error', onImageLoad, true);
 
+		const onGlobalSearchKey = (event: KeyboardEvent) => {
+			if (event.key !== '/' || ['INPUT', 'TEXTAREA'].includes((event.target as Element)?.tagName ?? '')) return;
+			event.preventDefault();
+			searchOpen = true;
+		};
+		window.addEventListener('keydown', onGlobalSearchKey);
+
 		// AdSense: lazy-inject script only after first user interaction.
 		// Skip localhost/dev so blocked ad requests do not pollute console QA.
 		let injectAdsense: (() => void) | null = null;
@@ -388,6 +408,7 @@
 		return () => {
 			document.removeEventListener('load', onImageLoad, true);
 			document.removeEventListener('error', onImageLoad, true);
+			window.removeEventListener('keydown', onGlobalSearchKey);
 			imageObserver.disconnect();
 			if (injectAdsense) {
 				['pointerdown', 'scroll', 'keydown'].forEach((ev) =>
@@ -448,8 +469,10 @@
 		<meta property="og:image:width" content="1200" />
 		<meta property="og:image:height" content="630" />
 	{/if}
-	<link id="hljs-dark" rel="stylesheet" href="/vendor/hljs/styles/github-dark.min.css" media={currentTheme === 'light' ? 'not all' : 'all'} />
-	<link id="hljs-light" rel="stylesheet" href="/vendor/hljs/styles/github.min.css" media={currentTheme === 'light' ? 'all' : 'not all'} />
+{#if routeUsesLocalFooter}
+		<link id="hljs-dark" rel="stylesheet" href="/vendor/hljs/styles/github-dark.min.css" media={currentTheme === 'light' ? 'not all' : 'all'} />
+		<link id="hljs-light" rel="stylesheet" href="/vendor/hljs/styles/github.min.css" media={currentTheme === 'light' ? 'all' : 'not all'} />
+	{/if}
 </svelte:head>
 
 <!-- Fixed background gradient -->
@@ -551,7 +574,12 @@
 	</main>
 </div>
 
-<SearchOverlay bind:open={searchOpen} />
+<AgenticTools />
+<AdcashAutoTag />
+
+{#if SearchOverlay}
+	<SearchOverlay bind:open={searchOpen} />
+{/if}
 
 {#if $navigating}
 	<div class="route-loading-bar" aria-hidden="true"></div>

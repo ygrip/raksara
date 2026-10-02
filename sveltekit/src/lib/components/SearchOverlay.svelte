@@ -4,11 +4,8 @@
 	 * Mirrors the legacy 13-search.js behaviour.
 	 * Lazy-loads search-index.json and miniSearch on first open.
 	 */
-	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { metadataUrl } from '$lib/metadata';
-	import AgenticTools from '$lib/components/AgenticTools.svelte';
-	import AdcashAutoTag from '$lib/components/AdcashAutoTag.svelte';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -144,20 +141,8 @@
 		if (e.key === 'Escape') open = false;
 	}
 
-	onMount(() => {
-		function globalKeydown(e: KeyboardEvent) {
-			if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes((e.target as Element)?.tagName ?? '')) {
-				e.preventDefault();
-				open = true;
-			}
-		}
-		window.addEventListener('keydown', globalKeydown);
-		return () => window.removeEventListener('keydown', globalKeydown);
-	});
 </script>
 
-<AgenticTools />
-<AdcashAutoTag />
 
 {#if open}
 	<div class="search-overlay" role="dialog" aria-modal="true" aria-label="Search" tabindex="0" onkeydown={handleKeydown}>

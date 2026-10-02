@@ -106,7 +106,7 @@
 		while (!signal.aborted && performance.now() - startedAt < timeoutMs) {
 			const modelContext = (document as AgenticDocument).modelContext;
 			if (modelContext?.registerTool) return modelContext;
-			await delay(50, signal);
+			await delay(250, signal);
 		}
 
 		return null;

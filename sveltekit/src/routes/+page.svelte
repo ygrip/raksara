@@ -1,8 +1,8 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
 	import { heroTyping } from '$lib/actions/typing';
-	import DotField from '$lib/components/DotField.svelte';
 	import { assetUrl, formatDate } from '$lib/utils';
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import { buildWebSiteSchema, buildPersonSchema, serializeJsonLd } from '$lib/seo';
@@ -20,6 +20,39 @@
 	const heroSubtitle = $derived(hero?.subtitle ?? config?.hero_subtitle ?? config?.description ?? '');
 	const heroPortrait = $derived(bundle?.profile?.avatar ? assetUrl(bundle.profile.avatar) : '');
 	let heroVisual: HTMLDivElement | null = $state(null);
+	let DotField: any = $state(null);
+
+	// The dot portrait is decorative and expensive to parse/initialise on low-end
+	// mobile CPUs. Keep it out of the initial route chunk and load it once the
+	// first paint/load work has settled.
+	onMount(() => {
+		let cancelled = false;
+		let idleHandle: number | undefined;
+		let timeoutHandle: number | undefined;
+
+		const loadDotField = async () => {
+			const module = await import('$lib/components/DotField.svelte');
+			if (!cancelled) DotField = module.default;
+		};
+
+		const scheduleLoad = () => {
+			if ('requestIdleCallback' in window) {
+				idleHandle = window.requestIdleCallback(() => void loadDotField(), { timeout: 1800 });
+			} else {
+				timeoutHandle = window.setTimeout(() => void loadDotField(), 600);
+			}
+		};
+
+		if (document.readyState === 'complete') scheduleLoad();
+		else window.addEventListener('load', scheduleLoad, { once: true });
+
+		return () => {
+			cancelled = true;
+			window.removeEventListener('load', scheduleLoad);
+			if (idleHandle !== undefined && 'cancelIdleCallback' in window) window.cancelIdleCallback(idleHandle);
+			if (timeoutHandle !== undefined) window.clearTimeout(timeoutHandle);
+		};
+	});
 
 	// SEO
 	const seoTitle       = $derived(homePageConfig?.seo?.title ?? config?.hero_title ?? config?.title ?? '');
@@ -85,7 +118,7 @@
 <!-- ── Hero ─────────────────────────────────────────── -->
 <section class="home-hero{heroPortrait ? ' dot-hero' : ''}" id="profile-hero">
 	<div class="home-hero-aurora" aria-hidden="true"></div>
-	{#if heroPortrait}
+	{#if heroPortrait && DotField}
 		<DotField
 			src={heroPortrait}
 			anchor={heroVisual}
@@ -502,3 +535,19 @@
 	{/if}
 
 {/if}
+
+
+<style>
+	/* Skip layout/paint work for below-the-fold homepage sections until they
+	   approach the viewport. The intrinsic fallback keeps scroll geometry stable. */
+	.home-section {
+		content-visibility: auto;
+		contain-intrinsic-size: auto 520px;
+	}
+
+	@media (max-width: 767px) {
+		.home-section {
+			contain-intrinsic-size: auto 620px;
+		}
+	}
+</style>

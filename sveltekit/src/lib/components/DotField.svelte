@@ -20,9 +20,9 @@
   let canvas: HTMLCanvasElement | undefined;
   let ready = $state(false);
 
-  const FRAME_MS = 1000 / 30;
+  const FRAME_MS = 1000 / 24;
   /** Frame budget while the pointer is engaged or a ripple is running. */
-  const FRAME_MS_ACTIVE = 1000 / 60;
+  const FRAME_MS_ACTIVE = 1000 / 45;
   const RIPPLE_SPEED = 520; // px/s
   const RIPPLE_WIDTH = 34; // px, gaussian half-width of the ring
   const RIPPLE_LIFE = 1.3; // s
@@ -290,7 +290,7 @@
     const bounds = host.getBoundingClientRect();
     if (bounds.width < 2 || bounds.height < 2) return null;
 
-    const spacing = bounds.width < 640 ? 6 : 7;
+    const spacing = bounds.width < 640 ? 8 : 7;
     const cols = Math.ceil(bounds.width / spacing) + 1;
     const rows = Math.ceil(bounds.height / spacing) + 1;
     const originX = (bounds.width - (cols - 1) * spacing) / 2;
@@ -386,6 +386,8 @@
     if (!ctx) return;
 
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const lowPower = window.matchMedia('(max-width: 767px), (pointer: coarse)');
+    const shouldAnimate = () => !reducedMotion.matches && !lowPower.matches;
     let disposed = false;
     let image: HTMLImageElement | null = null;
     let field: Field | null = null;
@@ -422,7 +424,7 @@
       if (!host || !canvas) return;
       field = buildField(analysis ? image : null, analysis);
       if (!field) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = lowPower.matches ? 1 : Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.round(field.width * dpr);
       canvas.height = Math.round(field.height * dpr);
       canvas.style.width = `${field.width}px`;
@@ -530,7 +532,7 @@
     const tick = (now: number) => {
       frame = 0;
       if (disposed || !visible) return;
-      // 60fps while the pointer or a ripple is active, 30fps when idle.
+      // Desktop keeps modest motion; coarse/mobile pointers use a single static frame.
       const interactive = pointerLift > 0.01 || ripples.length > 0;
       if (now - lastPaint >= (interactive ? FRAME_MS_ACTIVE : FRAME_MS)) {
         lastPaint = now;
@@ -549,7 +551,7 @@
 
     const schedule = () => {
       if (disposed) return;
-      if (reducedMotion.matches) {
+      if (!shouldAnimate()) {
         cancelAnimationFrame(frame);
         frame = 0;
         paint(0, false);
@@ -561,7 +563,7 @@
     const rebuild = () => {
       readTheme();
       resize();
-      if (reducedMotion.matches) paint(0, false);
+      if (!shouldAnimate()) paint(0, false);
       ready = Boolean(field);
       schedule();
     };
@@ -604,7 +606,7 @@
 
     const themeObserver = new MutationObserver(() => {
       readTheme();
-      if (reducedMotion.matches) paint(0, false);
+      if (!shouldAnimate()) paint(0, false);
     });
     themeObserver.observe(document.documentElement, {
       attributes: true,
@@ -670,7 +672,7 @@
       const touch = event.touches[0];
       if (touch) track(touch.clientX, touch.clientY);
     };
-    const interactive = !reducedMotion.matches;
+    const interactive = shouldAnimate();
     if (interactive) {
       pointerTarget.addEventListener('pointermove', onPointerMove, { passive: true });
       pointerTarget.addEventListener('pointerdown', onPointerDown, { passive: true });
@@ -682,6 +684,7 @@
     }
 
     reducedMotion.addEventListener('change', rebuild);
+    lowPower.addEventListener('change', rebuild);
 
     return () => {
       disposed = true;
@@ -692,6 +695,7 @@
       intersection.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
       reducedMotion.removeEventListener('change', rebuild);
+      lowPower.removeEventListener('change', rebuild);
       if (interactive) {
         pointerTarget.removeEventListener('pointermove', onPointerMove);
         pointerTarget.removeEventListener('pointerdown', onPointerDown);
