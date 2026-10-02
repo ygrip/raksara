@@ -222,7 +222,7 @@
             const pixel = luminanceAt(x, y);
             if (pixel.alpha <= 0) continue;
 
-            const threshold = BRAILLE_THRESHOLDS[dot.dy][dot.dx];
+            const threshold = BRAILLE_THRESHOLDS[dot.dy]?.[dot.dx] ?? 0.5;
             if (pixel.normalized >= threshold) {
               mask |= 1 << dot.bit;
               alphaTotal += pixel.alpha;
@@ -329,7 +329,9 @@
   class="ascii-art {className}"
   class:ready
   role="img"
-  aria-label="ASCII portrait generated from the profile image"
+  aria-label={charset === 'braille'
+    ? 'Braille portrait generated from the profile image'
+    : 'ASCII portrait generated from the profile image'}
 >
   <canvas bind:this={canvas} aria-hidden="true"></canvas>
 </div>
