@@ -3477,3 +3477,22 @@ body.reading-mode .article-body li {
         border-radius: 20px;
     }
 }
+
+
+/* ── Mobile hero edge ownership ─────────────────────────────
+   The floating mobile header overlays the home hero. Keep the hero itself
+   flush with the viewport and the following section instead of compensating
+   with top/bottom spacing that reads as empty bands on small screens. */
+@media (max-width: 768px) {
+    #content:has(.home-hero) {
+        padding-top: 0;
+    }
+
+    .home-hero,
+    .home-hero.dot-hero {
+        margin-top: 0;
+        margin-bottom: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+}
