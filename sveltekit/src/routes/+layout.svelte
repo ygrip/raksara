@@ -214,6 +214,23 @@
 		orange: { accent: '#f97316', hoverDark: '#fb923c', hoverLight: '#ea580c', g1: '#f97316', g2: '#fb923c', g3: '#fbbf24', rgb: '249,115,22' },
 	};
 
+	function getPwaAssetVersion(siteConfig: LayoutData['config']): string {
+		if (!siteConfig) return 'default';
+		const extended = siteConfig as typeof siteConfig & { pwa_asset_version?: string };
+		if (extended.pwa_asset_version) return String(extended.pwa_asset_version);
+		return [siteConfig.color ?? 'purple', siteConfig.accent ?? '', siteConfig.logo ?? '']
+			.join('-')
+			.replace(/[^a-zA-Z0-9_-]+/g, '-');
+	}
+
+	const selectedAccent = $derived(
+		config?.accent
+			?? COLOR_PALETTES[(config?.color || '').toLowerCase()]?.accent
+			?? COLOR_PALETTES.purple.accent
+	);
+	const pwaAssetVersion = $derived(getPwaAssetVersion(config));
+	const pwaAssetQuery = $derived(`?v=${encodeURIComponent(pwaAssetVersion)}`);
+
 	function applyAccentColor(theme = currentTheme) {
 		if (!config) return;
 		const palette = COLOR_PALETTES[(config.color || '').toLowerCase()] ?? COLOR_PALETTES.purple;
@@ -393,6 +410,13 @@
 <svelte:head>
 	{@html `<script>${earlyThemeScript()}</script>`}
 	{@html `<style id="raksara-config-palette">${paletteStyle()}</style>`}
+	<meta name="theme-color" content={selectedAccent} />
+	<meta name="mobile-web-app-capable" content="yes" />
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+	<link rel="icon" type="image/svg+xml" href={`/favicon.svg${pwaAssetQuery}`} />
+	<link rel="icon" type="image/x-icon" href={`/favicon.ico${pwaAssetQuery}`} />
+	<link rel="apple-touch-icon" href={`/apple-touch-icon.png${pwaAssetQuery}`} />
+	<link rel="manifest" href={`/site.webmanifest${pwaAssetQuery}`} />
 	<!-- DNS prefetch / preconnect for third-party origins -->
 	{#if config?.font}
 		<link rel="preconnect" href="https://fonts.googleapis.com" />

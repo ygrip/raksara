@@ -114,6 +114,41 @@ function getAccentPalette(config) {
   return COLOR_TONES[colorName] || COLOR_TONES.purple;
 }
 
+function getContentAssetSourcePath(assetPath) {
+  if (!assetPath || /^https?:\/\//i.test(assetPath) || String(assetPath).startsWith("data:")) return "";
+  let normalized = String(assetPath).replace(/^\/+/, "");
+  if (normalized.startsWith("content/")) normalized = normalized.slice("content/".length);
+  return path.join(CONTENT_DIR, normalized);
+}
+
+function hashContentAsset(assetPath) {
+  const sourcePath = getContentAssetSourcePath(assetPath);
+  if (!sourcePath || !fs.existsSync(sourcePath)) return "";
+  try {
+    return crypto.createHash("sha1").update(fs.readFileSync(sourcePath)).digest("hex").slice(0, 16);
+  } catch {
+    return "";
+  }
+}
+
+function buildPwaAssetVersion(siteConfig) {
+  const palette = getAccentPalette(siteConfig || {});
+  const hash = crypto.createHash("sha1");
+  hash.update(JSON.stringify({
+    color: siteConfig?.color || "",
+    accent: siteConfig?.accent || palette.accent,
+    gradient1: siteConfig?.gradient_1 || palette.g1,
+    gradient2: siteConfig?.gradient_2 || palette.g2,
+    gradient3: siteConfig?.gradient_3 || palette.g3,
+    logo: siteConfig?.logo || "",
+  }));
+  const logoPath = getContentAssetSourcePath(siteConfig?.logo);
+  if (logoPath && fs.existsSync(logoPath)) {
+    try { hash.update(fs.readFileSync(logoPath)); } catch {}
+  }
+  return hash.digest("hex").slice(0, 12);
+}
+
 function shouldIncludeInSearch(section) {
   return ["blog", "portfolio", "pages"].includes(section);
 }
@@ -380,6 +415,7 @@ async function buildMetadata() {
       content,
     };
   }
+  siteConfig.pwa_asset_version = buildPwaAssetVersion(siteConfig);
   write("config.json", siteConfig);
 
   copyMetadataToWeb();
@@ -509,12 +545,14 @@ async function buildMetadata() {
 
           // Build a hash of the profile inputs so we can skip regeneration when nothing changed.
           const profileHashInput = JSON.stringify({
-            name:    fm.title  || ogSiteName,
-            role:    fm.role   || '',
-            avatar:  fm.avatar || '',
-            cover:   fm.cover  || '',
-            accent:  ogAccentColor,
-            site:    ogSiteName,
+            name:       fm.title  || ogSiteName,
+            role:       fm.role   || '',
+            avatar:     fm.avatar || '',
+            avatarHash: hashContentAsset(fm.avatar || ''),
+            cover:      fm.cover  || '',
+            coverHash:  hashContentAsset(fm.cover || ''),
+            accent:     ogAccentColor,
+            site:       ogSiteName,
           });
           const profileOgHash = crypto.createHash('sha1').update(profileHashInput).digest('hex').slice(0, 16);
 
@@ -1222,12 +1260,22 @@ function buildRootFaviconRefs() {
     svg: "favicon.svg",
     png: "favicon.png",
     apple: "apple-touch-icon.png",
+    pwa192: "pwa-192.png",
+    pwa512: "pwa-512.png",
     manifest: "site.webmanifest",
   };
 }
 
 async function generateFaviconAssets(siteConfig) {
-  const palette = getAccentPalette(siteConfig || {});
+  const basePalette = getAccentPalette(siteConfig || {});
+  const palette = {
+    ...basePalette,
+    accent: (siteConfig && siteConfig.accent) || basePalette.accent,
+    g1: (siteConfig && siteConfig.gradient_1) || basePalette.g1,
+    g2: (siteConfig && siteConfig.gradient_2) || basePalette.g2,
+    g3: (siteConfig && siteConfig.gradient_3) || basePalette.g3,
+  };
+  const assetVersion = (siteConfig && siteConfig.pwa_asset_version) || buildPwaAssetVersion(siteConfig || {});
   const refs = buildRootFaviconRefs();
   const logoAbsolutePath = getLocalAssetAbsolutePath(siteConfig && siteConfig.logo);
   let faviconSvg = buildFallbackFaviconSvg(palette);
@@ -1247,26 +1295,35 @@ async function generateFaviconAssets(siteConfig) {
   try {
     await sharp(pngSource).resize(48, 48).png().toFile(path.join(WEB_DIR, refs.png));
     await sharp(pngSource).resize(180, 180).png().toFile(path.join(WEB_DIR, refs.apple));
+    await sharp(pngSource).resize(192, 192).png().toFile(path.join(WEB_DIR, refs.pwa192));
+    await sharp(pngSource).resize(512, 512).png().toFile(path.join(WEB_DIR, refs.pwa512));
   } catch {
     if (logoAbsolutePath && fs.existsSync(logoAbsolutePath)) {
-      await sharp(logoAbsolutePath).resize(48, 48, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toFile(path.join(WEB_DIR, refs.png));
-      await sharp(logoAbsolutePath).resize(180, 180, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toFile(path.join(WEB_DIR, refs.apple));
+      const opts = { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } };
+      await sharp(logoAbsolutePath).resize(48, 48, opts).png().toFile(path.join(WEB_DIR, refs.png));
+      await sharp(logoAbsolutePath).resize(180, 180, opts).png().toFile(path.join(WEB_DIR, refs.apple));
+      await sharp(logoAbsolutePath).resize(192, 192, opts).png().toFile(path.join(WEB_DIR, refs.pwa192));
+      await sharp(logoAbsolutePath).resize(512, 512, opts).png().toFile(path.join(WEB_DIR, refs.pwa512));
     }
   }
 
+  const versioned = (file) => `/${file}?v=${encodeURIComponent(assetVersion)}`;
   writeWebFile(
     refs.manifest,
     JSON.stringify(
       {
         name: (siteConfig && (siteConfig.hero_title || siteConfig.title)) || "",
         short_name: (siteConfig && (siteConfig.hero_title || siteConfig.title)) || "",
+        id: "/",
+        start_url: "/",
+        scope: "/",
         icons: [
-          { src: `/${refs.png}`, sizes: "48x48", type: "image/png" },
-          { src: `/${refs.apple}`, sizes: "180x180", type: "image/png" },
-          { src: `/${refs.svg}`, sizes: "any", type: "image/svg+xml", purpose: "any" },
+          { src: versioned(refs.pwa192), sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: versioned(refs.pwa512), sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: versioned(refs.svg), sizes: "any", type: "image/svg+xml", purpose: "any" },
         ],
         theme_color: palette.accent,
-        background_color: (siteConfig && siteConfig.manifest_bg_color) || "#000000",
+        background_color: (siteConfig && siteConfig.manifest_bg_color) || "#0d131c",
         display: "standalone",
       },
       null,
@@ -1274,7 +1331,7 @@ async function generateFaviconAssets(siteConfig) {
     ),
   );
 
-  console.log("  ✓ Generated favicon assets");
+  console.log(`  ✓ Generated favicon/PWA assets (${palette.accent}, v${assetVersion})`);
   await generateFaviconIco();
 }
 
