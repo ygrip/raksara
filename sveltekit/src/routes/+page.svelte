@@ -83,27 +83,47 @@
 <section class="home-hero" id="profile-hero">
 	<div class="home-hero-aurora" aria-hidden="true"></div>
 	<div class="home-hero-content">
-		{#if hero?.eyebrow}
-			<p class="home-hero-eyebrow">{hero.eyebrow}</p>
-		{/if}
-		<h1 class="home-hero-title" aria-label={heroTitle}>
-			<span class="accent-gradient" use:heroTyping={heroTitle}></span>
-		</h1>
-		{#if heroSubtitle}
-			<p class="home-hero-subtitle">{heroSubtitle}</p>
-		{/if}
-		{#if hero?.description}
-			<p class="home-hero-description">{hero.description}</p>
-		{/if}
-		{#if hero?.actions?.length}
-			<div class="home-hero-actions">
-				{#each hero.actions as action}
-					<a href={action.href} class="home-btn home-btn-{action.variant ?? 'secondary'}">
-						{action.label}
-					</a>
-				{/each}
+		<div class="home-hero-copy">
+			{#if hero?.eyebrow}
+				<p class="home-hero-eyebrow">{hero.eyebrow}</p>
+			{/if}
+			<h1 class="home-hero-title" aria-label={heroTitle}>
+				<span class="accent-gradient" use:heroTyping={heroTitle}></span>
+			</h1>
+			{#if heroSubtitle}
+				<p class="home-hero-subtitle">{heroSubtitle}</p>
+			{/if}
+			{#if hero?.description}
+				<p class="home-hero-description">{hero.description}</p>
+			{/if}
+			{#if hero?.actions?.length}
+				<div class="home-hero-actions">
+					{#each hero.actions as action}
+						<a href={action.href} class="home-btn home-btn-{action.variant ?? 'secondary'}">
+							{action.label}
+						</a>
+					{/each}
+				</div>
+			{/if}
+		</div>
+
+		<div class="home-hero-system" aria-hidden="true">
+			<div class="hero-system-grid"></div>
+			<div class="hero-system-halo"></div>
+			<div class="hero-system-ring hero-system-ring-a"><span class="hero-system-node"></span></div>
+			<div class="hero-system-ring hero-system-ring-b"><span class="hero-system-node"></span></div>
+			<div class="hero-system-ring hero-system-ring-c"><span class="hero-system-node"></span></div>
+			<div class="hero-system-axis hero-system-axis-x"></div>
+			<div class="hero-system-axis hero-system-axis-y"></div>
+			<div class="hero-system-core">
+				<span class="hero-system-core-dot"></span>
+				<span class="hero-system-pulse hero-system-pulse-a"></span>
+				<span class="hero-system-pulse hero-system-pulse-b"></span>
 			</div>
-		{/if}
+			<div class="hero-system-signal hero-system-signal-a"></div>
+			<div class="hero-system-signal hero-system-signal-b"></div>
+			<div class="hero-system-signal hero-system-signal-c"></div>
+		</div>
 	</div>
 	<div class="hero-waves" aria-hidden="true">
 		<svg class="hero-wave hero-wave-back" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,45 C100,20 200,55 360,30 C480,12 560,50 720,35 C850,22 1000,55 1140,28 C1280,8 1380,42 1440,38 L1440,80 L0,80 Z"/></svg>
