@@ -290,7 +290,7 @@
     const bounds = host.getBoundingClientRect();
     if (bounds.width < 2 || bounds.height < 2) return null;
 
-    const spacing = bounds.width < 640 ? 8 : 7;
+    const spacing = bounds.width < 640 ? 7.5 : 7;
     const cols = Math.ceil(bounds.width / spacing) + 1;
     const rows = Math.ceil(bounds.height / spacing) + 1;
     const originX = (bounds.width - (cols - 1) * spacing) / 2;
@@ -532,7 +532,8 @@
     const tick = (now: number) => {
       frame = 0;
       if (disposed || !visible) return;
-      // Desktop keeps modest motion; coarse/mobile pointers use a single static frame.
+      // Once the deferred field is loaded, keep the subtle breathing motion on
+      // mobile too; low-power devices still use 1x DPR and the lower frame rate.
       const interactive = pointerLift > 0.01 || ripples.length > 0;
       if (now - lastPaint >= (interactive ? FRAME_MS_ACTIVE : FRAME_MS)) {
         lastPaint = now;
@@ -545,19 +546,7 @@
           pointerY += (targetY - pointerY) * 0.3;
         }
         paint((now - start) / 1000, true, now);
-      }
-      const mobileIdle =
-        lowPower.matches &&
-        !pointerActive &&
-        pointerLift < 0.01 &&
-        ripples.length === 0;
-
-      if (mobileIdle) {
-        paint(0, false, now);
-        return;
-      }
-
-      frame = requestAnimationFrame(tick);
+      }      frame = requestAnimationFrame(tick);
     };
 
     const schedule = () => {
@@ -568,20 +557,6 @@
         paint(0, false);
         return;
       }
-
-      const mobileIdle =
-        lowPower.matches &&
-        !pointerActive &&
-        pointerLift < 0.01 &&
-        ripples.length === 0;
-
-      if (mobileIdle) {
-        cancelAnimationFrame(frame);
-        frame = 0;
-        paint(0, false);
-        return;
-      }
-
       if (!frame && visible) frame = requestAnimationFrame(tick);
     };
 
