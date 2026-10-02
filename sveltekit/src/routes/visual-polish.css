@@ -2504,10 +2504,10 @@ a.home-info-card-link:hover,
     inset: 0;
     width: 100%;
     height: 100%;
-    opacity: 0.94;
+    opacity: 0.78;
     filter:
-        contrast(1.06)
-        drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 12%, transparent));
+        contrast(1.03)
+        drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 6%, transparent));
 }
 
 .home-hero.ascii-hero .hero-visual-grid,
