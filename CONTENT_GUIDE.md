@@ -457,6 +457,8 @@ Both formats are supported. If `images` is present it takes priority over
 
 Edit `pages/profile.md` and set the `avatar` and `cover` fields:
 
+When an `avatar` is present, Raksara also uses it automatically as the homepage hero's ASCII-dots portrait source. No separate hero image setting is required.
+
 ```yaml
 ---
 title: "Your Name"
