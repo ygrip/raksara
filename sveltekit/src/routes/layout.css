@@ -2397,6 +2397,21 @@ a.home-info-card-link:hover .home-info-card-arrow {
     margin-bottom: 8px;
 }
 
+.portfolio-card-title a {
+    color: inherit;
+    text-decoration: none;
+}
+
+@media (pointer: coarse) {
+    .portfolio-card-title a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 48px;
+        padding-inline: 4px;
+        margin-inline: -4px;
+    }
+}
+
 .portfolio-card-summary {
     font-size: 13px;
     color: var(--text-secondary);
