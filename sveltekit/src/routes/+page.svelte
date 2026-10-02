@@ -82,7 +82,7 @@
 </svelte:head>
 
 <!-- ── Hero ─────────────────────────────────────────── -->
-<section class="home-hero" id="profile-hero">
+<section class="home-hero" class:ascii-hero={!!heroPortrait} id="profile-hero">
 	<div class="home-hero-aurora" aria-hidden="true"></div>
 	<div class="home-hero-content">
 		<div class="home-hero-copy">
@@ -119,7 +119,7 @@
 					<span class="hero-ascii-backdrop"></span>
 					<AsciiArt
 						src={heroPortrait}
-						resolution={84}
+						resolution={140}
 						charset="dots"
 						color="var(--accent)"
 						backgroundColor="transparent"
