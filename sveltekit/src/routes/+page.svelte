@@ -28,7 +28,11 @@
 	onMount(() => {
 		let cancelled = false;
 		let idleHandle: number | undefined;
-		let timeoutHandle: number | undefined;
+		let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+		const idleApi = window as unknown as {
+			requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+			cancelIdleCallback?: (handle: number) => void;
+		};
 
 		const loadDotField = async () => {
 			const module = await import('$lib/components/DotField.svelte');
@@ -36,10 +40,10 @@
 		};
 
 		const scheduleLoad = () => {
-			if ('requestIdleCallback' in window) {
-				idleHandle = window.requestIdleCallback(() => void loadDotField(), { timeout: 1800 });
+			if (typeof idleApi.requestIdleCallback === 'function') {
+				idleHandle = idleApi.requestIdleCallback(() => void loadDotField(), { timeout: 1800 });
 			} else {
-				timeoutHandle = globalThis.setTimeout(() => void loadDotField(), 600);
+				timeoutHandle = setTimeout(() => void loadDotField(), 600);
 			}
 		};
 
@@ -49,8 +53,8 @@
 		return () => {
 			cancelled = true;
 			window.removeEventListener('load', scheduleLoad);
-			if (idleHandle !== undefined && 'cancelIdleCallback' in window) window.cancelIdleCallback(idleHandle);
-			if (timeoutHandle !== undefined) window.clearTimeout(timeoutHandle);
+			if (idleHandle !== undefined) idleApi.cancelIdleCallback?.(idleHandle);
+			if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
 		};
 	});
 
