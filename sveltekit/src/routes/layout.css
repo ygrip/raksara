@@ -6965,3 +6965,945 @@ a.home-info-card-link:hover,
         border-radius: 20px;
     }
 }
+
+
+/* ── Interaction + motion polish pass ───────────────────── */
+
+/* Dark mode needs depth, not a black void. Keep contrast while exposing glass/grid layers. */
+[data-theme="dark"] {
+    --bg-base: #0d131c;
+    --bg-primary: rgba(16, 22, 31, 0.88);
+    --bg-secondary: rgba(19, 27, 39, 0.80);
+    --bg-card: rgba(25, 34, 48, 0.68);
+    --bg-glass: rgba(255, 255, 255, 0.052);
+    --bg-glass-heavy: rgba(20, 28, 40, 0.90);
+    --bg-hover: rgba(255, 255, 255, 0.075);
+    --bg-active: rgba(255, 255, 255, 0.10);
+    --border-color: rgba(255, 255, 255, 0.11);
+    --border-subtle: rgba(255, 255, 255, 0.065);
+    --border-glass: rgba(255, 255, 255, 0.12);
+    --text-primary: #f3f6fb;
+    --text-secondary: #b0bac9;
+    --text-tertiary: #8794a6;
+    --shadow-color: rgba(0, 0, 0, 0.28);
+    --shadow-heavy: rgba(0, 0, 0, 0.44);
+    --noise-opacity: 0.022;
+}
+
+.bg-gradient {
+    --ambient-grid: rgba(28, 25, 23, 0.038);
+    background-image:
+        linear-gradient(var(--ambient-grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--ambient-grid) 1px, transparent 1px),
+        var(--gradient-bg);
+    background-size: 32px 32px, 32px 32px, auto;
+    background-position: center, center, center;
+}
+
+[data-theme="dark"] .bg-gradient {
+    --ambient-grid: color-mix(in srgb, var(--accent) 11%, rgba(255, 255, 255, 0.055));
+    opacity: 1;
+}
+
+/* Buttons: tactile glass controls with a quiet sheen and accent energy. */
+.home-btn,
+.btn-github,
+.btn-demo,
+.share-btn,
+.pagination a {
+    position: relative;
+    overflow: hidden;
+    min-height: 42px;
+    border-radius: 14px;
+    font-weight: 680;
+    letter-spacing: -0.01em;
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, white 38%, transparent),
+        0 6px 18px color-mix(in srgb, var(--shadow-color) 82%, transparent);
+}
+
+.home-btn::before,
+.btn-github::before,
+.btn-demo::before,
+.share-btn::before,
+.pagination a::before {
+    content: "";
+    position: absolute;
+    top: -80%;
+    left: -35%;
+    width: 42%;
+    height: 250%;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.22), transparent);
+    transform: rotate(18deg) translateX(-240%);
+    transition: transform 520ms var(--smooth);
+    pointer-events: none;
+}
+
+.home-btn:hover::before,
+.btn-github:hover::before,
+.btn-demo:hover::before,
+.share-btn:hover::before,
+.pagination a:hover::before {
+    transform: rotate(18deg) translateX(430%);
+}
+
+.home-btn:hover,
+.btn-github:hover,
+.btn-demo:hover,
+.share-btn:hover,
+.pagination a:hover {
+    transform: translateY(-2px);
+}
+
+.home-btn-secondary {
+    border-color: color-mix(in srgb, var(--accent) 44%, var(--border-color));
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 66%),
+        var(--punakawan-glass-soft);
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, white 35%, transparent),
+        0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent),
+        0 8px 22px color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.home-btn-secondary:hover {
+    border-color: color-mix(in srgb, var(--accent) 72%, white 8%);
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 15%, transparent), transparent 70%),
+        var(--punakawan-glass-strong);
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, white 42%, transparent),
+        0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent),
+        0 10px 26px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.home-btn-ghost,
+.btn-github,
+.share-btn {
+    border-color: var(--punakawan-glass-border);
+    background: var(--punakawan-glass-soft);
+    backdrop-filter: blur(14px) saturate(1.12);
+    -webkit-backdrop-filter: blur(14px) saturate(1.12);
+}
+
+.home-btn-ghost:hover,
+.btn-github:hover,
+.share-btn:hover {
+    color: var(--text-primary);
+    border-color: color-mix(in srgb, var(--accent) 38%, var(--border-color));
+    background: color-mix(in srgb, var(--accent) 8%, var(--punakawan-glass-strong));
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, white 38%, transparent),
+        0 8px 22px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.btn-demo {
+    border-color: color-mix(in srgb, var(--accent) 70%, white 10%);
+    background: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--accent) 92%, white 8%),
+        color-mix(in srgb, var(--accent) 68%, #111 32%)
+    );
+    box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.3),
+        0 8px 24px var(--accent-glow);
+}
+
+/* Search/filter controls should be visually discoverable even before focus. */
+.dir-controls {
+    position: relative;
+    gap: 12px;
+    padding: 11px;
+    border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border-color));
+    border-radius: 24px;
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 42%),
+        var(--punakawan-glass);
+    backdrop-filter: blur(20px) saturate(1.18);
+    -webkit-backdrop-filter: blur(20px) saturate(1.18);
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, white 42%, transparent),
+        0 0 0 1px color-mix(in srgb, var(--accent) 7%, transparent),
+        0 12px 32px var(--shadow-color),
+        0 0 34px color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.dir-controls::before {
+    content: "";
+    position: absolute;
+    inset: -1px 24px auto;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 72%, white 10%), transparent);
+    opacity: 0.75;
+    pointer-events: none;
+}
+
+.dir-search-wrap svg,
+.dir-sort-wrap > svg {
+    color: color-mix(in srgb, var(--accent) 70%, var(--text-secondary));
+    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 24%, transparent));
+}
+
+.dir-search-input,
+.component-list-search {
+    min-height: 48px;
+    border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border-color));
+    border-radius: 15px;
+    background:
+        linear-gradient(180deg, color-mix(in srgb, white 3%, transparent), transparent),
+        var(--punakawan-glass-strong);
+    color: var(--text-primary);
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, white 34%, transparent),
+        inset 0 -1px 0 color-mix(in srgb, var(--accent) 7%, transparent),
+        0 6px 18px color-mix(in srgb, var(--shadow-color) 58%, transparent);
+    transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.dir-search-input:hover,
+.component-list-search:hover {
+    border-color: color-mix(in srgb, var(--accent) 50%, var(--border-color));
+}
+
+.dir-search-input:focus,
+.component-list-search:focus {
+    border-color: color-mix(in srgb, var(--accent) 82%, white 10%);
+    background: color-mix(in srgb, var(--accent) 4%, var(--punakawan-glass-strong));
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, white 40%, transparent),
+        0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent),
+        0 0 28px color-mix(in srgb, var(--accent) 18%, transparent),
+        0 10px 28px var(--shadow-color);
+}
+
+.dir-sort-wrap {
+    min-height: 48px;
+    padding: 0 12px;
+    border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border-color));
+    border-radius: 15px;
+    background: var(--punakawan-glass-strong);
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, white 34%, transparent),
+        0 6px 18px color-mix(in srgb, var(--shadow-color) 58%, transparent);
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.dir-sort-wrap:focus-within,
+.dir-sort-wrap:hover {
+    border-color: color-mix(in srgb, var(--accent) 62%, var(--border-color));
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, white 40%, transparent),
+        0 0 0 3px color-mix(in srgb, var(--accent) 11%, transparent),
+        0 0 24px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* Search modal gets a layered backdrop instead of a flat dimmer. */
+.search-overlay-backdrop {
+    background:
+        radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 34rem),
+        linear-gradient(180deg, rgb(5 9 14 / 0.52), rgb(5 9 14 / 0.76));
+    backdrop-filter: blur(18px) saturate(1.12);
+    -webkit-backdrop-filter: blur(18px) saturate(1.12);
+}
+
+[data-theme="light"] .search-overlay-backdrop {
+    background:
+        radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 32rem),
+        linear-gradient(180deg, rgb(248 246 241 / 0.68), rgb(236 232 224 / 0.82));
+}
+
+.search-overlay-content {
+    max-width: 640px;
+    border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border-color));
+    border-radius: 28px;
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 36%),
+        var(--punakawan-glass-strong);
+    backdrop-filter: blur(28px) saturate(1.25);
+    -webkit-backdrop-filter: blur(28px) saturate(1.25);
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, white 48%, transparent),
+        0 0 0 1px color-mix(in srgb, var(--accent) 7%, transparent),
+        0 28px 90px var(--shadow-heavy),
+        0 0 64px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.search-overlay-content::before {
+    content: "";
+    position: absolute;
+    z-index: 2;
+    inset: -1px 42px auto;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.82;
+    pointer-events: none;
+}
+
+.search-overlay-header {
+    margin: 10px;
+    padding: 12px 14px;
+    border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border-color));
+    border-radius: 18px;
+    background: var(--punakawan-glass-soft);
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, white 38%, transparent),
+        0 8px 24px color-mix(in srgb, var(--shadow-color) 55%, transparent);
+    color: color-mix(in srgb, var(--accent) 60%, var(--text-secondary));
+}
+
+#search-overlay-input {
+    min-height: 38px;
+    font-size: 17px;
+    font-weight: 540;
+}
+
+.search-kbd {
+    min-height: 30px;
+    padding: 5px 9px;
+    border-radius: 10px;
+    border-color: color-mix(in srgb, var(--accent) 18%, var(--border-color));
+    background: var(--punakawan-glass-strong);
+}
+
+.search-result-item {
+    margin: 0 10px 8px;
+    width: calc(100% - 20px);
+    border: 1px solid transparent;
+    border-radius: 15px;
+}
+
+.search-result-item:hover {
+    border-color: color-mix(in srgb, var(--accent) 20%, var(--border-color));
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
+        var(--punakawan-glass-soft);
+}
+
+/* Mobile drawer backdrop: visible separation, not opaque mud. */
+.sidebar-overlay {
+    background:
+        radial-gradient(circle at 16% 20%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 20rem),
+        rgb(5 9 14 / 0.58) !important;
+    backdrop-filter: blur(16px) saturate(1.12);
+    -webkit-backdrop-filter: blur(16px) saturate(1.12);
+}
+
+/* Bring back the older gallery's cinematic gradation, now keyed to the accent. */
+.gallery-window-body {
+    position: relative;
+    background:
+        radial-gradient(circle at 18% 16%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 36%),
+        radial-gradient(circle at 82% 84%, color-mix(in srgb, var(--gradient-3) 18%, transparent), transparent 42%),
+        linear-gradient(
+            145deg,
+            color-mix(in srgb, #0f1724 88%, var(--accent) 12%),
+            color-mix(in srgb, #211526 88%, var(--gradient-3) 12%)
+        );
+    box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.05),
+        inset 0 -44px 90px rgb(0 0 0 / 0.24);
+}
+
+.gallery-window-body::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(115deg, transparent 24%, rgb(255 255 255 / 0.045) 48%, transparent 68%);
+    mix-blend-mode: screen;
+    opacity: 0.75;
+}
+
+/* AI-orchestration-inspired hero: connected motion rather than decorative blobs. */
+.home-hero {
+    min-height: 650px;
+}
+
+.home-hero-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1.12fr) minmax(300px, 0.88fr);
+    align-items: center;
+    gap: clamp(28px, 5vw, 64px);
+    padding: 42px;
+    margin-bottom: 72px;
+}
+
+.home-hero-copy {
+    position: relative;
+    z-index: 3;
+    min-width: 0;
+}
+
+.home-hero-title {
+    max-width: 11ch;
+    font-size: clamp(46px, 5vw, 66px);
+    line-height: 0.98;
+}
+
+.home-hero-subtitle,
+.home-hero-description {
+    max-width: 64ch;
+}
+
+.home-hero-system {
+    position: relative;
+    z-index: 2;
+    width: min(100%, 390px);
+    aspect-ratio: 1;
+    justify-self: end;
+    overflow: hidden;
+    isolation: isolate;
+    border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--border-color));
+    border-radius: 32px;
+    background:
+        radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 34%),
+        linear-gradient(145deg, color-mix(in srgb, white 4%, transparent), transparent 52%),
+        var(--punakawan-glass-soft);
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, white 42%, transparent),
+        inset 0 -1px 0 color-mix(in srgb, var(--accent) 7%, transparent),
+        0 24px 60px color-mix(in srgb, var(--shadow-color) 88%, transparent),
+        0 0 52px color-mix(in srgb, var(--accent) 8%, transparent);
+    backdrop-filter: blur(18px) saturate(1.12);
+    -webkit-backdrop-filter: blur(18px) saturate(1.12);
+}
+
+.hero-system-grid {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    background-image:
+        linear-gradient(color-mix(in srgb, var(--accent) 10%, transparent) 1px, transparent 1px),
+        linear-gradient(90deg, color-mix(in srgb, var(--accent) 10%, transparent) 1px, transparent 1px);
+    background-size: 26px 26px;
+    mask-image: radial-gradient(circle at center, black 0 55%, transparent 88%);
+    -webkit-mask-image: radial-gradient(circle at center, black 0 55%, transparent 88%);
+    opacity: 0.75;
+}
+
+.hero-system-halo {
+    position: absolute;
+    z-index: -1;
+    inset: 24%;
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--accent) 26%, transparent), transparent 68%);
+    filter: blur(18px);
+    animation: heroHalo 4.8s ease-in-out infinite;
+}
+
+.hero-system-core {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 76px;
+    height: 76px;
+    transform: translate(-50%, -50%);
+    border: 1px solid color-mix(in srgb, var(--accent) 62%, white 14%);
+    border-radius: 24px;
+    background:
+        linear-gradient(145deg, color-mix(in srgb, var(--accent) 18%, white 4%), transparent 66%),
+        var(--punakawan-glass-strong);
+    box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.34),
+        0 0 0 8px color-mix(in srgb, var(--accent) 5%, transparent),
+        0 0 34px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.hero-system-core-dot {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    width: 14px;
+    height: 14px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--accent) 84%, white 16%);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 72%, transparent);
+}
+
+.hero-system-pulse {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    width: 58px;
+    height: 58px;
+    transform: translate(-50%, -50%) scale(0.6);
+    border: 1px solid color-mix(in srgb, var(--accent) 58%, transparent);
+    border-radius: 50%;
+    opacity: 0;
+    animation: heroPulse 3.4s ease-out infinite;
+}
+
+.hero-system-pulse-b {
+    animation-delay: 1.7s;
+}
+
+.hero-system-ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.hero-system-ring-a {
+    width: 58%;
+    height: 58%;
+    animation: heroOrbit 13s linear infinite;
+}
+
+.hero-system-ring-b {
+    width: 78%;
+    height: 78%;
+    border-style: dashed;
+    animation: heroOrbitReverse 19s linear infinite;
+}
+
+.hero-system-ring-c {
+    width: 92%;
+    height: 92%;
+    opacity: 0.58;
+    animation: heroOrbit 28s linear infinite;
+}
+
+.hero-system-node {
+    position: absolute;
+    top: -5px;
+    left: 50%;
+    width: 10px;
+    height: 10px;
+    border: 2px solid color-mix(in srgb, var(--accent) 64%, white 12%);
+    border-radius: 50%;
+    background: var(--bg-base);
+    box-shadow:
+        0 0 0 4px color-mix(in srgb, var(--accent) 8%, transparent),
+        0 0 18px color-mix(in srgb, var(--accent) 36%, transparent);
+}
+
+.hero-system-ring-b .hero-system-node {
+    top: 50%;
+    left: auto;
+    right: -5px;
+}
+
+.hero-system-ring-c .hero-system-node {
+    top: auto;
+    left: 26%;
+    bottom: -5px;
+}
+
+.hero-system-axis {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 22%, transparent), transparent);
+    transform: translate(-50%, -50%);
+    opacity: 0.55;
+}
+
+.hero-system-axis-x {
+    width: 84%;
+    height: 1px;
+}
+
+.hero-system-axis-y {
+    width: 1px;
+    height: 84%;
+    background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--accent) 22%, transparent), transparent);
+}
+
+.hero-system-signal {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--accent) 82%, white 18%);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 62%, transparent);
+}
+
+.hero-system-signal-a {
+    top: 20%;
+    left: 12%;
+    animation: signalA 5.8s ease-in-out infinite;
+}
+
+.hero-system-signal-b {
+    top: 72%;
+    right: 12%;
+    animation: signalB 6.8s ease-in-out 0.8s infinite;
+}
+
+.hero-system-signal-c {
+    top: 12%;
+    right: 24%;
+    animation: signalC 7.6s ease-in-out 1.4s infinite;
+}
+
+@keyframes heroOrbit {
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@keyframes heroOrbitReverse {
+    to { transform: translate(-50%, -50%) rotate(-360deg); }
+}
+
+@keyframes heroPulse {
+    0% { transform: translate(-50%, -50%) scale(0.58); opacity: 0; }
+    18% { opacity: 0.72; }
+    100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
+}
+
+@keyframes heroHalo {
+    0%, 100% { transform: scale(0.92); opacity: 0.62; }
+    50% { transform: scale(1.16); opacity: 0.94; }
+}
+
+@keyframes signalA {
+    0%, 12% { transform: translate(0, 0); opacity: 0; }
+    20% { opacity: 1; }
+    68% { transform: translate(128px, 102px); opacity: 1; }
+    82%, 100% { transform: translate(146px, 116px); opacity: 0; }
+}
+
+@keyframes signalB {
+    0%, 10% { transform: translate(0, 0); opacity: 0; }
+    20% { opacity: 1; }
+    68% { transform: translate(-112px, -82px); opacity: 1; }
+    84%, 100% { transform: translate(-128px, -96px); opacity: 0; }
+}
+
+@keyframes signalC {
+    0%, 14% { transform: translate(0, 0); opacity: 0; }
+    24% { opacity: 1; }
+    70% { transform: translate(-76px, 118px); opacity: 1; }
+    84%, 100% { transform: translate(-88px, 136px); opacity: 0; }
+}
+
+/* Profile: richer depth and motion without another heavy JS loop. */
+.profile-hero {
+    height: 520px;
+    isolation: isolate;
+    background: var(--bg-secondary);
+}
+
+.profile-hero-bg {
+    z-index: 0;
+    filter: saturate(1.08) contrast(1.02);
+}
+
+.profile-hero::before {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    background-image:
+        linear-gradient(color-mix(in srgb, var(--accent) 12%, transparent) 1px, transparent 1px),
+        linear-gradient(90deg, color-mix(in srgb, var(--accent) 12%, transparent) 1px, transparent 1px);
+    background-size: 34px 34px;
+    mask-image: linear-gradient(to bottom, transparent 3%, black 30%, black 76%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 3%, black 30%, black 76%, transparent 100%);
+    opacity: 0.42;
+    animation: profileGridDrift 18s linear infinite;
+    pointer-events: none;
+}
+
+.profile-hero::after {
+    content: "";
+    position: absolute;
+    z-index: 2;
+    inset: -28% -10%;
+    background:
+        radial-gradient(circle at 22% 42%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 28%),
+        radial-gradient(circle at 76% 34%, color-mix(in srgb, var(--gradient-3) 17%, transparent), transparent 30%),
+        linear-gradient(112deg, transparent 32%, rgb(255 255 255 / 0.07) 48%, transparent 62%);
+    animation: profileLightSweep 10s ease-in-out infinite alternate;
+    pointer-events: none;
+}
+
+.profile-hero-overlay {
+    z-index: 3;
+    background:
+        radial-gradient(circle at 50% 68%, transparent 0 24%, rgb(4 8 13 / 0.18) 58%, rgb(4 8 13 / 0.52) 100%),
+        linear-gradient(to bottom, rgb(4 8 13 / 0.06) 0%, rgb(4 8 13 / 0.18) 44%, rgb(4 8 13 / 0.72) 100%);
+}
+
+.profile-hero-share {
+    top: 34px;
+    z-index: 6;
+}
+
+.profile-hero-share .share-btn {
+    min-height: 40px;
+    padding-inline: 14px;
+    border-color: rgb(255 255 255 / 0.3);
+    background: rgb(14 21 31 / 0.48);
+    backdrop-filter: blur(18px) saturate(1.16);
+    -webkit-backdrop-filter: blur(18px) saturate(1.16);
+    box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.18),
+        0 8px 24px rgb(0 0 0 / 0.18);
+}
+
+.profile-hero-content {
+    z-index: 5;
+    width: min(860px, calc(100% - 56px));
+    padding: 34px 0 92px;
+    align-items: center;
+    animation: profileContentIn 760ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.profile-avatar-wrap {
+    width: 132px;
+    height: 132px;
+}
+
+.profile-avatar {
+    width: 132px;
+    height: 132px;
+    border: 3px solid rgb(255 255 255 / 0.36);
+    box-shadow:
+        0 16px 44px rgb(0 0 0 / 0.34),
+        0 0 0 7px rgb(255 255 255 / 0.07),
+        0 0 42px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.profile-avatar-wrap.loaded::before,
+.profile-avatar-wrap.loaded::after {
+    inset: -11px;
+    border-width: 1.5px;
+    border-color: color-mix(in srgb, var(--accent) 70%, white 8%);
+}
+
+.profile-avatar-wrap.loaded::before {
+    animation: avatarRipple 3.2s ease-out infinite;
+}
+
+.profile-avatar-wrap.loaded::after {
+    animation: avatarRipple 3.2s ease-out 1.6s infinite;
+}
+
+.profile-avatar-wrap.loaded .profile-avatar {
+    animation: profileAvatarFloat 5.2s ease-in-out infinite;
+}
+
+.profile-info {
+    min-width: 0;
+    padding: 18px 22px;
+    border: 1px solid rgb(255 255 255 / 0.16);
+    border-radius: 22px;
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 56%),
+        rgb(10 16 24 / 0.42);
+    backdrop-filter: blur(20px) saturate(1.18);
+    -webkit-backdrop-filter: blur(20px) saturate(1.18);
+    box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.12),
+        0 18px 48px rgb(0 0 0 / 0.22);
+}
+
+.profile-info::before {
+    display: none;
+}
+
+.profile-info h1 {
+    font-size: clamp(30px, 4vw, 42px);
+    line-height: 1.02;
+    letter-spacing: -0.04em;
+}
+
+.profile-role {
+    margin-top: 8px;
+    color: rgb(255 255 255 / 0.88);
+}
+
+.profile-links {
+    margin-top: 14px;
+}
+
+.profile-links a {
+    min-height: 38px;
+    padding: 7px 13px;
+    border-radius: 13px;
+    background: rgb(255 255 255 / 0.10);
+    border-color: rgb(255 255 255 / 0.20);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.10);
+}
+
+.profile-links a:hover {
+    background: color-mix(in srgb, var(--accent) 20%, rgb(255 255 255 / 0.11));
+    border-color: color-mix(in srgb, var(--accent) 48%, white 22%);
+    box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.16),
+        0 10px 24px rgb(0 0 0 / 0.22),
+        0 0 24px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.profile-metadata {
+    border-color: var(--punakawan-glass-border);
+    border-radius: 24px;
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 6%, transparent), transparent 52%),
+        var(--punakawan-glass);
+    backdrop-filter: blur(18px) saturate(1.14);
+    -webkit-backdrop-filter: blur(18px) saturate(1.14);
+    box-shadow: var(--card-shadow), inset 0 1px 0 color-mix(in srgb, white 38%, transparent);
+}
+
+@keyframes profileGridDrift {
+    to { background-position: 34px 34px, 34px 34px; }
+}
+
+@keyframes profileLightSweep {
+    0% { transform: translate3d(-2%, -1%, 0) scale(0.98); opacity: 0.72; }
+    100% { transform: translate3d(2%, 2%, 0) scale(1.04); opacity: 1; }
+}
+
+@keyframes profileContentIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(24px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes profileAvatarFloat {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-5px) scale(1.015); }
+}
+
+@media (max-width: 980px) {
+    .home-hero-content {
+        grid-template-columns: 1fr;
+        gap: 24px;
+        padding: 34px;
+    }
+
+    .home-hero-title {
+        max-width: none;
+    }
+
+    .home-hero-system {
+        width: min(100%, 520px);
+        aspect-ratio: 16 / 7;
+        justify-self: stretch;
+        margin-inline: auto;
+    }
+
+    .hero-system-ring-a { width: 42%; height: 88%; }
+    .hero-system-ring-b { width: 58%; height: 122%; }
+    .hero-system-ring-c { width: 72%; height: 150%; }
+}
+
+@media (max-width: 768px) {
+    /* The fixed mobile header already owns brand + theme controls. */
+    #sidebar .sidebar-header {
+        display: none;
+    }
+
+    #sidebar .search-trigger {
+        margin-top: 16px;
+    }
+
+    .dir-controls {
+        align-items: stretch;
+        border-radius: 20px;
+    }
+
+    .dir-search-wrap,
+    .dir-sort-wrap {
+        min-width: 0;
+    }
+
+    .home-hero {
+        min-height: 620px;
+    }
+
+    .home-hero-content {
+        width: calc(100% - 24px);
+        padding: 26px 22px;
+        margin-bottom: 52px;
+        border-radius: 24px;
+    }
+
+    .home-hero-title {
+        font-size: clamp(40px, 11vw, 52px);
+    }
+
+    .home-hero-system {
+        min-height: 190px;
+        border-radius: 24px;
+    }
+
+    .profile-hero {
+        height: 560px;
+    }
+
+    .profile-hero-content {
+        width: calc(100% - 28px);
+        padding: 28px 0 62px;
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .profile-avatar-wrap,
+    .profile-avatar {
+        width: 104px;
+        height: 104px;
+    }
+
+    .profile-info {
+        width: 100%;
+        padding: 16px 18px;
+        border-radius: 20px;
+    }
+
+    .profile-info h1 {
+        font-size: 30px;
+    }
+
+    .profile-hero-share {
+        top: 20px;
+        width: calc(100% - 28px);
+    }
+}
+
+@media (max-width: 560px) {
+    .dir-controls {
+        flex-direction: column;
+    }
+
+    .dir-sort-wrap {
+        width: 100%;
+    }
+
+    .dir-sort-select {
+        width: 100%;
+    }
+
+    .home-hero-system {
+        min-height: 170px;
+    }
+
+    .hero-system-ring-a { width: 46%; height: 92%; }
+    .hero-system-ring-b { width: 64%; height: 128%; }
+    .hero-system-ring-c { width: 82%; height: 162%; }
+}
+
+/* Motion remains optional and cheap. */
+@media (prefers-reduced-motion: reduce) {
+    .hero-system-ring,
+    .hero-system-halo,
+    .hero-system-pulse,
+    .hero-system-signal,
+    .profile-hero::before,
+    .profile-hero::after,
+    .profile-hero-content,
+    .profile-avatar-wrap.loaded .profile-avatar,
+    .home-btn::before,
+    .btn-github::before,
+    .btn-demo::before,
+    .share-btn::before,
+    .pagination a::before {
+        animation: none !important;
+    }
+}
