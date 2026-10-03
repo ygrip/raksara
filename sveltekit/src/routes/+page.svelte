@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
-	import { heroTyping } from '$lib/actions/typing';
+	import { dotFieldImages } from '$lib/dot-field';
 	import { assetUrl, formatDate } from '$lib/utils';
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import { buildWebSiteSchema, buildPersonSchema, serializeJsonLd } from '$lib/seo';
@@ -18,7 +18,7 @@
 	const hero         = $derived(homePageConfig?.hero);
 	const heroTitle    = $derived(hero?.title ?? config?.hero_title ?? config?.title ?? '');
 	const heroSubtitle = $derived(hero?.subtitle ?? config?.hero_subtitle ?? config?.description ?? '');
-	const heroPortrait = $derived(bundle?.profile?.avatar ? assetUrl(bundle.profile.avatar) : '');
+	const heroImages = $derived(dotFieldImages(hero?.images));
 	let heroVisual: HTMLDivElement | null = $state(null);
 	let DotField: any = $state(null);
 
@@ -120,13 +120,12 @@
 </svelte:head>
 
 <!-- ── Hero ─────────────────────────────────────────── -->
-<section class="home-hero{heroPortrait ? ' dot-hero' : ''}" id="profile-hero">
+<section class="home-hero dot-hero" id="profile-hero">
 	<div class="home-hero-aurora" aria-hidden="true"></div>
-	{#if heroPortrait && DotField}
+	{#if DotField}
 		<DotField
-			src={heroPortrait}
+			images={heroImages}
 			anchor={heroVisual}
-			label={`Dot portrait of ${heroTitle}`}
 			className="hero-dot-field"
 		/>
 	{/if}
@@ -136,11 +135,7 @@
 				<p class="home-hero-eyebrow">{hero.eyebrow}</p>
 			{/if}
 			<h1 class="home-hero-title" aria-label={heroTitle}>
-				{#if heroPortrait}
-					<span class="accent-gradient">{heroTitle}</span>
-				{:else}
-					<span class="accent-gradient" use:heroTyping={heroTitle}></span>
-				{/if}
+				<span class="accent-gradient">{heroTitle}</span>
 			</h1>
 			{#if heroSubtitle}
 				<p class="home-hero-subtitle">{heroSubtitle}</p>
@@ -159,26 +154,7 @@
 			{/if}
 		</div>
 
-		<div class="home-hero-visual" aria-hidden="true" bind:this={heroVisual}>
-			{#if !heroPortrait}
-				<div class="hero-visual-grid"></div>
-				<div class="hero-visual-glow hero-visual-glow-a"></div>
-				<div class="hero-visual-glow hero-visual-glow-b"></div>
-				<div class="hero-fluid hero-fluid-back"></div>
-				<div class="hero-fluid hero-fluid-mid"></div>
-				<div class="hero-fluid hero-fluid-front"></div>
-				<div class="hero-glass-orbit hero-glass-orbit-a"></div>
-				<div class="hero-glass-orbit hero-glass-orbit-b"></div>
-				<div class="hero-glass-core">
-					<span class="hero-core-mark"></span>
-					<span class="hero-core-ring hero-core-ring-a"></span>
-					<span class="hero-core-ring hero-core-ring-b"></span>
-				</div>
-				<div class="hero-float-chip hero-float-chip-a"><span></span></div>
-				<div class="hero-float-chip hero-float-chip-b"><span></span></div>
-				<div class="hero-float-chip hero-float-chip-c"><span></span></div>
-			{/if}
-		</div>
+		<div class="home-hero-visual" aria-hidden="true" bind:this={heroVisual}></div>
 	</div>
 	<div class="hero-waves" aria-hidden="true">
 		<svg class="hero-wave hero-wave-back" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,45 C100,20 200,55 360,30 C480,12 560,50 720,35 C850,22 1000,55 1140,28 C1280,8 1380,42 1440,38 L1440,80 L0,80 Z"/></svg>

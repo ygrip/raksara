@@ -7,6 +7,7 @@
     "build:metadata:strict": "node scripts/build-metadata.js --strict && node scripts/build-agentic.js --strict && node scripts/build-sitelinks.js && node scripts/validate-advertising-config.js",
     "build:sveltekit": "cd sveltekit && npm run build",
     "check:sveltekit": "cd sveltekit && npm run check",
+    "test:dot-field": "node scripts/test-dot-field.mjs",
     "validate:seo:build": "node scripts/validate-seo-build.js",
     "validate:seo:dist": "node scripts/validate-seo-dist.js && node scripts/validate-agentic-dist.js && node scripts/validate-sitelinks-dist.js",
     "dev": "npm run build:metadata && cd sveltekit && npm run dev",

@@ -90,6 +90,8 @@ export interface HomePageConfig {
     keywords?: string[];
   };
   hero?: {
+    /** Ordered dot-field images. Empty/missing/unusable entries fall back to a globe. */
+    images?: string[];
     eyebrow?: string;
     title?: string;
     subtitle?: string;

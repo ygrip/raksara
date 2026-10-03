@@ -637,6 +637,31 @@ to `purple`.
 | `logo` | _(none)_ | Path to a logo image (e.g. `assets/images/logo.svg`). Replaces the text logo in the sidebar |
 | `og_image` | _(none)_ | Default social share image path (e.g. `assets/images/og.png`). Used as the Open Graph / Twitter Card fallback image on pages that don't have a cover image |
 
+### Hero Dot Images (`homepage.yaml`)
+
+Configure the decorative hero in **your content repository**, not the renderer:
+
+```yaml
+hero:
+  images:
+    - assets/images/portrait.webp
+    - assets/images/logo.svg
+    - https://example.com/illustration.png
+```
+
+Images appear in list order, holding for four seconds before dots scramble and
+re-form over 2.4 seconds. The last image loops back to the first. One usable image
+stays visible. Missing/empty settings, or no usable images, display a dot globe
+instead (the profile avatar is not implicitly used).
+
+Supported extensions: PNG, JPEG/JPG, WebP, AVIF, GIF, BMP, and SVG, including URLs
+with query strings. Unsupported types and malformed entries are ignored. Asset
+paths may be relative (`assets/...`, `./assets/...`) or site-root paths
+(`/content/assets/...`). Remote images must allow cross-origin pixel reads via
+CORS; failed, unreadable, or timed-out images are skipped. SVGs should be
+self-contained. Transparent silhouettes and high-contrast images work best.
+Reduced-motion visitors see the first usable image, or the globe, without motion.
+
 ### SEO & Open Graph
 
 Raksara automatically generates dynamic `<meta>` tags for every page —

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { globeTone, imageTonePixels, morphFrame } from '$lib/dot-field';
   /**
    * Full-bleed halftone dot field. Every dot sits on one shared grid that spans
    * the host; dots inside the `anchor` element's box are sized from the portrait
@@ -9,12 +10,13 @@
    */
   interface Props {
     src?: string;
+    images?: string[];
     anchor?: HTMLElement | null;
     label?: string;
     className?: string;
   }
 
-  let { src = '', anchor = null, label = '', className = '' }: Props = $props();
+  let { src = '', images = [], anchor = null, label = '', className = '' }: Props = $props();
 
   let host: HTMLDivElement | undefined;
   let canvas: HTMLCanvasElement | undefined;
@@ -83,6 +85,32 @@
       lum[i] = ((0.2126 * pixels[p] + 0.7152 * pixels[p + 1] + 0.0722 * pixels[p + 2]) / 255) * (pixels[p + 3] / 255);
     }
     return lum;
+  }
+
+  /** Preserve transparent silhouettes, including black SVG logos. On opaque
+   * light backgrounds, use dark ink rather than rendering a white rectangle. */
+  function imageTone(image: HTMLImageElement, crop: Crop, cols: number, rows: number): Float32Array | null {
+    const sample = document.createElement('canvas');
+    sample.width = cols;
+    sample.height = rows;
+    const ctx = sample.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+    // Use destination scaling + canvas clipping. Source-rectangle drawImage
+    // crops intrinsic-size-less SVGs inconsistently in Chromium.
+    const scaleX = cols / crop.sw;
+    const scaleY = rows / crop.sh;
+    ctx.drawImage(image, -crop.sx * scaleX, -crop.sy * scaleY,
+      image.naturalWidth * scaleX, image.naturalHeight * scaleY);
+    const pixels = ctx.getImageData(0, 0, cols, rows).data;
+    // Inspect an entirely in-bounds image, not the grid crop: the crop may
+    // extend half a cell beyond an opaque image and introduce false alpha.
+    const probe = document.createElement('canvas');
+    probe.width = probe.height = 32;
+    const probeCtx = probe.getContext('2d', { willReadFrequently: true });
+    if (!probeCtx) return null;
+    probeCtx.drawImage(image, 0, 0, 32, 32);
+    const fullPixels = probeCtx.getImageData(0, 0, 32, 32).data;
+    return imageTonePixels(pixels, fullPixels, 32);
   }
 
   function boxBlur(values: Float32Array, cols: number, rows: number, passes: number): Float32Array {
@@ -285,7 +313,7 @@
     return tone;
   }
 
-  function buildField(image: HTMLImageElement | null, analysis: Analysis | null): Field | null {
+  function buildField(image: HTMLImageElement | null, analysis: Analysis | null, fullImage = false): Field | null {
     if (!host) return null;
     const bounds = host.getBoundingClientRect();
     if (bounds.width < 2 || bounds.height < 2) return null;
@@ -334,7 +362,9 @@
           sw: ((pCols * spacing) / pw) * crop.sw,
           sh: ((pRows * spacing) / ph) * crop.sh
         };
-        portrait = toneMap(image, sourceCrop, analysis.backdrop, pCols, pRows);
+        portrait = fullImage
+          ? imageTone(image, sourceCrop, pCols, pRows)
+          : toneMap(image, sourceCrop, analysis.backdrop, pCols, pRows);
       }
     }
 
@@ -344,8 +374,10 @@
     const tone = new Float32Array(total);
     const phase = new Float32Array(total);
     const delay = new Float32Array(total);
-    const centerX = portrait ? px + pw / 2 : bounds.width * 0.7;
-    const centerY = portrait ? py + ph / 2 : bounds.height * 0.5;
+    const slot = anchor?.getBoundingClientRect();
+    const centerX = portrait ? px + pw / 2 : slot ? slot.left - bounds.left + slot.width / 2 : bounds.width * 0.7;
+    const centerY = portrait ? py + ph / 2 : slot ? slot.top - bounds.top + slot.height / 2 : bounds.height * 0.5;
+    const globeRadius = Math.min(slot?.width ?? bounds.width * 0.5, slot?.height ?? bounds.height * 0.8) * 0.44;
     const reach = Math.hypot(bounds.width, bounds.height);
 
     let count = 0;
@@ -362,8 +394,10 @@
           // Elliptical feather + soft bottom fade so the portrait has no hard box.
           const feather = 1 - smoothstep(0.7, 1.04, Math.hypot((u - 0.5) / 0.5, (v - 0.44) / 0.58));
           const bottom = 1 - smoothstep(0.8, 1, v);
-          t = portrait[pr * pCols + pc] * feather * bottom;
+          t = portrait[pr * pCols + pc] * (fullImage ? 1 : feather * bottom);
           if (t < 0.05) t = 0;
+        } else if (!portrait) {
+          t = globeTone((dx - centerX) / globeRadius, (dy - centerY) / globeRadius);
         }
         x[count] = dx;
         y[count] = dy;
@@ -378,7 +412,7 @@
   }
 
   $effect(() => {
-    const source = src;
+    const sources = images.length ? images : src ? [src] : [];
     const slot = anchor;
     if (!host || !canvas) return;
 
@@ -389,9 +423,11 @@
     const lowPower = window.matchMedia('(max-width: 767px), (pointer: coarse)');
     const canAnimate = () => !reducedMotion.matches;
     let disposed = false;
-    let image: HTMLImageElement | null = null;
+    const loaded: Array<{ image: HTMLImageElement; analysis: Analysis }> = [];
+    const pendingImages: HTMLImageElement[] = [];
+    const loadTimers: Array<ReturnType<typeof setTimeout>> = [];
     let field: Field | null = null;
-    let analysis: Analysis | null = null;
+    let toneFrames: Float32Array[] = [];
     let color = '#22c55e';
     let ambient = 0.1;
     let strength = 1;
@@ -422,8 +458,10 @@
 
     const resize = () => {
       if (!host || !canvas) return;
-      field = buildField(analysis ? image : null, analysis);
+      const fields = loaded.map(({ image, analysis }) => buildField(image, analysis, images.length > 0));
+      field = fields[0] ?? buildField(null, null);
       if (!field) return;
+      toneFrames = fields.flatMap((candidate) => candidate ? [candidate.tone] : []);
       const dpr = lowPower.matches ? 1 : Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.round(field.width * dpr);
       canvas.height = Math.round(field.height * dpr);
@@ -451,6 +489,9 @@
       const reach2 = pointerRadius2 * 4.5; // skip the exp() for far dots
       const push = spacing * 1.6;
       const baseRadius = spacing * 0.1;
+      const morph = morphFrame(animate ? elapsed : 0, toneFrames.length);
+      const fromTone = toneFrames[morph.from] ?? tone;
+      const toTone = toneFrames[morph.to] ?? tone;
 
       // Drop finished ripples; each lives RIPPLE_LIFE seconds.
       for (let r = ripples.length - 1; r >= 0; r -= 1) {
@@ -465,10 +506,17 @@
           alphaOut[i] = 0;
           continue;
         }
-        const t = tone[i];
+        const t = fromTone[i] + (toTone[i] - fromTone[i]) * morph.blend;
+        const occupancy = smoothstep(0, 0.12, t);
+        // Stable particle identities leave the grid, scramble, then settle into
+        // the next image; the same path also closes the last → first loop.
+        const subject = Math.max(fromTone[i], toTone[i]);
+        const scatter = morph.scatter * Math.min(1, subject * 4);
+        drawX[i] += Math.cos(phase[i] + morph.scatter * 3) * scatter * Math.min(width * 0.2, 120);
+        drawY[i] += Math.sin(phase[i] * 1.7 + morph.scatter * 3) * scatter * Math.min(height * 0.25, 100);
         const d = (x[i] * 0.8 + y[i] * 0.6 - glintAt) / band;
         const glint = Math.exp(-d * d);
-        const wave = animate ? Math.sin(elapsed * (t > 0 ? 1.4 : 0.8) + phase[i]) : 0;
+        const wave = animate ? Math.sin(elapsed * (0.8 + 0.6 * occupancy) + phase[i]) : 0;
 
         let lift = 0;
         if (pointerLift > 0.002) {
@@ -496,15 +544,14 @@
         }
         ring = Math.min(1, ring);
 
-        let alpha: number;
-        let radius: number;
-        if (t > 0) {
-          alpha = (0.2 + 0.8 * t) * (0.86 + 0.14 * wave) * strength + glint * 0.18 + lift * 0.35 + ring * 0.45;
-          radius = spacing * (0.12 + 0.3 * t) * (1 + glint * 0.12 + lift * 0.35 + ring * 0.45);
-        } else {
-          alpha = ambient * (0.75 + 0.25 * wave) + glint * ambient * 1.6 + lift * 0.32 + ring * 0.38;
-          radius = baseRadius * (1 + glint * 0.6 + lift * 1.9 + ring * 2.2) + 0.45;
-        }
+        // Blend occupancy too: switching at t > 0 would make incoming dots
+        // jump to the subject baseline (and outgoing dots pop back to ambient).
+        const ambientAlpha = ambient * (0.75 + 0.25 * wave) + glint * ambient * 1.6 + lift * 0.32 + ring * 0.38;
+        const subjectAlpha = (0.2 + 0.8 * t) * (0.86 + 0.14 * wave) * strength + glint * 0.18 + lift * 0.35 + ring * 0.45;
+        const ambientRadius = baseRadius * (1 + glint * 0.6 + lift * 1.9 + ring * 2.2) + 0.45;
+        const subjectRadius = spacing * (0.12 + 0.3 * t) * (1 + glint * 0.12 + lift * 0.35 + ring * 0.45);
+        const alpha = ambientAlpha + (subjectAlpha - ambientAlpha) * occupancy;
+        const radius = ambientRadius + (subjectRadius - ambientRadius) * occupancy;
         alphaOut[i] = Math.min(1, alpha * reveal);
         radiusOut[i] = Math.min(spacing * 0.48, radius * (0.4 + 0.6 * reveal));
       }
@@ -573,30 +620,41 @@
       resizeFrame = requestAnimationFrame(rebuild);
     };
 
-    if (source) {
-      image = new Image();
+    // Settle independently (including a timeout), then retain YAML order.
+    // Decode and pixel-read failures, including missing CORS, are omitted.
+    void Promise.all(sources.map((source) => new Promise<{ image: HTMLImageElement; analysis: Analysis } | null>((resolve) => {
+      const image = new Image();
+      pendingImages.push(image);
       image.decoding = 'async';
       image.crossOrigin = 'anonymous';
+      const finish = (result: { image: HTMLImageElement; analysis: Analysis } | null) => {
+        clearTimeout(timer);
+        image.onload = null;
+        image.onerror = null;
+        resolve(result);
+      };
+      const timer = setTimeout(() => finish(null), 10000);
+      loadTimers.push(timer);
       image.onload = () => {
-        if (!image) return;
+        if (disposed) { finish(null); return; }
         try {
-          analysis = analyse(image);
-        } catch (error) {
-          // Cross-origin avatars without CORS taint the canvas; keep the ambient field.
-          console.warn('[DotField] portrait analysis failed; rendering ambient field only', error);
-          analysis = null;
+          const crop = { sx: 0, sy: 0, sw: image.naturalWidth, sh: image.naturalHeight };
+          // Probe readability before including a remote image in the loop.
+          const readable = readLuminance(image, crop, 1, 1);
+          const analysis = images.length ? { backdrop: 0, crop } : analyse(image);
+          finish(readable && analysis ? { image, analysis } : null);
+        } catch {
+          finish(null);
         }
-        start = performance.now();
-        queueRebuild();
       };
-      image.onerror = () => {
-        console.warn('[DotField] portrait image failed to load:', source);
-        image = null;
-        analysis = null;
-        queueRebuild();
-      };
+      image.onerror = () => finish(null);
       image.src = source;
-    }
+    }))).then((results) => {
+      if (disposed) return;
+      loaded.push(...results.filter((result): result is NonNullable<typeof result> => result !== null));
+      start = performance.now();
+      queueRebuild();
+    });
     queueRebuild();
 
     const resizeObserver = new ResizeObserver(queueRebuild);
@@ -707,9 +765,11 @@
         pointerTarget.removeEventListener('touchend', release);
         pointerTarget.removeEventListener('touchcancel', release);
       }
-      if (image) {
+      for (const timer of loadTimers) clearTimeout(timer);
+      for (const image of pendingImages) {
         image.onload = null;
         image.onerror = null;
+        image.removeAttribute('src');
       }
     };
   });
