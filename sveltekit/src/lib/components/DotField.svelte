@@ -1,12 +1,14 @@
 <script lang="ts">
-  import { globeTone, imageTonePixels, morphFrame } from '$lib/dot-field';
+  import { globeTone, imageTonePixels, morphFrame, morphPairs } from '$lib/dot-field';
   /**
    * Full-bleed halftone dot field. Every dot sits on one shared grid that spans
    * the host; dots inside the `anchor` element's box are sized from the portrait
    * image, the rest form a faint ambient grid. Colour comes from `--accent`.
-   * Motion: staggered reveal, per-dot twinkle and a slow diagonal glint. Mouse
-   * and touch push nearby dots aside and light them up; clicks/taps send a
-   * ripple. Reduced-motion users get a single static, non-interactive frame.
+   * Motion: staggered reveal, per-dot twinkle and a slow diagonal glint. With
+   * several images, lit dots fly along curved, staggered paths into the next
+   * image's dots. Mouse and touch push nearby dots aside and light them up;
+   * clicks/taps send a ripple. Reduced-motion users get a single static,
+   * non-interactive frame.
    */
   interface Props {
     src?: string;
@@ -32,12 +34,28 @@
   const ALPHA_LEVELS = 12;
   /** Minimum tone for any dot inside the subject silhouette (see toneMap). */
   const TONE_FLOOR = 0.3;
+  /** Share of a morph spent staggering departures; each particle flies the rest. */
+  const MORPH_STAGGER = 0.45;
+  /** Seconds until every dot has finished its reveal (max delay 1.28 + 0.7). */
+  const REVEAL_END = 2;
+  /** Resting ambient alpha, as a multiple of --dot-field-ambient. */
+  const AMBIENT_BASE = 0.8;
+  /** Cached-layer glint: bands either side of centre, spanning ±GLINT_REACH × band. */
+  const GLINT_STEPS = 4;
+  const GLINT_REACH = 2;
 
   type Field = {
     width: number;
     height: number;
     spacing: number;
+    cols: number;
+    rows: number;
+    originX: number;
+    originY: number;
     count: number;
+    /** Focal centre (portrait/globe), used for reveal and morph bloom. */
+    cx: number;
+    cy: number;
     x: Float32Array;
     y: Float32Array;
     /** 0 = ambient grid dot, (0, 1] = portrait intensity */
@@ -63,7 +81,20 @@
   }
 
   type Crop = { sx: number; sy: number; sw: number; sh: number };
-  type Analysis = { backdrop: number; crop: Crop };
+  /** `transparent`: cut-out artwork (logos/SVG) sampled as-is; opaque images
+   * go through the photo pipeline (backdrop removal + contrast stretch). */
+  type Analysis = { backdrop: number; crop: Crop; transparent: boolean };
+
+  function hasTransparency(image: HTMLImageElement): boolean {
+    const probe = document.createElement('canvas');
+    probe.width = probe.height = 32;
+    const ctx = probe.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return false;
+    ctx.drawImage(image, 0, 0, 32, 32);
+    const pixels = ctx.getImageData(0, 0, 32, 32).data;
+    for (let p = 3; p < pixels.length; p += 4) if (pixels[p] < 250) return true;
+    return false;
+  }
 
   function readLuminance(
     image: HTMLImageElement,
@@ -253,7 +284,7 @@
         if (y > maxY) maxY = y;
       }
     }
-    if (maxX < 0 || (maxX - minX) * (maxY - minY) < cols * rows * 0.04) return { backdrop, crop: full };
+    if (maxX < 0 || (maxX - minX) * (maxY - minY) < cols * rows * 0.04) return { backdrop, crop: full, transparent: false };
 
     const padX = (maxX - minX) * 0.08;
     const padY = (maxY - minY) * 0.06;
@@ -263,7 +294,7 @@
     const sy = Math.max(0, (minY - padY) * scaleY);
     const ex = Math.min(image.naturalWidth, (maxX + 1 + padX) * scaleX);
     const ey = Math.min(image.naturalHeight, (maxY + 1 + padY) * scaleY);
-    return { backdrop, crop: { sx, sy, sw: ex - sx, sh: ey - sy } };
+    return { backdrop, crop: { sx, sy, sw: ex - sx, sh: ey - sy }, transparent: false };
   }
 
   /**
@@ -313,7 +344,7 @@
     return tone;
   }
 
-  function buildField(image: HTMLImageElement | null, analysis: Analysis | null, fullImage = false): Field | null {
+  function buildField(image: HTMLImageElement | null, analysis: Analysis | null): Field | null {
     if (!host) return null;
     const bounds = host.getBoundingClientRect();
     if (bounds.width < 2 || bounds.height < 2) return null;
@@ -364,7 +395,7 @@
           sw: ((pCols * spacing) / pw) * crop.sw,
           sh: ((pRows * spacing) / ph) * crop.sh
         };
-        portrait = fullImage
+        portrait = analysis.transparent
           ? imageTone(image, sourceCrop, pCols, pRows)
           : toneMap(image, sourceCrop, analysis.backdrop, pCols, pRows);
       }
@@ -415,7 +446,10 @@
       }
     }
 
-    return { width: bounds.width, height: bounds.height, spacing, count, x, y, tone, phase, delay };
+    return {
+      width: bounds.width, height: bounds.height, spacing, cols, rows, originX, originY, count,
+      cx: centerX, cy: centerY, x, y, tone, phase, delay
+    };
   }
 
   $effect(() => {
@@ -439,6 +473,7 @@
     let ambient = 0.1;
     let strength = 1;
     let frame = 0;
+    let wakeTimer: ReturnType<typeof setTimeout> | 0 = 0;
     let lastPaint = 0;
     let start = performance.now();
     let visible = true;
@@ -451,10 +486,98 @@
     let pointerActive = false;
     let pointerLift = 0;
     const ripples: Array<{ x: number; y: number; t: number }> = [];
+    // Shaded dots are packed into these buffers: lit/interactive grid cells
+    // plus travelling morph particles (at most one per lit cell) ≤ 2 × count.
     let alphaOut = new Float32Array(0);
     let radiusOut = new Float32Array(0);
     let drawX = new Float32Array(0);
     let drawY = new Float32Array(0);
+    let order = new Int32Array(0);
+    const levelCount = new Int32Array(ALPHA_LEVELS + 1);
+    const levelStart = new Int32Array(ALPHA_LEVELS + 1);
+    /** Per-cell paint stamp so a cell is shaded at most once per frame. */
+    let stamp = new Uint32Array(0);
+    let paintId = 0;
+    /** Lit cell indices per tone frame (index -1 = globe/base tone). */
+    let litFrames: Int32Array[] = [];
+    let litBase = new Int32Array(0);
+    /** Pre-rendered resting ambient grid; redrawn on resize/theme change only. */
+    const ambientLayer = document.createElement('canvas');
+    const ambientCtx = ambientLayer.getContext('2d');
+    let dpr = 1;
+    type Flight = {
+      src: Int32Array;
+      dst: Int32Array;
+      /** 0..1 departure lag: diagonal sweep plus jitter. */
+      lag: Float32Array;
+      /** Signed arc bow, as a fraction of travel distance. */
+      curl: Float32Array;
+      /** Outward bloom offset (px) at mid-flight. */
+      bloomX: Float32Array;
+      bloomY: Float32Array;
+    };
+    const flights = new Map<string, Flight>();
+
+    const flightFor = (from: number, to: number): Flight | null => {
+      if (!field) return null;
+      const key = `${from}>${to}`;
+      const cached = flights.get(key);
+      if (cached) return cached;
+      const { x, y, cx, cy, spacing } = field;
+      const { src, dst } = morphPairs(toneFrames[from], toneFrames[to], field.cols);
+      const n = src.length;
+      const lag = new Float32Array(n);
+      const curl = new Float32Array(n);
+      const bloomX = new Float32Array(n);
+      const bloomY = new Float32Array(n);
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (let k = 0; k < n; k += 1) {
+        lag[k] = (x[src[k]] + x[dst[k]]) * 0.4 + (y[src[k]] + y[dst[k]]) * 0.3;
+        lo = Math.min(lo, lag[k]);
+        hi = Math.max(hi, lag[k]);
+      }
+      // Alternate swirl direction per transition so the loop doesn't feel mechanical.
+      const sign = from % 2 ? -1 : 1;
+      for (let k = 0; k < n; k += 1) {
+        lag[k] = 0.75 * ((lag[k] - lo) / Math.max(1, hi - lo)) + 0.25 * hash(k * 0.37, from + 1.3);
+        curl[k] = sign * (0.14 + 0.22 * hash(k * 0.71, to + 2.1));
+        const mx = (x[src[k]] + x[dst[k]]) / 2 - cx;
+        const my = (y[src[k]] + y[dst[k]]) / 2 - cy;
+        const length = Math.hypot(mx, my);
+        const angle = length > 1 ? Math.atan2(my, mx) : hash(k, 5.7) * Math.PI * 2;
+        const bloom = spacing * (1.5 + 4 * hash(k * 1.13, 9.1));
+        bloomX[k] = Math.cos(angle) * bloom;
+        bloomY[k] = Math.sin(angle) * bloom;
+      }
+      const flight = { src, dst, lag, curl, bloomX, bloomY };
+      flights.set(key, flight);
+      return flight;
+    };
+
+    const litCells = (tone: Float32Array) => {
+      const cells: number[] = [];
+      for (let i = 0; i < tone.length; i += 1) if (tone[i] > 0) cells.push(i);
+      return Int32Array.from(cells);
+    };
+
+    const drawAmbientLayer = () => {
+      if (!field || !ambientCtx) return;
+      const { width, height, spacing, count, x, y } = field;
+      ambientLayer.width = Math.round(width * dpr);
+      ambientLayer.height = Math.round(height * dpr);
+      ambientCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ambientCtx.clearRect(0, 0, width, height);
+      ambientCtx.fillStyle = color;
+      ambientCtx.globalAlpha = Math.min(1, ambient * AMBIENT_BASE);
+      const r = spacing * 0.1 + 0.45;
+      ambientCtx.beginPath();
+      for (let i = 0; i < count; i += 1) {
+        ambientCtx.moveTo(x[i] + r, y[i]);
+        ambientCtx.arc(x[i], y[i], r, 0, Math.PI * 2);
+      }
+      ambientCtx.fill();
+    };
 
     const readTheme = () => {
       if (!host) return;
@@ -465,25 +588,31 @@
 
     const resize = () => {
       if (!host || !canvas) return;
-      const fields = loaded.map(({ image, analysis }) => buildField(image, analysis, images.length > 0));
+      const fields = loaded.map(({ image, analysis }) => buildField(image, analysis));
       field = fields[0] ?? buildField(null, null);
       if (!field) return;
       toneFrames = fields.flatMap((candidate) => candidate ? [candidate.tone] : []);
-      const dpr = lowPower.matches ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+      dpr = lowPower.matches ? 1 : Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.round(field.width * dpr);
       canvas.height = Math.round(field.height * dpr);
       canvas.style.width = `${field.width}px`;
       canvas.style.height = `${field.height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      alphaOut = new Float32Array(field.count);
-      radiusOut = new Float32Array(field.count);
-      drawX = new Float32Array(field.count);
-      drawY = new Float32Array(field.count);
+      alphaOut = new Float32Array(field.count * 2);
+      radiusOut = new Float32Array(field.count * 2);
+      drawX = new Float32Array(field.count * 2);
+      drawY = new Float32Array(field.count * 2);
+      order = new Int32Array(field.count * 2);
+      stamp = new Uint32Array(field.count);
+      litFrames = toneFrames.map(litCells);
+      litBase = litCells(field.tone);
+      flights.clear();
+      drawAmbientLayer();
     };
 
     const paint = (elapsed: number, animate: boolean, now = performance.now()) => {
       if (!field) return;
-      const { width, height, spacing, count, x, y, tone, phase, delay } = field;
+      const { width, height, spacing, cols, rows, originX, originY, count, x, y, tone, phase, delay } = field;
       ctx.clearRect(0, 0, width, height);
       ctx.fillStyle = color;
 
@@ -497,46 +626,50 @@
       const push = spacing * 1.6;
       const baseRadius = spacing * 0.1;
       const morph = morphFrame(animate ? elapsed : 0, toneFrames.length);
-      const fromTone = toneFrames[morph.from] ?? tone;
-      const toTone = toneFrames[morph.to] ?? tone;
+      const flight = morph.progress > 0 ? flightFor(morph.from, morph.to) : null;
+      // While particles fly the grid underneath is ambient only; at rest it
+      // shows the held image, so both ends of a flight are seamless.
+      const gridTone = flight ? null : (toneFrames[morph.from] ?? tone);
+      const gridLit = flight ? null : (litFrames[morph.from] ?? litBase);
+      // During the reveal (and the static reduced-motion frame) every dot is
+      // individually shaded. Afterwards resting ambient dots come from the
+      // cached layer and only lit, glinting-near-pointer or rippled dots and
+      // particles are shaded: a few thousand dots instead of the whole grid.
+      const full = !animate || elapsed < REVEAL_END;
+      const pointerOn = pointerLift > 0.002;
+      const reach = Math.sqrt(reach2);
 
       // Drop finished ripples; each lives RIPPLE_LIFE seconds.
       for (let r = ripples.length - 1; r >= 0; r -= 1) {
         if ((now - ripples[r].t) / 1000 > RIPPLE_LIFE) ripples.splice(r, 1);
       }
 
-      for (let i = 0; i < count; i += 1) {
-        drawX[i] = x[i];
-        drawY[i] = y[i];
-        const reveal = animate ? smoothstep(0, 1, (elapsed - delay[i]) / 0.7) : 1;
-        if (reveal <= 0) {
-          alphaOut[i] = 0;
-          continue;
-        }
-        const t = fromTone[i] + (toTone[i] - fromTone[i]) * morph.blend;
+      let total = 0;
+      /** Shade one dot drawn at (bx, by); `energy` (0..1) marks a dot in flight. */
+      const shade = (bx: number, by: number, t: number, dotPhase: number, dotDelay: number, energy: number) => {
+        const reveal = animate ? smoothstep(0, 1, (elapsed - dotDelay) / 0.7) : 1;
+        if (reveal <= 0) return;
+        const slot = total;
+        total += 1;
+        drawX[slot] = bx;
+        drawY[slot] = by;
         const occupancy = smoothstep(0, 0.12, t);
-        // Stable particle identities leave the grid, scramble, then settle into
-        // the next image; the same path also closes the last → first loop.
-        const subject = Math.max(fromTone[i], toTone[i]);
-        const scatter = morph.scatter * Math.min(1, subject * 4);
-        drawX[i] += Math.cos(phase[i] + morph.scatter * 3) * scatter * Math.min(width * 0.2, 120);
-        drawY[i] += Math.sin(phase[i] * 1.7 + morph.scatter * 3) * scatter * Math.min(height * 0.25, 100);
-        const d = (x[i] * 0.8 + y[i] * 0.6 - glintAt) / band;
-        const glint = Math.exp(-d * d);
-        const wave = animate ? Math.sin(elapsed * (0.8 + 0.6 * occupancy) + phase[i]) : 0;
+        const d = (bx * 0.8 + by * 0.6 - glintAt) / band;
+        const glint = d > -3 && d < 3 ? Math.exp(-d * d) : 0;
+        const wave = animate && occupancy > 0 ? Math.sin(elapsed * (0.8 + 0.6 * occupancy) + dotPhase) : 0;
 
         let lift = 0;
-        if (pointerLift > 0.002) {
-          const pdx = x[i] - pointerX;
-          const pdy = y[i] - pointerY;
+        if (pointerOn) {
+          const pdx = bx - pointerX;
+          const pdy = by - pointerY;
           const d2 = pdx * pdx + pdy * pdy;
           if (d2 < reach2) {
             lift = Math.exp(-d2 / pointerRadius2) * pointerLift;
             // Push outward, strongest mid-radius so the cursor centre stays readable.
             const dist = Math.sqrt(d2) || 1;
             const shove = lift * push * Math.min(1, dist / (pointerRadius * 0.35));
-            drawX[i] += (pdx / dist) * shove;
-            drawY[i] += (pdy / dist) * shove;
+            drawX[slot] += (pdx / dist) * shove;
+            drawY[slot] += (pdy / dist) * shove;
           }
         }
 
@@ -544,43 +677,154 @@
         for (let r = 0; r < ripples.length; r += 1) {
           const ripple = ripples[r];
           const age = (now - ripple.t) / 1000;
-          const rdx = x[i] - ripple.x;
-          const rdy = y[i] - ripple.y;
+          const rdx = bx - ripple.x;
+          const rdy = by - ripple.y;
           const off = (Math.sqrt(rdx * rdx + rdy * rdy) - age * RIPPLE_SPEED) / RIPPLE_WIDTH;
           if (off > -3 && off < 3) ring += Math.exp(-off * off) * (1 - age / RIPPLE_LIFE);
         }
         ring = Math.min(1, ring);
 
-        // Blend occupancy too: switching at t > 0 would make incoming dots
-        // jump to the subject baseline (and outgoing dots pop back to ambient).
-        const ambientAlpha = ambient * (0.75 + 0.25 * wave) + glint * ambient * 1.6 + lift * 0.32 + ring * 0.38;
-        const subjectAlpha = (0.16 + 0.84 * t) * (0.84 + 0.16 * wave) * strength + glint * 0.2 + lift * 0.35 + ring * 0.45;
+        // Blend occupancy too: switching at t > 0 would make faint subject dots
+        // pop between the ambient and subject looks. Ambient dots don't twinkle,
+        // so resting ones match the cached layer exactly.
+        const ambientAlpha = ambient * AMBIENT_BASE + glint * ambient * 1.6 + lift * 0.32 + ring * 0.38;
+        const subjectAlpha = (0.16 + 0.84 * t) * (0.84 + 0.16 * wave) * strength + glint * 0.2 + lift * 0.35 + ring * 0.45
+          + energy * 0.16;
         const ambientRadius = baseRadius * (1 + glint * 0.6 + lift * 1.9 + ring * 2.2) + 0.45;
         // Wider radius range adds depth: shadow/detail dots stay finer while
-        // highlights carry more visual weight.
-        const subjectRadius = spacing * (0.08 + 0.4 * t) * (1 + glint * 0.14 + lift * 0.35 + ring * 0.45);
+        // highlights carry more visual weight. In-flight dots tighten into sparks.
+        const subjectRadius = spacing * (0.08 + 0.4 * t) * (1 + glint * 0.14 + lift * 0.35 + ring * 0.45) * (1 - 0.18 * energy);
         const alpha = ambientAlpha + (subjectAlpha - ambientAlpha) * occupancy;
         const radius = ambientRadius + (subjectRadius - ambientRadius) * occupancy;
-        alphaOut[i] = Math.min(1, alpha * reveal);
-        radiusOut[i] = Math.min(spacing * 0.48, radius * (0.4 + 0.6 * reveal));
+        alphaOut[slot] = Math.min(1, alpha * reveal);
+        radiusOut[slot] = Math.min(spacing * 0.48, radius * (0.4 + 0.6 * reveal));
+      };
+      paintId += 1;
+      const cell = (i: number) => {
+        if (stamp[i] === paintId) return;
+        stamp[i] = paintId;
+        shade(x[i], y[i], gridTone ? gridTone[i] : 0, phase[i], delay[i], 0);
+      };
+      /** Shade every cell whose centre lies within `radius` of (px, py). */
+      const cellsNear = (px: number, py: number, radius: number, inner = 0) => {
+        const c0 = Math.max(0, Math.floor((px - radius - originX) / spacing));
+        const c1 = Math.min(cols - 1, Math.ceil((px + radius - originX) / spacing));
+        const r0 = Math.max(0, Math.floor((py - radius - originY) / spacing));
+        const r1 = Math.min(rows - 1, Math.ceil((py + radius - originY) / spacing));
+        const outer2 = radius * radius;
+        const inner2 = inner > 0 ? inner * inner : -1;
+        for (let row = r0; row <= r1; row += 1) {
+          for (let col = c0; col <= c1; col += 1) {
+            const i = row * cols + col;
+            const dx = x[i] - px;
+            const dy = y[i] - py;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < outer2 && d2 > inner2) cell(i);
+          }
+        }
+      };
+
+      if (full) {
+        for (let i = 0; i < count; i += 1) cell(i);
+      } else {
+        // Resting ambient grid: cached layer minus the pointer disc (those dots
+        // move, so they're shaded live), glint added as stepped clipped bands.
+        ctx.save();
+        if (pointerOn) {
+          ctx.beginPath();
+          ctx.rect(0, 0, width, height);
+          ctx.arc(pointerX, pointerY, reach, 0, Math.PI * 2, true);
+          ctx.clip('evenodd');
+        }
+        ctx.drawImage(ambientLayer, 0, 0, width, height);
+        const far = width + height;
+        const strip = (band * GLINT_REACH * 2) / (GLINT_STEPS * 2 + 1);
+        for (let step = -GLINT_STEPS; step <= GLINT_STEPS; step += 1) {
+          const s0 = glintAt + (step - 0.5) * strip;
+          const s1 = s0 + strip;
+          if (s1 < 0 || s0 > span) continue;
+          const mid = step * strip;
+          // Overlaying the layer with alpha a adds ≈ a × base; aim for the
+          // live glint's extra 1.6 × ambient (base is AMBIENT_BASE × ambient).
+          let gain = (Math.exp(-((mid / band) ** 2)) * 1.6) / AMBIENT_BASE;
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(0.8 * s0 - 0.6 * far, 0.6 * s0 + 0.8 * far);
+          ctx.lineTo(0.8 * s0 + 0.6 * far, 0.6 * s0 - 0.8 * far);
+          ctx.lineTo(0.8 * s1 + 0.6 * far, 0.6 * s1 - 0.8 * far);
+          ctx.lineTo(0.8 * s1 - 0.6 * far, 0.6 * s1 + 0.8 * far);
+          ctx.closePath();
+          ctx.clip();
+          while (gain > 0.02) {
+            ctx.globalAlpha = Math.min(1, gain);
+            ctx.drawImage(ambientLayer, 0, 0, width, height);
+            gain -= 1;
+          }
+          ctx.restore();
+        }
+        ctx.restore();
+        if (gridLit) for (let k = 0; k < gridLit.length; k += 1) cell(gridLit[k]);
+        if (pointerOn) cellsNear(pointerX, pointerY, reach);
+        for (let r = 0; r < ripples.length; r += 1) {
+          const front = ((now - ripples[r].t) / 1000) * RIPPLE_SPEED;
+          cellsNear(ripples[r].x, ripples[r].y, front + RIPPLE_WIDTH * 3, front - RIPPLE_WIDTH * 3);
+        }
       }
 
-      // Batch dots into a few alpha levels: one path + fill per level.
+      if (flight) {
+        // Each particle leaves its source dot on a staggered schedule, bows out
+        // along a curved path and lands exactly on its destination dot (same
+        // tone, phase and size as the next held frame).
+        const fromTone = toneFrames[morph.from];
+        const toTone = toneFrames[morph.to];
+        const { src, dst, lag, curl, bloomX, bloomY } = flight;
+        for (let k = 0; k < src.length; k += 1) {
+          const s = src[k];
+          const d = dst[k];
+          const p = smoothstep(0, 1, (morph.progress - lag[k] * MORPH_STAGGER) / (1 - MORPH_STAGGER));
+          const arc = Math.sin(Math.PI * p);
+          const dx = x[d] - x[s];
+          const dy = y[d] - y[s];
+          shade(
+            x[s] + dx * p - dy * curl[k] * arc + bloomX[k] * arc,
+            y[s] + dy * p + dx * curl[k] * arc + bloomY[k] * arc,
+            fromTone[s] + (toTone[d] - fromTone[s]) * p,
+            phase[s] + (phase[d] - phase[s]) * p,
+            delay[s] + (delay[d] - delay[s]) * p,
+            arc
+          );
+        }
+      }
+
+      // Batch dots into a few alpha levels: bucket once (counting sort), then
+      // one path + fill per level.
+      levelCount.fill(0);
+      for (let i = 0; i < total; i += 1) {
+        const a = alphaOut[i];
+        if (a >= 0.015) levelCount[Math.min(ALPHA_LEVELS, Math.ceil(a * ALPHA_LEVELS))] += 1;
+      }
+      for (let level = 1, sum = 0; level <= ALPHA_LEVELS; level += 1) {
+        const n = levelCount[level];
+        levelCount[level] = sum;
+        sum += n;
+      }
+      levelStart.set(levelCount);
+      for (let i = 0; i < total; i += 1) {
+        const a = alphaOut[i];
+        if (a >= 0.015) order[levelCount[Math.min(ALPHA_LEVELS, Math.ceil(a * ALPHA_LEVELS))]++] = i;
+      }
       for (let level = 1; level <= ALPHA_LEVELS; level += 1) {
-        const lo = (level - 1) / ALPHA_LEVELS;
-        const hi = level / ALPHA_LEVELS;
-        ctx.globalAlpha = (lo + hi) / 2;
+        const end = levelCount[level];
+        if (end === levelStart[level]) continue;
+        ctx.globalAlpha = (level - 0.5) / ALPHA_LEVELS;
         ctx.beginPath();
-        let any = false;
-        for (let i = 0; i < count; i += 1) {
-          const a = alphaOut[i];
-          if (a <= lo || a > hi || a < 0.015) continue;
+        for (let k = levelStart[level]; k < end; k += 1) {
+          const i = order[k];
           const r = radiusOut[i];
           ctx.moveTo(drawX[i] + r, drawY[i]);
           ctx.arc(drawX[i], drawY[i], r, 0, Math.PI * 2);
-          any = true;
         }
-        if (any) ctx.fill();
+        ctx.fill();
       }
       ctx.globalAlpha = 1;
     };
@@ -591,7 +835,8 @@
       // Once the deferred field is loaded, keep the subtle breathing motion on
       // mobile too; low-power devices still use 1x DPR and the lower frame rate.
       const interactive = pointerLift > 0.01 || ripples.length > 0;
-      if (now - lastPaint >= (interactive ? FRAME_MS_ACTIVE : FRAME_MS)) {
+      const budget = interactive ? FRAME_MS_ACTIVE : FRAME_MS;
+      if (now - lastPaint >= budget - 2) {
         lastPaint = now;
         pointerLift += ((pointerActive ? 1 : 0) - pointerLift) * 0.14;
         if (pointerX < -1e3) {
@@ -602,11 +847,26 @@
           pointerY += (targetY - pointerY) * 0.3;
         }
         paint((now - start) / 1000, true, now);
-      }      frame = requestAnimationFrame(tick);
+      }
+      // Sleep until the next frame is due rather than waking on every display
+      // refresh just to skip it (60–120 Hz callbacks for a 24 fps animation).
+      const wait = lastPaint + budget - performance.now();
+      if (wait > 10) {
+        wakeTimer = setTimeout(() => {
+          wakeTimer = 0;
+          if (!disposed && visible && !frame) frame = requestAnimationFrame(tick);
+        }, wait - 6);
+      } else {
+        frame = requestAnimationFrame(tick);
+      }
     };
 
     const schedule = () => {
       if (disposed) return;
+      if (wakeTimer) {
+        clearTimeout(wakeTimer);
+        wakeTimer = 0;
+      }
       if (!canAnimate()) {
         cancelAnimationFrame(frame);
         frame = 0;
@@ -650,7 +910,11 @@
           const crop = { sx: 0, sy: 0, sw: image.naturalWidth, sh: image.naturalHeight };
           // Probe readability before including a remote image in the loop.
           const readable = readLuminance(image, crop, 1, 1);
-          const analysis = images.length ? { backdrop: 0, crop } : analyse(image);
+          // Configured cut-out artwork keeps its own shape; opaque photos get
+          // backdrop removal so they don't render as a light-backdrop negative.
+          const analysis = images.length && hasTransparency(image)
+            ? { backdrop: 0, crop, transparent: true }
+            : analyse(image);
           finish(readable && analysis ? { image, analysis } : null);
         } catch {
           finish(null);
@@ -672,6 +936,7 @@
 
     const themeObserver = new MutationObserver(() => {
       readTheme();
+      drawAmbientLayer();
       if (!canAnimate() || lowPower.matches) paint(0, false);
     });
     themeObserver.observe(document.documentElement, {
@@ -758,6 +1023,7 @@
     return () => {
       disposed = true;
       cancelAnimationFrame(frame);
+      if (wakeTimer) clearTimeout(wakeTimer);
       cancelAnimationFrame(resizeFrame);
       resizeObserver.disconnect();
       themeObserver.disconnect();

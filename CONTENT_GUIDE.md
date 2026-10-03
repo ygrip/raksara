@@ -649,17 +649,20 @@ hero:
     - https://example.com/illustration.png
 ```
 
-Images appear in list order, holding for four seconds before dots scramble and
-re-form over 2.4 seconds. The last image loops back to the first. One usable image
-stays visible. Missing/empty settings, or no usable images, display a dot globe
-instead (the profile avatar is not implicitly used).
+Images appear in list order, holding for four seconds before the lit dots fly
+along curved, staggered paths into the next image over 2.4 seconds. The last image
+loops back to the first. One usable image stays visible. Missing/empty settings,
+or no usable images, display a dot globe instead (the profile avatar is not
+implicitly used).
 
 Supported extensions: PNG, JPEG/JPG, WebP, AVIF, GIF, BMP, and SVG, including URLs
 with query strings. Unsupported types and malformed entries are ignored. Asset
 paths may be relative (`assets/...`, `./assets/...`) or site-root paths
 (`/content/assets/...`). Remote images must allow cross-origin pixel reads via
 CORS; failed, unreadable, or timed-out images are skipped. SVGs should be
-self-contained. Transparent silhouettes and high-contrast images work best.
+self-contained. Images with transparency (logos, cut-out SVG/PNG artwork) keep
+their own shape; opaque photos get the same backdrop removal and contrast
+stretch as the avatar portrait, so a studio backdrop does not show as dots.
 Reduced-motion visitors see the first usable image, or the globe, without motion.
 
 ### SEO & Open Graph

@@ -2650,8 +2650,11 @@ a.home-info-card-link:hover,
         padding-bottom: 76px;
     }
 
+    /* The floating mobile header (bottom ≈ 64px) overlays the hero; push the
+       portrait slot below it with breathing room instead of touching it. */
     .home-hero.dot-hero .home-hero-visual {
         height: clamp(280px, 86vw, 400px);
+        margin-top: 44px;
     }
 }
 
