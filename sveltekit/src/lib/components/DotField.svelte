@@ -318,7 +318,9 @@
     const bounds = host.getBoundingClientRect();
     if (bounds.width < 2 || bounds.height < 2) return null;
 
-    const spacing = bounds.width < 640 ? 7.5 : 7;
+    // Slightly tighter grid gives the subject more photographic detail without
+    // returning to the very dense/high-cost field used before the mobile perf pass.
+    const spacing = bounds.width < 640 ? 6.75 : 6.25;
     const cols = Math.ceil(bounds.width / spacing) + 1;
     const rows = Math.ceil(bounds.height / spacing) + 1;
     const originX = (bounds.width - (cols - 1) * spacing) / 2;
@@ -391,10 +393,15 @@
         if (portrait && pc >= 0 && pc < pCols && pr >= 0 && pr < pRows) {
           const u = (dx - px) / pw;
           const v = (dy - py) / ph;
-          // Elliptical feather + soft bottom fade so the portrait has no hard box.
-          const feather = 1 - smoothstep(0.7, 1.04, Math.hypot((u - 0.5) / 0.5, (v - 0.44) / 0.58));
-          const bottom = 1 - smoothstep(0.8, 1, v);
-          t = portrait[pr * pCols + pc] * (fullImage ? 1 : feather * bottom);
+          // Always dissolve the sampled image through a focal envelope. The morph
+          // path used to bypass this for `fullImage`, exposing the rectangular image
+          // bounds during transitions. Keep the centre dense, then feather naturally
+          // into the ambient field on every side.
+          const radial = Math.hypot((u - 0.5) / 0.52, (v - 0.45) / 0.62);
+          const feather = 1 - smoothstep(0.62, 1.08, radial);
+          const bottom = 1 - smoothstep(0.84, 1.03, v);
+          const envelope = feather * bottom;
+          t = portrait[pr * pCols + pc] * envelope;
           if (t < 0.05) t = 0;
         } else if (!portrait) {
           t = globeTone((dx - centerX) / globeRadius, (dy - centerY) / globeRadius);
@@ -547,9 +554,11 @@
         // Blend occupancy too: switching at t > 0 would make incoming dots
         // jump to the subject baseline (and outgoing dots pop back to ambient).
         const ambientAlpha = ambient * (0.75 + 0.25 * wave) + glint * ambient * 1.6 + lift * 0.32 + ring * 0.38;
-        const subjectAlpha = (0.2 + 0.8 * t) * (0.86 + 0.14 * wave) * strength + glint * 0.18 + lift * 0.35 + ring * 0.45;
+        const subjectAlpha = (0.16 + 0.84 * t) * (0.84 + 0.16 * wave) * strength + glint * 0.2 + lift * 0.35 + ring * 0.45;
         const ambientRadius = baseRadius * (1 + glint * 0.6 + lift * 1.9 + ring * 2.2) + 0.45;
-        const subjectRadius = spacing * (0.12 + 0.3 * t) * (1 + glint * 0.12 + lift * 0.35 + ring * 0.45);
+        // Wider radius range adds depth: shadow/detail dots stay finer while
+        // highlights carry more visual weight.
+        const subjectRadius = spacing * (0.08 + 0.4 * t) * (1 + glint * 0.14 + lift * 0.35 + ring * 0.45);
         const alpha = ambientAlpha + (subjectAlpha - ambientAlpha) * occupancy;
         const radius = ambientRadius + (subjectRadius - ambientRadius) * occupancy;
         alphaOut[i] = Math.min(1, alpha * reveal);
