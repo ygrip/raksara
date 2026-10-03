@@ -1128,8 +1128,9 @@ export async function initCharts(container: HTMLElement): Promise<void> {
 
 /** Open a Mermaid SVG in a modal viewport with zoom and directional panning. */
 function openMermaidViewer(block: HTMLElement): void {
-  const svg = block.querySelector<SVGSVGElement>('svg');
-  if (!svg || document.querySelector('.mermaid-viewer-overlay')) return;
+  const renderedSvg = block.querySelector<SVGSVGElement>('svg');
+  if (!renderedSvg || document.querySelector('.mermaid-viewer-overlay')) return;
+  const svg = renderedSvg;
 
   const bounds = svg.getBoundingClientRect();
   const viewBox = svg.viewBox?.baseVal;
