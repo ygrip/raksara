@@ -921,10 +921,20 @@ body {
 /* ── Table Sorting ────────────────────────────────────── */
 
 .table-scroll-wrap {
+    width: 100%;
+    max-width: 100%;
     overflow-x: auto;
-    margin: 20px -20px;
-    padding: 0 20px;
+    overscroll-behavior-inline: contain;
+    margin: 20px 0;
+    border-radius: var(--radius-md);
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
+.article-body .table-scroll-wrap > table {
+    width: 100%;
+    min-width: 640px;
+    margin: 0;
 }
 
 .article-body table th {

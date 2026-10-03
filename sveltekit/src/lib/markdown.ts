@@ -1126,13 +1126,178 @@ export async function initCharts(container: HTMLElement): Promise<void> {
   }
 }
 
+/** Open a Mermaid SVG in a modal viewport with zoom and directional panning. */
+function openMermaidViewer(block: HTMLElement): void {
+  const svg = block.querySelector<SVGSVGElement>('svg');
+  if (!svg || document.querySelector('.mermaid-viewer-overlay')) return;
+
+  const bounds = svg.getBoundingClientRect();
+  const viewBox = svg.viewBox?.baseVal;
+  const baseWidth = Math.max(viewBox?.width || bounds.width || 800, 1);
+  const baseHeight = Math.max(viewBox?.height || bounds.height || 600, 1);
+  const originalStyle = svg.getAttribute('style');
+  const anchor = document.createComment('mermaid-viewer-anchor');
+  svg.before(anchor);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'mermaid-viewer-overlay';
+  overlay.innerHTML = `
+    <section class="mermaid-viewer-dialog" role="dialog" aria-modal="true" aria-label="Diagram viewer">
+      <div class="mermaid-viewer-toolbar">
+        <div class="mermaid-viewer-title">Diagram viewer</div>
+        <div class="mermaid-viewer-controls" aria-label="Diagram controls">
+          <button type="button" data-action="zoom-out" aria-label="Zoom out" title="Zoom out">−</button>
+          <span class="mermaid-viewer-scale" aria-live="polite">100%</span>
+          <button type="button" data-action="zoom-in" aria-label="Zoom in" title="Zoom in">+</button>
+          <button type="button" data-action="reset" aria-label="Reset zoom and position" title="Reset">Reset</button>
+          <span class="mermaid-viewer-divider" aria-hidden="true"></span>
+          <button type="button" data-pan="left" aria-label="Pan left" title="Pan left">←</button>
+          <button type="button" data-pan="up" aria-label="Pan up" title="Pan up">↑</button>
+          <button type="button" data-pan="down" aria-label="Pan down" title="Pan down">↓</button>
+          <button type="button" data-pan="right" aria-label="Pan right" title="Pan right">→</button>
+          <button type="button" class="mermaid-viewer-close" data-action="close" aria-label="Close diagram viewer" title="Close">×</button>
+        </div>
+      </div>
+      <div class="mermaid-viewer-viewport" tabindex="0" aria-label="Scrollable diagram">
+        <div class="mermaid-viewer-canvas"></div>
+      </div>
+    </section>
+  `;
+
+  document.body.appendChild(overlay);
+  document.body.classList.add('mermaid-viewer-open');
+
+  const viewport = overlay.querySelector<HTMLElement>('.mermaid-viewer-viewport');
+  const canvas = overlay.querySelector<HTMLElement>('.mermaid-viewer-canvas');
+  const scaleLabel = overlay.querySelector<HTMLElement>('.mermaid-viewer-scale');
+  const closeButton = overlay.querySelector<HTMLButtonElement>('[data-action="close"]');
+  if (!viewport || !canvas || !scaleLabel || !closeButton) {
+    overlay.remove();
+    document.body.classList.remove('mermaid-viewer-open');
+    anchor.replaceWith(svg);
+    return;
+  }
+
+  canvas.appendChild(svg);
+  let scale = 1;
+
+  const setScale = (next: number, preserveCenter = true) => {
+    const oldScrollWidth = Math.max(viewport.scrollWidth, 1);
+    const oldScrollHeight = Math.max(viewport.scrollHeight, 1);
+    const centerX = (viewport.scrollLeft + viewport.clientWidth / 2) / oldScrollWidth;
+    const centerY = (viewport.scrollTop + viewport.clientHeight / 2) / oldScrollHeight;
+
+    scale = Math.min(4, Math.max(0.15, next));
+    svg.style.width = `${Math.round(baseWidth * scale)}px`;
+    svg.style.height = `${Math.round(baseHeight * scale)}px`;
+    svg.style.maxWidth = 'none';
+    scaleLabel.textContent = `${Math.round(scale * 100)}%`;
+
+    if (preserveCenter) {
+      requestAnimationFrame(() => {
+        viewport.scrollLeft = centerX * viewport.scrollWidth - viewport.clientWidth / 2;
+        viewport.scrollTop = centerY * viewport.scrollHeight - viewport.clientHeight / 2;
+      });
+    }
+  };
+
+  const centerViewport = () => {
+    requestAnimationFrame(() => {
+      viewport.scrollLeft = Math.max(0, (viewport.scrollWidth - viewport.clientWidth) / 2);
+      viewport.scrollTop = Math.max(0, (viewport.scrollHeight - viewport.clientHeight) / 2);
+    });
+  };
+
+  const resetToFit = () => {
+    const availableWidth = Math.max(viewport.clientWidth - 48, 1);
+    const availableHeight = Math.max(viewport.clientHeight - 48, 1);
+    const fitScale = Math.min(1, availableWidth / baseWidth, availableHeight / baseHeight);
+    setScale(fitScale, false);
+    centerViewport();
+  };
+
+  const pan = (direction: 'left' | 'right' | 'up' | 'down') => {
+    const horizontalStep = Math.max(120, Math.min(viewport.clientWidth * 0.55, 360));
+    const verticalStep = Math.max(120, Math.min(viewport.clientHeight * 0.55, 360));
+    viewport.scrollBy({
+      left: direction === 'left' ? -horizontalStep : direction === 'right' ? horizontalStep : 0,
+      top: direction === 'up' ? -verticalStep : direction === 'down' ? verticalStep : 0,
+      behavior: 'smooth',
+    });
+  };
+
+  const opener = block.querySelector<HTMLButtonElement>('.mermaid-expand-btn');
+
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeViewer();
+      return;
+    }
+    if (event.key === '+' || event.key === '=') {
+      event.preventDefault();
+      setScale(scale * 1.2);
+      return;
+    }
+    if (event.key === '-') {
+      event.preventDefault();
+      setScale(scale / 1.2);
+      return;
+    }
+    if (event.key === '0') {
+      event.preventDefault();
+      resetToFit();
+      return;
+    }
+    const directions: Record<string, 'left' | 'right' | 'up' | 'down'> = {
+      ArrowLeft: 'left',
+      ArrowRight: 'right',
+      ArrowUp: 'up',
+      ArrowDown: 'down',
+    };
+    const direction = directions[event.key];
+    if (direction) {
+      event.preventDefault();
+      pan(direction);
+    }
+  };
+
+  function closeViewer() {
+    document.removeEventListener('keydown', onKeyDown);
+    if (originalStyle === null) svg.removeAttribute('style');
+    else svg.setAttribute('style', originalStyle);
+    anchor.replaceWith(svg);
+    overlay.remove();
+    document.body.classList.remove('mermaid-viewer-open');
+    opener?.focus();
+  }
+
+  overlay.addEventListener('click', (event) => {
+    if (event.target === overlay) closeViewer();
+  });
+  overlay.querySelector<HTMLButtonElement>('[data-action="zoom-in"]')?.addEventListener('click', () => setScale(scale * 1.2));
+  overlay.querySelector<HTMLButtonElement>('[data-action="zoom-out"]')?.addEventListener('click', () => setScale(scale / 1.2));
+  overlay.querySelector<HTMLButtonElement>('[data-action="reset"]')?.addEventListener('click', resetToFit);
+  closeButton.addEventListener('click', closeViewer);
+  overlay.querySelectorAll<HTMLButtonElement>('[data-pan]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const direction = button.dataset['pan'] as 'left' | 'right' | 'up' | 'down' | undefined;
+      if (direction) pan(direction);
+    });
+  });
+
+  document.addEventListener('keydown', onKeyDown);
+  resetToFit();
+  closeButton.focus();
+}
+
 /** Render all rk-mermaid elements with Mermaid (lazy-loads from CDN). */
 export async function initMermaid(container: HTMLElement): Promise<void> {
   const blocks = container.querySelectorAll<HTMLElement>('.rk-mermaid');
   if (!blocks.length) return;
   try {
     // @ts-expect-error mermaid global
-    let mermaid = window['mermaid'] as { initialize: (cfg: object) => void; run: (opts: object) => void } | undefined;
+    let mermaid = window['mermaid'] as { initialize: (cfg: object) => void; run: (opts: object) => Promise<void> | void } | undefined;
     if (!mermaid) {
       await loadScriptOnce('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js');
       // @ts-expect-error mermaid global
@@ -1144,7 +1309,20 @@ export async function initMermaid(container: HTMLElement): Promise<void> {
     blocks.forEach((el, i) => {
       el.setAttribute('id', `mermaid-${i}`);
     });
-    mermaid.run({ nodes: Array.from(blocks) });
+    await mermaid.run({ nodes: Array.from(blocks) });
+
+    blocks.forEach((block) => {
+      if (block.dataset['mermaidViewerInit'] === '1' || !block.querySelector('svg')) return;
+      block.dataset['mermaidViewerInit'] = '1';
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'mermaid-expand-btn';
+      button.setAttribute('aria-label', 'Open diagram viewer');
+      button.setAttribute('title', 'Open diagram viewer');
+      button.innerHTML = '<span aria-hidden="true">↗</span><span>Expand</span>';
+      button.addEventListener('click', () => openMermaidViewer(block));
+      block.appendChild(button);
+    });
   } catch {
     // mermaid unavailable
   }
@@ -1153,6 +1331,16 @@ export async function initMermaid(container: HTMLElement): Promise<void> {
 /** Make all <table> headers in .article-body sortable. */
 export function initSortableTables(container: HTMLElement): void {
   container.querySelectorAll<HTMLTableElement>('table').forEach((table) => {
+    if (!table.parentElement?.classList.contains('table-scroll-wrap')) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'table-scroll-wrap';
+      wrapper.setAttribute('role', 'region');
+      wrapper.setAttribute('aria-label', 'Scrollable table');
+      wrapper.tabIndex = 0;
+      table.parentNode?.insertBefore(wrapper, table);
+      wrapper.appendChild(table);
+    }
+
     const thead = table.querySelector('thead');
     if (!thead) return;
     const headers = thead.querySelectorAll<HTMLTableCellElement>('th');
