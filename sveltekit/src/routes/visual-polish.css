@@ -2492,15 +2492,15 @@ a.home-info-card-link:hover,
 
 /* ── Dot hero: one accent dot field across the whole hero ─────────── */
 .home-hero.dot-hero {
-    --dot-field-ambient: 0.13;
-    --dot-field-strength: 0.92;
+    --dot-field-ambient: 0.1;
+    --dot-field-strength: 1.04;
     min-height: min(860px, max(680px, 100svh));
     overflow: hidden;
 }
 
 [data-theme="light"] .home-hero.dot-hero {
-    --dot-field-ambient: 0.2;
-    --dot-field-strength: 1;
+    --dot-field-ambient: 0.16;
+    --dot-field-strength: 1.08;
 }
 
 .home-hero.dot-hero .hero-dot-field {
