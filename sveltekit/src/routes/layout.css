@@ -1979,6 +1979,8 @@ body {
 }
 
 .home-info-card {
+    position: relative;
+    isolation: isolate;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
@@ -1989,25 +1991,43 @@ body {
     color: inherit;
 }
 
-a.home-info-card-link {
-    text-decoration: none !important;
+.home-info-card-link {
     cursor: pointer;
     transition: border-color 0.2s, background 0.2s, transform 0.2s;
-    position: relative;
 }
 
-a.home-info-card-link:hover {
+.home-info-card-surface {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    text-decoration: none;
+    touch-action: manipulation;
+}
+
+.home-info-card-surface:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}
+
+.home-info-card-link:hover {
     border-color: rgba(var(--accent-rgb), 0.5);
     background: var(--bg-glass);
     transform: translateY(-2px);
 }
 
 .home-info-card-icon {
+    position: relative;
+    z-index: 2;
+    pointer-events: none;
     font-size: 1.25rem;
     line-height: 1;
 }
 
 .home-info-card-title {
+    position: relative;
+    z-index: 2;
+    pointer-events: none;
     font-weight: 600;
     font-size: 0.95rem;
     color: var(--text-primary);
@@ -2015,6 +2035,9 @@ a.home-info-card-link:hover {
 }
 
 .home-info-card-desc {
+    position: relative;
+    z-index: 2;
+    pointer-events: none;
     font-size: 0.825rem;
     color: var(--text-secondary);
     line-height: 1.6;
@@ -2023,6 +2046,9 @@ a.home-info-card-link:hover {
 }
 
 .home-info-card-tags {
+    position: relative;
+    z-index: 2;
+    pointer-events: none;
     display: flex;
     flex-wrap: wrap;
     gap: 0.3rem;
@@ -2032,6 +2058,8 @@ a.home-info-card-link:hover {
 
 .home-info-card-arrow {
     position: absolute;
+    z-index: 2;
+    pointer-events: none;
     bottom: 1rem;
     right: 1.25rem;
     font-size: 0.9rem;
@@ -2040,7 +2068,7 @@ a.home-info-card-link:hover {
     transition: opacity 0.2s, transform 0.2s;
 }
 
-a.home-info-card-link:hover .home-info-card-arrow {
+.home-info-card-link:hover .home-info-card-arrow {
     opacity: 1;
     transform: translateX(3px);
 }
@@ -2050,7 +2078,6 @@ a.home-info-card-link:hover .home-info-card-arrow {
 /* Use viewport width rather than pointer capability so Lighthouse's
    mobile emulation gets the same accessible hit areas as real devices. */
 @media (max-width: 768px) {
-    .portfolio-card-title a,
     .portfolio-card-links a,
     .home-section-header a {
         display: inline-flex;
@@ -2060,19 +2087,8 @@ a.home-info-card-link:hover .home-info-card-arrow {
         box-sizing: border-box;
     }
 
-    .portfolio-card-title a {
-        padding-inline: 4px;
-    }
-
     .portfolio-card-links a {
         justify-content: center;
-    }
-
-    a.home-info-card-link {
-        min-width: 48px;
-        min-height: 48px;
-        box-sizing: border-box;
-        touch-action: manipulation;
     }
 }
 
@@ -2415,6 +2431,8 @@ a.home-info-card-link:hover .home-info-card-arrow {
 }
 
 .portfolio-card {
+    position: relative;
+    isolation: isolate;
     padding: 24px;
     background: var(--bg-card);
     border: 1px solid var(--border-glass);
@@ -2438,9 +2456,26 @@ a.home-info-card-link:hover .home-info-card-arrow {
     margin-bottom: 8px;
 }
 
-.portfolio-card-title a {
-    color: inherit;
+.portfolio-card-surface {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
     text-decoration: none;
+    touch-action: manipulation;
+}
+
+.portfolio-card-surface:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}
+
+.portfolio-card-title,
+.portfolio-card-summary,
+.portfolio-card-tags {
+    position: relative;
+    z-index: 2;
+    pointer-events: none;
 }
 
 .portfolio-card-summary {
@@ -2465,6 +2500,8 @@ a.home-info-card-link:hover .home-info-card-arrow {
 }
 
 .portfolio-card-links {
+    position: relative;
+    z-index: 3;
     display: flex;
     gap: 10px;
 }
