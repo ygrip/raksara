@@ -219,9 +219,12 @@
 					<div class="portfolio-grid">
 						{#each items as item}
 							<div class="portfolio-card">
-								<div class="portfolio-card-title">
-									<a href={portfolioHref(item.slug)}>{item.title}</a>
-								</div>
+								<a
+									href={portfolioHref(item.slug)}
+									class="portfolio-card-surface"
+									aria-label={`Open ${item.title}`}
+								></a>
+								<div class="portfolio-card-title">{item.title}</div>
 								{#if item.summary}<div class="portfolio-card-summary">{item.summary}</div>{/if}
 								{#if item.tags?.length}
 									<div class="portfolio-card-tags">
@@ -262,7 +265,12 @@
 					<div class="home-info-cards">
 						{#each section.items as item}
 							{#if item.href}
-								<a href={item.href} class="home-info-card home-info-card-link">
+								<div class="home-info-card home-info-card-link">
+									<a
+										href={item.href}
+										class="home-info-card-surface"
+										aria-label={item.title ?? item.label ?? 'Open card'}
+									></a>
 									{#if item.icon}<span class="home-info-card-icon">{item.icon}</span>{/if}
 									<div class="home-info-card-title">{item.title ?? item.label ?? ''}</div>
 									{#if item.description}<p class="home-info-card-desc">{item.description}</p>{/if}
@@ -274,7 +282,7 @@
 										</div>
 									{/if}
 									<span class="home-info-card-arrow">→</span>
-								</a>
+								</div>
 							{:else}
 								<div class="home-info-card">
 									{#if item.icon}<span class="home-info-card-icon">{item.icon}</span>{/if}
