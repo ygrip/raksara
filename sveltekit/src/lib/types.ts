@@ -211,6 +211,12 @@ export interface SiteConfig {
   hero_title?: string;
   hero_subtitle?: string;
   nav?: Array<{ label: string; href: string }>;
+  /** Optional per-tag topic-page presentation configured by the content repository. */
+  topics?: Record<string, {
+    title?: string;
+    intro?: string;
+    description?: string;
+  }>;
   /** AdSense publisher ID string or structured object from config.json */
   adsense?: string | Record<string, string>;
   /** Google Search Console verification token(s). */
