@@ -97,6 +97,7 @@
 		if (path.startsWith('/blog/post/')) return true;
 		if (path.startsWith('/blog/dir/')) return true;
 		if (path.startsWith('/portfolio/')) return true;
+		if (path.startsWith('/tag/')) return true;
 		if (/^\/[^/]+$/.test(path) && !['/gallery', '/tags', '/categories', '/admin'].includes(path)) return true;
 		return false;
 	}
