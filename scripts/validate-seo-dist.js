@@ -46,6 +46,34 @@ function htmlPathForUrl(url) {
   return path.join(BUILD_DIR, pathname.replace(/^\/+/, ''), 'index.html');
 }
 
+function buildDestinationCandidates(pathname) {
+  const clean = decodeURIComponent(pathname).replace(/^\/+/, '').replace(/\/+$/, '');
+  if (!clean) return [path.join(BUILD_DIR, 'index.html')];
+  if (/\.[a-z0-9]+$/i.test(clean)) {
+    return [path.join(BUILD_DIR, clean)];
+  }
+  return [
+    path.join(BUILD_DIR, clean, 'index.html'),
+    path.join(BUILD_DIR, `${clean}.html`),
+  ];
+}
+
+function extractInternalHomepageLinks(html, siteOrigin) {
+  const links = new Set();
+  for (const match of html.matchAll(/<a\b[^>]*href=["']([^"'#]+)["'][^>]*>/gi)) {
+    const href = match[1].trim();
+    if (!href || /^(mailto:|tel:|javascript:)/i.test(href)) continue;
+    try {
+      const parsed = new URL(href, siteOrigin);
+      if (parsed.origin !== siteOrigin) continue;
+      links.add(parsed.pathname);
+    } catch {
+      // Invalid hrefs are handled by the browser; only valid internal routes are checked here.
+    }
+  }
+  return [...links];
+}
+
 function countMatches(text, regex) {
   return (text.match(regex) || []).length;
 }
@@ -239,6 +267,26 @@ if (jsonLdErrors === 0) ok('JSON-LD scripts are valid where present');
 if (robotsBlocked === 0 && robotsText) ok('robots.txt does not block sitemap URLs');
 if (loadingFallbacks === 0) ok('No sitemap URL renders the Loading fallback as static content');
 if (missingArticleBody === 0) ok('Article detail pages include prerendered article bodies');
+
+const homepagePath = path.join(BUILD_DIR, 'index.html');
+let brokenHomepageLinks = 0;
+if (fs.existsSync(homepagePath)) {
+  const siteOrigin = new URL(sitemapUrls[0]).origin;
+  const homepageLinks = extractInternalHomepageLinks(readFile(homepagePath), siteOrigin);
+  for (const pathname of homepageLinks) {
+    const candidates = buildDestinationCandidates(pathname);
+    if (!candidates.some((candidate) => fs.existsSync(candidate))) {
+      error(`homepage internal link ${pathname} has no generated destination`);
+      brokenHomepageLinks++;
+    }
+  }
+  if (brokenHomepageLinks === 0) {
+    ok(`Homepage internal links resolve to generated destinations (${homepageLinks.length} checked)`);
+  }
+} else {
+  error('Homepage build output is missing; cannot validate internal links');
+  brokenHomepageLinks++;
+}
 
 console.log(`\n${errors === 0 ? 'PASS' : 'FAIL'} SEO dist validation: ${errors} error(s), ${warnings} warning(s)`);
 console.log(`   Sitemap URLs: ${sitemapUrls.length}; checked HTML files: ${checked}\n`);

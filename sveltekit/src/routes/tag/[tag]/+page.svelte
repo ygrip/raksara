@@ -2,6 +2,8 @@
 	import type { PageData } from './$types';
 	import { formatDate } from '$lib/utils';
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
+	import { serializeJsonLd } from '$lib/seo';
+
 	let { data }: { data: PageData } = $props();
 	const tag = $derived(data.tag);
 	const posts = $derived(data.posts);
@@ -13,32 +15,78 @@
 	const total = $derived((posts?.length ?? 0) + (portfolio?.length ?? 0) + (thoughts?.length ?? 0) + (gallery?.length ?? 0));
 	const galleryThumbSizes = '(max-width: 640px) calc(100vw - 32px), 640px';
 
+	const TOPIC_INTROS: Record<string, string> = {
+		automation: 'Practical notes on automation testing, test architecture, tooling, and agent-assisted workflows.',
+		java: 'Java engineering articles covering test automation, frameworks, tooling, and implementation patterns.',
+		programming: 'Programming notes, implementation write-ups, and lessons from building software and developer tools.'
+	};
+
+	function topicName(value: string): string {
+		if (value.toLowerCase() === 'java') return 'Java';
+		return value
+			.split(/[-_\s]+/)
+			.filter(Boolean)
+			.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+			.join(' ');
+	}
+
+	function topicIntro(value: string): string {
+		return TOPIC_INTROS[value.toLowerCase()] ?? `Articles and projects collected under the ${topicName(value)} topic.`;
+	}
+
 	function postHref(slug: string): string {
 		return `/blog/post/${slug}/`;
 	}
+
+	const displayName = $derived(topicName(tag));
+	const intro = $derived(topicIntro(tag));
+	const siteName = $derived(config?.hero_title ?? config?.title ?? 'Raksara');
+	const siteRoot = $derived(String(config?.site_url || config?.url || '').replace(/\/+$/, ''));
+	const canonicalUrl = $derived(siteRoot ? `${siteRoot}/tag/${encodeURIComponent(tag)}/` : `/tag/${encodeURIComponent(tag)}/`);
+	const description = $derived(`${intro} Browse ${posts?.length ?? 0} matching article${(posts?.length ?? 0) === 1 ? '' : 's'}, newest first.`);
+	const collectionJsonLd = $derived({
+		'@context': 'https://schema.org',
+		'@type': 'CollectionPage',
+		name: `${displayName} | ${siteName}`,
+		description,
+		url: canonicalUrl,
+		about: { '@type': 'Thing', name: displayName },
+		mainEntity: {
+			'@type': 'ItemList',
+			itemListOrder: 'https://schema.org/ItemListOrderDescending',
+			numberOfItems: posts?.length ?? 0,
+			itemListElement: (posts ?? []).map((post, index) => ({
+				'@type': 'ListItem',
+				position: index + 1,
+				url: siteRoot ? `${siteRoot}${postHref(post.slug)}` : postHref(post.slug),
+				name: post.title
+			}))
+		}
+	});
 </script>
 
 <svelte:head>
-	<title>Tag: {tag} · {config?.hero_title ?? 'Raksara'}</title>
-	<meta name="description" content={`Items tagged ${tag} on ${config?.hero_title ?? 'Raksara'}.`} />
+	<title>{displayName} articles · {siteName}</title>
+	<meta name="description" content={description} />
+	{@html `<script type="application/ld+json">${serializeJsonLd(collectionJsonLd)}</script>`}
 </svelte:head>
 
 <div class="page-header">
 	<div>
-		<h1 class="page-title">#{tag}</h1>
-		<p class="page-subtitle">{total} item{total !== 1 ? 's' : ''}</p>
+		<h1 class="page-title">{displayName}</h1>
+		<p class="page-subtitle">{intro}</p>
 	</div>
 </div>
 
 {#if posts && posts.length > 0}
 <section style="margin-bottom: 32px;">
-	<div class="home-section-header"><h2>Blog Posts</h2></div>
+	<div class="home-section-header">
+		<h2>Articles</h2>
+		<span class="page-subtitle">{posts.length} · newest first</span>
+	</div>
 	<div class="post-list">
 		{#each posts as post}
-			<a
-				class="post-card"
-				href={postHref(post.slug)}
-			>
+			<a class="post-card" href={postHref(post.slug)}>
 				<div class="post-card-title">{post.title}</div>
 				{#if post.summary}<div class="post-card-summary">{post.summary}</div>{/if}
 				<div class="post-card-meta" aria-label="Post metadata">
@@ -49,6 +97,42 @@
 					{/each}
 				</div>
 			</a>
+		{/each}
+	</div>
+</section>
+{/if}
+
+{#if portfolio && portfolio.length > 0}
+<section style="margin-bottom: 32px;">
+	<div class="home-section-header"><h2>Projects</h2></div>
+	<div class="timeline">
+		<div class="timeline-year">
+		{#each portfolio as item}
+			<div class="timeline-item">
+				<div class="portfolio-card">
+					<div class="portfolio-card-title"><a href="/portfolio/{item.slug}/" style="color:inherit;text-decoration:none;">{item.title}</a></div>
+					{#if item.summary}<div class="portfolio-card-summary">{item.summary}</div>{/if}
+					{#if item.date}<div class="post-card-date">{formatDate(item.date)}</div>{/if}
+				</div>
+			</div>
+		{/each}
+		</div>
+	</div>
+</section>
+{/if}
+
+{#if thoughts && thoughts.length > 0}
+<section style="margin-bottom: 32px;">
+	<div class="home-section-header"><h2>Thoughts</h2></div>
+	<div class="thoughts-list">
+		{#each thoughts as thought}
+			<div class="thought-card">
+				<p class="thought-body">{thought.body ?? thought.title}</p>
+				<div class="thought-meta">
+					{#if thought.title}<span class="thought-title">{thought.title}</span>{/if}
+					<span class="thought-date">{formatDate(thought.date)}</span>
+				</div>
+			</div>
 		{/each}
 	</div>
 </section>
@@ -82,43 +166,6 @@
 </section>
 {/if}
 
-{#if portfolio && portfolio.length > 0}
-<section style="margin-bottom: 32px;">
-	<div class="home-section-header"><h2>Portfolio</h2></div>
-	<div class="timeline">
-		<div class="timeline-year">
-			<div class="timeline-year-label">Projects</div>
-		{#each portfolio as item}
-				<div class="timeline-item">
-					<div class="portfolio-card">
-						<div class="portfolio-card-title"><a href="/portfolio/{item.slug}/" style="color:inherit;text-decoration:none;">{item.title}</a></div>
-						{#if item.summary}<div class="portfolio-card-summary">{item.summary}</div>{/if}
-						{#if item.date}<div class="post-card-date">{formatDate(item.date)}</div>{/if}
-					</div>
-				</div>
-		{/each}
-		</div>
-	</div>
-</section>
-{/if}
-
-{#if thoughts && thoughts.length > 0}
-<section style="margin-bottom: 32px;">
-	<div class="home-section-header"><h2>Thoughts</h2></div>
-	<div class="thoughts-list">
-		{#each thoughts as thought}
-			<div class="thought-card">
-				<p class="thought-body">{thought.body ?? thought.title}</p>
-				<div class="thought-meta">
-					{#if thought.title}<span class="thought-title">{thought.title}</span>{/if}
-					<span class="thought-date">{formatDate(thought.date)}</span>
-				</div>
-			</div>
-		{/each}
-	</div>
-</section>
-{/if}
-
 {#if total === 0}
-	<p style="color: var(--text-tertiary);">No content found for tag <strong>#{tag}</strong>.</p>
+	<p style="color: var(--text-tertiary);">No content found for <strong>{displayName}</strong>.</p>
 {/if}

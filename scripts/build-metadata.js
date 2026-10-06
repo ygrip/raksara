@@ -1169,7 +1169,6 @@ function buildRobotsTxt(siteUrl, siteConfig) {
     "Disallow: /gallery",
     "Disallow: /404.html",
     "Disallow: /tags",
-    "Disallow: /tag/",
     "Disallow: /categories",
     "Disallow: /category/",
     "Disallow: /admin",
@@ -1199,6 +1198,7 @@ function isIndexableRoute(route) {
   if (route.startsWith("/blog/post/")) return true;
   if (route.startsWith("/blog/dir/")) return true;
   if (route.startsWith("/portfolio/")) return true;
+  if (route.startsWith("/tag/")) return true;
   if (/^\/[^/]+$/.test(route) && !["/gallery", "/tags", "/categories", "/admin"].includes(route)) {
     return true;
   }
@@ -1209,6 +1209,7 @@ function getSitemapPriority(route) {
   if (route === "/profile") return 1;
   if (route === "/") return 0.9;
   if (route.startsWith("/blog/post/") || route.startsWith("/portfolio/")) return 0.8;
+  if (route.startsWith("/tag/")) return 0.7;
   if (["/blog", "/portfolio", "/about", "/thoughts"].includes(route)) return 0.7;
   if (/^\/[^/]+$/.test(route)) return 0.6;
   return 0.3;

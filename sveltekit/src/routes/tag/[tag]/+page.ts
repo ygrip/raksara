@@ -2,7 +2,11 @@
 import type { PageLoad } from './$types';
 import { loadGallery, loadImageManifest, loadPosts, loadPortfolio, loadThoughts } from '$lib/metadata';
 
-export const prerender = false;
+export const prerender = true;
+
+function newestFirst<T extends { date?: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? '')));
+}
 
 export const load: PageLoad = async ({ params, fetch }) => {
   const tag = params.tag;
@@ -13,12 +17,13 @@ export const load: PageLoad = async ({ params, fetch }) => {
     loadGallery(fetch).catch(() => [] as Awaited<ReturnType<typeof loadGallery>>),
     loadImageManifest(fetch).catch(() => null),
   ]);
+
   return {
     tag,
-    posts:     posts.filter((p) => p.tags?.includes(tag)),
-    portfolio: portfolio.filter((p) => p.tags?.includes(tag)),
-    thoughts:  thoughts.filter((t) => t.tags?.includes(tag)),
-    gallery:   gallery.filter((g) => g.tags?.includes(tag)),
+    posts: newestFirst(posts.filter((p) => p.tags?.includes(tag))),
+    portfolio: newestFirst(portfolio.filter((p) => p.tags?.includes(tag))),
+    thoughts: newestFirst(thoughts.filter((t) => t.tags?.includes(tag))),
+    gallery: newestFirst(gallery.filter((g) => g.tags?.includes(tag))),
     imageManifest,
   };
 };
