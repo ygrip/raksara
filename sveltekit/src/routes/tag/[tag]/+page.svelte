@@ -15,12 +15,6 @@
 	const total = $derived((posts?.length ?? 0) + (portfolio?.length ?? 0) + (thoughts?.length ?? 0) + (gallery?.length ?? 0));
 	const galleryThumbSizes = '(max-width: 640px) calc(100vw - 32px), 640px';
 
-	const TOPIC_INTROS: Record<string, string> = {
-		automation: 'Practical notes on automation testing, test architecture, tooling, and agent-assisted workflows.',
-		java: 'Java engineering articles covering test automation, frameworks, tooling, and implementation patterns.',
-		programming: 'Programming notes, implementation write-ups, and lessons from building software and developer tools.'
-	};
-
 	function topicName(value: string): string {
 		if (value.toLowerCase() === 'java') return 'Java';
 		return value
@@ -30,16 +24,17 @@
 			.join(' ');
 	}
 
-	function topicIntro(value: string): string {
-		return TOPIC_INTROS[value.toLowerCase()] ?? `Articles and projects collected under the ${topicName(value)} topic.`;
-	}
-
 	function postHref(slug: string): string {
 		return `/blog/post/${slug}/`;
 	}
 
-	const displayName = $derived(topicName(tag));
-	const intro = $derived(topicIntro(tag));
+	const topicConfig = $derived(config?.topics?.[tag] ?? config?.topics?.[tag.toLowerCase()]);
+	const displayName = $derived(topicConfig?.title?.trim() || topicName(tag));
+	const intro = $derived(
+		topicConfig?.intro?.trim()
+			|| topicConfig?.description?.trim()
+			|| `Articles and projects collected under the ${displayName} topic.`
+	);
 	const siteName = $derived(config?.hero_title ?? config?.title ?? 'Raksara');
 	const siteRoot = $derived(String(config?.site_url || config?.url || '').replace(/\/+$/, ''));
 	const canonicalUrl = $derived(siteRoot ? `${siteRoot}/tag/${encodeURIComponent(tag)}/` : `/tag/${encodeURIComponent(tag)}/`);
