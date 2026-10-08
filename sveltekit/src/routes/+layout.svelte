@@ -450,7 +450,6 @@
 	{#if giscusEnabled}
 		<link rel="dns-prefetch" href="https://giscus.app" />
 	{/if}
-	<title>{config?.hero_title ?? config?.title ?? ''}</title>
 	<link rel="alternate" type="application/rss+xml" title={`${config?.hero_title ?? config?.title ?? 'Raksara'} RSS feed`} href={`${siteRoot}/feed.xml`} />
 	<link rel="alternate" type="application/atom+xml" title={`${config?.hero_title ?? config?.title ?? 'Raksara'} Atom feed`} href={`${siteRoot}/atom.xml`} />
 	{#each googleVerificationTokens as token}

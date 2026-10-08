@@ -70,12 +70,14 @@ export function buildPostMeta(
   const articleSchemaType = isPost && post.schema_type === 'TechArticle'
     ? 'TechArticle'
     : 'BlogPosting';
+  // Never replace missing page-specific copy with the site's generic description.
+  const description = post.summary?.trim() || `Read ${post.title} on ${brandName(config)}.`;
 
   const jsonLd: JsonLdObject = {
     '@context': 'https://schema.org',
     '@type': isPost ? articleSchemaType : 'SoftwareApplication',
     headline: post.title,
-    description: post.summary ?? '',
+    description,
     author: [
       {
         '@type': 'Person',
@@ -97,7 +99,7 @@ export function buildPostMeta(
 
   return {
     title: `${post.title} — ${brandName(config)}`,
-    description: post.summary ?? config.description ?? '',
+    description,
     url,
     image,
     type: 'article',
@@ -120,7 +122,8 @@ export function buildPageMeta(
 ): PageMeta {
   const brand = brandName(config);
   const title = opts.title ? `${opts.title} — ${brand}` : brand;
-  const description = opts.description ?? config.description ?? '';
+  const description = opts.description?.trim()
+    || (opts.title ? `Explore ${opts.title} on ${brand}.` : config.description ?? '');
   const url = resolveUrl(opts.path ?? '/', config.site_url ?? config.url);
   return {
     title,
