@@ -162,7 +162,7 @@
 
 <svelte:head>
 	<title>{post?.title ?? 'Post'} · {config?.hero_title ?? config?.title ?? ''}</title>
-	<meta name="description" content={post?.summary ?? config?.description ?? config?.hero_subtitle ?? ''} />
+	<meta name="description" content={pageMeta?.description ?? ''} />
 	{#if pageMeta}
 		<link rel="canonical" href={pageMeta.url} />
 		<meta property="og:title" content={pageMeta.title} />
