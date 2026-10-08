@@ -14,14 +14,14 @@
 	const docs = $derived(data.docs);
 	const renderedHtml = $derived(data.renderedHtml ?? '');
 	const pageDescription = $derived(
-		page?.summary
-			?? page?.description
-			?? config?.description
-			?? config?.hero_subtitle
-			?? page?.title
-			?? config?.hero_title
-			?? config?.title
-			?? ''
+		page?.summary?.trim()
+			|| page?.description?.trim()
+			|| (page?.title ? `Explore ${page.title} on ${config?.hero_title ?? config?.title ?? 'Raksara'}.` : '')
+			|| config?.description
+			|| config?.hero_subtitle
+			|| config?.hero_title
+			|| config?.title
+			|| ''
 	);
 
 	let articleEl: HTMLElement | null = null;
