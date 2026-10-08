@@ -8,6 +8,7 @@
     "build:sveltekit": "cd sveltekit && npm run build",
     "check:sveltekit": "cd sveltekit && npm run check",
     "test:dot-field": "node scripts/test-dot-field.mjs",
+    "test:taxonomy": "node scripts/test-taxonomy.mjs",
     "validate:seo:build": "node scripts/validate-seo-build.js",
     "validate:seo:dist": "node scripts/validate-seo-dist.js && node scripts/validate-agentic-dist.js && node scripts/validate-sitelinks-dist.js",
     "dev": "npm run build:metadata && cd sveltekit && npm run dev",
@@ -39,5 +40,8 @@
     "sharp": "^0.34.5",
     "terser": "^5.39.2",
     "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.0"
   }
 }
