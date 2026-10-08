@@ -47,9 +47,14 @@
 
 <svelte:head>
 	<title>{item?.title ?? 'Project'} · {config?.hero_title ?? config?.title ?? ''}</title>
-	{#if item?.summary}<meta name="description" content={item.summary} />{/if}
-	<meta property="og:title" content={item?.title ?? ''} />
-	<meta property="og:description" content={item?.summary ?? ''} />
+	<meta name="description" content={pageMeta?.description ?? ''} />
+	<meta property="og:title" content={pageMeta?.title ?? ''} />
+	<meta property="og:description" content={pageMeta?.description ?? ''} />
+	{#if pageMeta}<meta property="og:url" content={pageMeta.url} />{/if}
+	<meta property="og:type" content="website" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content={pageMeta?.title ?? ''} />
+	<meta name="twitter:description" content={pageMeta?.description ?? ''} />
 	{#if item?.ogImage?.landscape || pageMeta?.image}
 		{@const ogLandscape = item?.ogImage?.landscape ?? pageMeta?.image}
 		{@const ogPortrait = item?.ogImage?.portrait}
