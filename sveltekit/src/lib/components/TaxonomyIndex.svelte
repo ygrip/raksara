@@ -6,7 +6,7 @@
 	 */
 	import { onMount } from 'svelte';
 
-	const PAGE_SIZE = 60;
+	import { resolveTaxonomyPageSize } from '$lib/taxonomy.js';
 	const SEARCH_DELAY_MS = 150;
 
 	type SortKey = 'popular' | 'az' | 'za' | 'least';
@@ -17,10 +17,12 @@
 		items: Array<[string, number]>;
 		/** Route prefix, e.g. "/tag/" or "/category/" */
 		hrefBase: string;
+		pageSize?: number;
 		kind: 'tag' | 'category';
 	}
 
-	let { items, hrefBase, kind }: Props = $props();
+	let { items, hrefBase, kind, pageSize }: Props = $props();
+	const effectivePageSize = $derived(resolveTaxonomyPageSize(pageSize));
 
 	let query = $state('');
 	let sortKey = $state<SortKey>('popular');
@@ -50,10 +52,10 @@
 	const filtered = $derived(normalizedQuery
 		? searchable.filter(({ lower }) => lower.includes(normalizedQuery))
 		: searchable);
-	const pageCount = $derived(Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)));
+	const pageCount = $derived(Math.max(1, Math.ceil(filtered.length / effectivePageSize)));
 	const currentPage = $derived(Math.min(requestedPage, pageCount));
-	const start = $derived((currentPage - 1) * PAGE_SIZE);
-	const visible = $derived(filtered.slice(start, start + PAGE_SIZE));
+	const start = $derived((currentPage - 1) * effectivePageSize);
+	const visible = $derived(filtered.slice(start, start + effectivePageSize));
 
 	/** Split a term around the first case-insensitive match for highlighting. */
 	function highlight(term: string): [string, string, string] {
@@ -144,7 +146,7 @@
 		{filtered.length} of {items.length} {noun} match “{appliedQuery.trim()}”.
 	{/if}
 	{#if filtered.length}
-		Showing {start + 1}–{Math.min(start + PAGE_SIZE, filtered.length)} of {filtered.length} {noun}.
+		Showing {start + 1}–{Math.min(start + effectivePageSize, filtered.length)} of {filtered.length} {noun}.
 	{/if}
 </p>
 

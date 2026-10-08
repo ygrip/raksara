@@ -211,6 +211,8 @@ export interface SiteConfig {
   hero_title?: string;
   hero_subtitle?: string;
   nav?: Array<{ label: string; href: string }>;
+  /** Terms per page on /tags/ and /categories/. Positive integer; defaults to 30. */
+  taxonomy_page_size?: number;
   /** Optional per-tag topic-page presentation configured by the content repository. */
   topics?: Record<string, {
     title?: string;

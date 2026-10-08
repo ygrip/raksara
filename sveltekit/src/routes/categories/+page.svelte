@@ -18,4 +18,4 @@
 	</div>
 </div>
 
-<TaxonomyIndex items={categories} hrefBase="/category/" kind="category" />
+<TaxonomyIndex items={categories} hrefBase="/category/" kind="category" pageSize={config?.taxonomy_page_size} />

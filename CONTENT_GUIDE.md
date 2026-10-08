@@ -610,6 +610,19 @@ hero_title: Raksara
 hero_subtitle: A place where ideas, knowledge, and engineering thoughts are recorded.
 ```
 
+### Tags and Categories Pagination
+
+Set `taxonomy_page_size` in your content repository's `raksara.yml` to control
+how many terms appear per page on both `/tags/` and `/categories/`:
+
+```yaml
+taxonomy_page_size: 30
+```
+
+The default is **30**. Use a positive integer; omitted, zero, negative,
+fractional, or non-numeric values fall back to 30. Search still covers every
+term, regardless of the page size. Rebuild/redeploy after changing the setting.
+
 ### Accent Color
 
 The `color` field sets the accent color used across the entire site — buttons,
