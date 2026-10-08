@@ -132,9 +132,12 @@
 			{#each group.items as item}
 				<div class="timeline-item">
 					<div class="portfolio-card">
-						<div class="portfolio-card-title">
-							<a href={portfolioHref(item.slug)}>{item.title}</a>
-						</div>
+						<a
+							href={portfolioHref(item.slug)}
+							class="portfolio-card-surface"
+							aria-label={`Open ${item.title}`}
+						></a>
+						<div class="portfolio-card-title">{item.title}</div>
 						{#if item.summary}
 							<div class="portfolio-card-summary">{item.summary}</div>
 						{/if}
