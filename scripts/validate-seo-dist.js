@@ -146,6 +146,9 @@ if (!robotsText) warn('robots.txt not found; skipping robots block checks');
 let checked = 0;
 let missingHtml = 0;
 let missingTitle = 0;
+let duplicateTitle = 0;
+let repeatedTitle = 0;
+let repeatedDescription = 0;
 let missingDescription = 0;
 let missingCanonical = 0;
 let noindexCount = 0;
@@ -156,6 +159,8 @@ let duplicateDescription = 0;
 let duplicateRobots = 0;
 let loadingFallbacks = 0;
 let missingArticleBody = 0;
+const seenTitles = new Map();
+const descriptionToUrls = new Map();
 
 for (const url of sitemapUrls) {
   const parsed = new URL(url);
@@ -171,14 +176,38 @@ for (const url of sitemapUrls) {
   const html = readFile(filePath);
   checked++;
 
-  if (!/<title>[^<]+<\/title>/i.test(html)) {
-    error(`${relativeFile}: missing <title>`);
+  const head = firstMatch(html, /<head\b[^>]*>([\s\S]*?)<\/head>/i);
+  const titles = [...head.matchAll(/<title\b[^>]*>([\s\S]*?)<\/title>/gi)];
+  if (titles.length === 0 || !titles[0][1].trim()) {
+    error(`${relativeFile}: missing or empty <title>`);
     missingTitle++;
   }
+  if (titles.length > 1) {
+    error(`${relativeFile}: has ${titles.length} titles (layout and route titles must not compete)`);
+    duplicateTitle++;
+  }
+  if (titles.length === 1 && titles[0][1].trim()) {
+    const title = titles[0][1].replace(/\s+/g, ' ').trim();
+    const previousUrl = seenTitles.get(title);
+    if (previousUrl) {
+      error(`${relativeFile}: shares title "${title}" with ${previousUrl}`);
+      repeatedTitle++;
+    } else {
+      seenTitles.set(title, parsed.pathname);
+    }
+  }
 
-  if (!/<meta\s+[^>]*name=["']description["'][^>]*content=["'][^"']+["'][^>]*>/i.test(html)) {
-    error(`${relativeFile}: missing meta description`);
+  const description = firstMatch(
+    head,
+    /<meta\s+[^>]*name=["']description["'][^>]*content=["']([^"']*)["'][^>]*>/i
+  ).replace(/\s+/g, ' ').trim();
+  if (!description) {
+    error(`${relativeFile}: missing or empty meta description`);
     missingDescription++;
+  } else {
+    const urls = descriptionToUrls.get(description) ?? [];
+    urls.push(parsed.pathname);
+    descriptionToUrls.set(description, urls);
   }
 
   if (!/<link\s+[^>]*rel=["']canonical["'][^>]*href=["'][^"']+["'][^>]*>/i.test(html)) {
@@ -191,19 +220,19 @@ for (const url of sitemapUrls) {
     noindexCount++;
   }
 
-  const canonicalCount = countMatches(html, /<link\s+[^>]*rel=["']canonical["'][^>]*>/gi);
+  const canonicalCount = countMatches(head, /<link\s+[^>]*rel=["']canonical["'][^>]*>/gi);
   if (canonicalCount > 1) {
     error(`${relativeFile}: has ${canonicalCount} canonical links`);
     duplicateCanonical++;
   }
 
-  const descriptionCount = countMatches(html, /<meta\s+[^>]*name=["']description["'][^>]*>/gi);
+  const descriptionCount = countMatches(head, /<meta\s+[^>]*name=["']description["'][^>]*>/gi);
   if (descriptionCount > 1) {
     error(`${relativeFile}: has ${descriptionCount} meta descriptions`);
     duplicateDescription++;
   }
 
-  const robotsCount = countMatches(html, /<meta\s+[^>]*name=["']robots["'][^>]*>/gi);
+  const robotsCount = countMatches(head, /<meta\s+[^>]*name=["']robots["'][^>]*>/gi);
   if (robotsCount !== 1) {
     error(`${relativeFile}: expected exactly one robots meta tag, found ${robotsCount}`);
     duplicateRobots++;
@@ -252,11 +281,23 @@ for (const url of sitemapUrls) {
   }
 }
 
+// Repeated site-wide fallback copy is a common regression even when every page
+// has exactly one description. Warn for one duplicate pair, fail if it spreads.
+for (const [description, urls] of descriptionToUrls) {
+  if (urls.length >= 3) {
+    error(`Same meta description appears on ${urls.length} pages: ${urls.join(', ')} (${description.slice(0, 100)})`);
+    repeatedDescription++;
+  } else if (urls.length === 2) {
+    warn(`Shared meta description: ${urls.join(', ')}`);
+  }
+}
+
 if (checked > 0) {
   ok(`Checked ${checked} built sitemap URL(s)`);
 }
 if (missingHtml === 0) ok('Every sitemap URL has built HTML');
-if (missingTitle === 0) ok('Titles are present on all checked pages');
+if (missingTitle === 0 && duplicateTitle === 0 && repeatedTitle === 0) ok('Each checked page has exactly one unique title');
+if (repeatedDescription === 0) ok('No site-wide repeated meta descriptions');
 if (missingDescription === 0) ok('Meta descriptions are present on all checked pages');
 if (missingCanonical === 0) ok('Canonical links are present on all checked pages');
 if (duplicateCanonical === 0) ok('Canonical links are unique on all checked pages');
