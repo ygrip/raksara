@@ -13,7 +13,8 @@
     "validate:seo:dist": "node scripts/validate-seo-dist.js && node scripts/validate-agentic-dist.js && node scripts/validate-sitelinks-dist.js",
     "dev": "npm run build:metadata && cd sveltekit && npm run dev",
     "dev:sveltekit": "npm run dev",
-    "build": "npm run build:metadata && npm run validate:seo:build && npm run build:sveltekit && npm run validate:seo:dist"
+    "build": "npm run build:metadata && npm run validate:seo:build && npm run build:sveltekit && npm run validate:seo:dist",
+    "test:heritage": "node scripts/test-heritage.mjs"
   },
   "keywords": [
     "blog",
