@@ -723,8 +723,76 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
   border: 1px solid var(--hg-line); background: var(--hg-tint); box-shadow: none;
 }
 #app .profile-links a:hover { border-color: var(--hg-accent-text); background: color-mix(in oklab, var(--accent) 18%, transparent); box-shadow: none; }
-#app .profile-avatar { border: 3px solid color-mix(in oklab, var(--accent) 45%, var(--bg-base)); box-shadow: 0 16px 40px -12px rgb(0 0 0 / .5), 0 0 0 6px var(--hg-tint); }
-#app .profile-avatar-wrap.loaded::before, #app .profile-avatar-wrap.loaded::after { border-color: var(--hg-line); }
+/* Profile portrait: a metal-rimmed medallion that breathes. One slow inhale/exhale
+   drives the aura, halo ring and portrait together; only transform/opacity animate,
+   so the glow and shadows are painted once and the loop stays on the compositor. */
+#app .profile-avatar-wrap {
+  --breath: 6.4s;
+  --breath-ease: cubic-bezier(.37, 0, .63, 1);
+  --avatar-aura: color-mix(in oklab, var(--accent) 44%, transparent);
+  --avatar-aura-soft: color-mix(in oklab, var(--accent) 16%, transparent);
+  --avatar-drop: 0 26px 46px -22px rgb(0 0 0 / .75), 0 10px 20px -12px rgb(0 0 0 / .55);
+  isolation: isolate;
+}
+:root[data-theme='light'] #app .profile-avatar-wrap {
+  --avatar-aura: color-mix(in oklab, var(--accent) 36%, transparent);
+  --avatar-aura-soft: color-mix(in oklab, var(--accent) 10%, transparent);
+  --avatar-drop: 0 24px 40px -22px rgb(70 45 15 / .5), 0 8px 16px -10px rgb(70 45 15 / .3);
+}
+#app .profile-avatar {
+  border: 3px solid transparent;
+  background:
+    linear-gradient(var(--bg-base), var(--bg-base)) padding-box,
+    linear-gradient(150deg, var(--hg-hi), var(--accent) 46%, var(--hg-lo) 78%, var(--hg-hi)) border-box;
+  box-shadow:
+    0 0 0 5px color-mix(in oklab, var(--bg-base) 62%, transparent),
+    0 0 0 6px var(--hg-line),
+    0 0 34px -4px color-mix(in oklab, var(--accent) 34%, transparent),
+    var(--avatar-drop);
+  transform-origin: 50% 55%;
+}
+#app .profile-avatar-wrap.loaded::before,
+#app .profile-avatar-wrap.loaded::after {
+  content: ''; position: absolute; border-radius: 50%; pointer-events: none;
+  filter: none; transform: scale(1);
+  animation-duration: var(--breath); animation-timing-function: var(--breath-ease);
+  animation-iteration-count: infinite; animation-delay: 0s;
+  will-change: transform, opacity;
+}
+/* Aura: soft accent light behind the rim, swelling on the inhale. */
+#app .profile-avatar-wrap.loaded::before {
+  inset: -30px; z-index: -1; border: 0;
+  background: radial-gradient(circle closest-side, var(--avatar-aura) 0 70%, color-mix(in oklab, var(--accent) 30%, transparent) 76%, var(--avatar-aura-soft) 88%, transparent 100%);
+  animation-name: hg-avatar-aura;
+}
+/* Halo: a hairline that drifts outward with the breath (replaces the sonar ripples). */
+#app .profile-avatar-wrap.loaded::after {
+  inset: -14px; z-index: 0; opacity: .4;
+  border: 1px solid var(--hg-line); background: none;
+  animation-name: hg-avatar-halo;
+}
+#app .profile-avatar-wrap.loaded .profile-avatar {
+  animation: hg-avatar-breathe var(--breath) var(--breath-ease) infinite;
+}
+/* Inhale (0-42%), brief hold, longer exhale, rest. */
+@keyframes hg-avatar-aura {
+  0%, 100% { transform: scale(.9); opacity: .38; }
+  42%, 50% { transform: scale(1.06); opacity: 1; }
+}
+@keyframes hg-avatar-halo {
+  0%, 100% { transform: scale(.985); opacity: .28; }
+  42%, 50% { transform: scale(1.05); opacity: .85; }
+}
+@keyframes hg-avatar-breathe {
+  0%, 100% { transform: scale(1); }
+  42%, 50% { transform: scale(1.022); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #app .profile-avatar-wrap.loaded::before,
+  #app .profile-avatar-wrap.loaded::after,
+  #app .profile-avatar-wrap.loaded .profile-avatar { animation: none !important; }
+  #app .profile-avatar-wrap.loaded::before { opacity: .75; }
+}
 
 /* Profile facts: one glass strip, label over value, hairline dividers; no nested pills. */
 #app .profile-metadata {
