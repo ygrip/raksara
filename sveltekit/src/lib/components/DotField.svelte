@@ -43,6 +43,10 @@
   /** Cached-layer glint: bands either side of centre, spanning ±GLINT_REACH × band. */
   const GLINT_STEPS = 4;
   const GLINT_REACH = 2;
+  /** Theme switch: the halftone inverts in a wave from the focal centre. */
+  const INVERT_MS = 1100;
+  /** Width of the inversion wavefront, as a share of the normalised reveal delay. */
+  const INVERT_BAND = 0.35;
 
   type Field = {
     width: number;
@@ -58,8 +62,10 @@
     cy: number;
     x: Float32Array;
     y: Float32Array;
-    /** 0 = ambient grid dot, (0, 1] = portrait intensity */
+    /** 0 = ambient grid dot, (0, 1] = portrait intensity (light-on-dark) */
     tone: Float32Array;
+    /** Ink-on-paper variant for light themes; same array when not invertible. */
+    ink: Float32Array;
     phase: Float32Array;
     delay: Float32Array;
   };
@@ -309,7 +315,7 @@
     backdrop: number,
     cols: number,
     rows: number
-  ): Float32Array | null {
+  ): { tone: Float32Array; ink: Float32Array } | null {
     const lum = readLuminance(image, crop, cols, rows);
     if (!lum) return null;
     const mask = subjectMask(lum, backdrop, cols, rows);
@@ -325,6 +331,7 @@
     const at = (x: number, y: number) =>
       lum[Math.max(0, Math.min(rows - 1, y)) * cols + Math.max(0, Math.min(cols - 1, x))];
     const tone = new Float32Array(lum.length);
+    const ink = new Float32Array(lum.length);
     for (let y = 0; y < rows; y += 1) {
       for (let x = 0; x < cols; x += 1) {
         const gx =
@@ -339,9 +346,13 @@
         const light = Math.max(0, Math.min(1, 0.04 + 0.96 * Math.pow(stretched, 0.95) + detail * 2.4));
         const edge = Math.min(1, Math.hypot(gx, gy) * 0.55);
         tone[index] = subject * (TONE_FLOOR + (1 - TONE_FLOOR) * Math.min(1, Math.max(light, edge * 0.35)));
+        // Light themes print like ink on paper: hair, eyes and shadows carry the
+        // large dots instead of rendering the face as a photographic negative.
+        const dark = Math.pow(Math.max(0, Math.min(1, 1.04 - light)), 0.9);
+        ink[index] = subject * (TONE_FLOOR + (1 - TONE_FLOOR) * Math.min(1, Math.max(dark, edge * 0.35)));
       }
     }
-    return tone;
+    return { tone, ink };
   }
 
   function buildField(image: HTMLImageElement | null, analysis: Analysis | null): Field | null {
@@ -360,6 +371,7 @@
     // Portrait rect (contain-fit of the subject crop into the anchor slot) and
     // the field columns/rows that fall inside it, so tone aligns 1:1 with dots.
     let portrait: Float32Array | null = null;
+    let portraitInk: Float32Array | null = null;
     let px = 0;
     let py = 0;
     let pw = 0;
@@ -395,16 +407,24 @@
           sw: ((pCols * spacing) / pw) * crop.sw,
           sh: ((pRows * spacing) / ph) * crop.sh
         };
-        portrait = analysis.transparent
-          ? imageTone(image, sourceCrop, pCols, pRows)
-          : toneMap(image, sourceCrop, analysis.backdrop, pCols, pRows);
+        if (analysis.transparent) {
+          // Cut-out artwork already keeps its own ink/shape; don't invert it.
+          portrait = imageTone(image, sourceCrop, pCols, pRows);
+          portraitInk = portrait;
+        } else {
+          const maps = toneMap(image, sourceCrop, analysis.backdrop, pCols, pRows);
+          portrait = maps?.tone ?? null;
+          portraitInk = maps?.ink ?? null;
+        }
         // Feather the rectangular subject once per layout, if sampling succeeded.
         for (let row = 0; portrait && row < pRows; row++) {
           const v = row / (pRows - 1);
           const fadeY = smoothstep(0, 0.08, v) * smoothstep(0, 0.08, 1 - v);
           for (let col = 0; col < pCols; col++) {
             const u = col / (pCols - 1);
-            portrait[row * pCols + col] *= fadeY * smoothstep(0, 0.1, u) * smoothstep(0, 0.1, 1 - u);
+            const fade = fadeY * smoothstep(0, 0.1, u) * smoothstep(0, 0.1, 1 - u);
+            portrait[row * pCols + col] *= fade;
+            if (portraitInk && portraitInk !== portrait) portraitInk[row * pCols + col] *= fade;
           }
         }
       }
@@ -414,6 +434,8 @@
     const x = new Float32Array(total);
     const y = new Float32Array(total);
     const tone = new Float32Array(total);
+    const invertible = Boolean(portrait && portraitInk && portraitInk !== portrait);
+    const ink = invertible ? new Float32Array(total) : tone;
     const phase = new Float32Array(total);
     const delay = new Float32Array(total);
     const slot = anchor?.getBoundingClientRect();
@@ -443,6 +465,10 @@
           const envelope = feather * bottom;
           t = portrait[pr * pCols + pc] * envelope;
           if (t < 0.05) t = 0;
+          if (invertible && portraitInk) {
+            const k = portraitInk[pr * pCols + pc] * envelope;
+            ink[count] = k < 0.05 ? 0 : k;
+          }
         } else if (!portrait) {
           t = globeTone((dx - centerX) / globeRadius, (dy - centerY) / globeRadius);
         }
@@ -457,7 +483,7 @@
 
     return {
       width: bounds.width, height: bounds.height, spacing, cols, rows, originX, originY, count,
-      cx: centerX, cy: centerY, x, y, tone, phase, delay
+      cx: centerX, cy: centerY, x, y, tone, ink, phase, delay
     };
   }
 
@@ -478,6 +504,15 @@
     const loadTimers: Array<ReturnType<typeof setTimeout>> = [];
     let field: Field | null = null;
     let toneFrames: Float32Array[] = [];
+    /** Light-on-dark and ink-on-paper tones per image; `toneFrames` holds the target. */
+    let toneSets: Array<{ base: Float32Array; ink: Float32Array }> = [];
+    const lightTheme = () => document.documentElement.getAttribute('data-theme') === 'light';
+    let inkTarget = lightTheme();
+    /** Frames on screen when an inversion started, and the per-paint blend. */
+    let invertFrom: Float32Array[] = [];
+    let blendFrames: Float32Array[] = [];
+    let invertStart = -Infinity;
+    const invertProgress = (now: number) => (now - invertStart) / INVERT_MS;
     let color = '#22c55e';
     let ambient = 0.1;
     let strength = 1;
@@ -570,6 +605,30 @@
       return Int32Array.from(cells);
     };
 
+    /** Point the held/morph frames at the current theme's tone variant. */
+    const applyTarget = () => {
+      toneFrames = toneSets.map((set) => (inkTarget ? set.ink : set.base));
+      litFrames = toneFrames.map(litCells);
+      litBase = field ? litCells(inkTarget ? field.ink : field.tone) : new Int32Array(0);
+      flights.clear();
+    };
+
+    /** Blend old → new tones; each dot flips once the wavefront reaches it. */
+    const blendInversion = (q: number) => {
+      if (!field) return;
+      const { delay, count } = field;
+      for (let k = 0; k < toneFrames.length; k += 1) {
+        const from = invertFrom[k];
+        const to = toneFrames[k];
+        let out = blendFrames[k];
+        if (!out || out.length !== count) out = blendFrames[k] = new Float32Array(count);
+        for (let i = 0; i < count; i += 1) {
+          const m = smoothstep(0, 1, (q * (1 + INVERT_BAND) - delay[i] / 1.28) / INVERT_BAND);
+          out[i] = from[i] + (to[i] - from[i]) * m;
+        }
+      }
+    };
+
     const drawAmbientLayer = () => {
       if (!field || !ambientCtx) return;
       const { width, height, spacing, count, x, y } = field;
@@ -600,7 +659,10 @@
       const fields = loaded.map(({ image, analysis }) => buildField(image, analysis));
       field = fields[0] ?? buildField(null, null);
       if (!field) return;
-      toneFrames = fields.flatMap((candidate) => candidate ? [candidate.tone] : []);
+      toneSets = fields.flatMap((candidate) => candidate ? [{ base: candidate.tone, ink: candidate.ink }] : []);
+      // Arrays are resized; an in-flight inversion can't blend across layouts.
+      invertStart = -Infinity;
+      blendFrames = [];
       dpr = lowPower.matches ? 1 : Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.round(field.width * dpr);
       canvas.height = Math.round(field.height * dpr);
@@ -613,15 +675,13 @@
       drawY = new Float32Array(field.count * 2);
       order = new Int32Array(field.count * 2);
       stamp = new Uint32Array(field.count);
-      litFrames = toneFrames.map(litCells);
-      litBase = litCells(field.tone);
-      flights.clear();
+      applyTarget();
       drawAmbientLayer();
     };
 
     const paint = (elapsed: number, animate: boolean, now = performance.now()) => {
       if (!field) return;
-      const { width, height, spacing, cols, rows, originX, originY, count, x, y, tone, phase, delay } = field;
+      const { width, height, spacing, cols, rows, originX, originY, count, x, y, tone, ink, phase, delay } = field;
       ctx.clearRect(0, 0, width, height);
       ctx.fillStyle = color;
 
@@ -638,13 +698,18 @@
       const flight = morph.progress > 0 ? flightFor(morph.from, morph.to) : null;
       // While particles fly the grid underneath is ambient only; at rest it
       // shows the held image, so both ends of a flight are seamless.
-      const gridTone = flight ? null : (toneFrames[morph.from] ?? tone);
-      const gridLit = flight ? null : (litFrames[morph.from] ?? litBase);
+      const inversion = invertProgress(now);
+      const inverting = animate && inversion < 1 && toneFrames.length > 0 && invertFrom.length === toneFrames.length;
+      if (inverting) blendInversion(inversion);
+      const shownFrames = inverting ? blendFrames : toneFrames;
+      const gridTone = flight ? null : (shownFrames[morph.from] ?? (inkTarget ? ink : tone));
+      const gridLit = flight || inverting ? null : (litFrames[morph.from] ?? litBase);
       // During the reveal (and the static reduced-motion frame) every dot is
       // individually shaded. Afterwards resting ambient dots come from the
       // cached layer and only lit, glinting-near-pointer or rippled dots and
       // particles are shaded: a few thousand dots instead of the whole grid.
-      const full = !animate || elapsed < REVEAL_END;
+      // The inversion wave touches lit and unlit cells alike, so shade them all briefly.
+      const full = !animate || elapsed < REVEAL_END || inverting;
       const pointerOn = pointerLift > 0.002;
       const reach = Math.sqrt(reach2);
 
@@ -843,7 +908,7 @@
       if (disposed || !visible) return;
       // Once the deferred field is loaded, keep the subtle breathing motion on
       // mobile too; low-power devices still use 1x DPR and the lower frame rate.
-      const interactive = pointerLift > 0.01 || ripples.length > 0;
+      const interactive = pointerLift > 0.01 || ripples.length > 0 || invertProgress(now) < 1;
       const budget = interactive ? FRAME_MS_ACTIVE : FRAME_MS;
       if (now - lastPaint >= budget - 2) {
         lastPaint = now;
@@ -946,7 +1011,23 @@
     const themeObserver = new MutationObserver(() => {
       readTheme();
       drawAmbientLayer();
+      const target = lightTheme();
+      if (target !== inkTarget) {
+        const now = performance.now();
+        // Snapshot what is on screen so reversing mid-wave continues smoothly.
+        const midWave = invertProgress(now) < 1 && blendFrames.length === toneFrames.length;
+        invertFrom = midWave ? blendFrames.map((frame) => frame.slice()) : toneFrames;
+        inkTarget = target;
+        applyTarget();
+        if (canAnimate() && field && toneFrames.length) {
+          invertStart = now;
+          // A ripple from the portrait carries the wavefront visually.
+          ripples.push({ x: field.cx, y: field.cy, t: now });
+          if (ripples.length > MAX_RIPPLES) ripples.shift();
+        }
+      }
       if (!canAnimate() || lowPower.matches) paint(0, false);
+      schedule();
     });
     themeObserver.observe(document.documentElement, {
       attributes: true,
