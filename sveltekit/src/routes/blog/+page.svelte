@@ -136,9 +136,6 @@
 			{/if}
 			<div class="post-card-body">
 				<div class="post-card-title">{post.title}</div>
-				{#if post.status}
-					<span class="status-chip status-{post.status}">{post.status}</span>
-				{/if}
 				{#if post.summary}
 					<div class="post-card-summary">{post.summary}</div>
 				{/if}
@@ -147,8 +144,11 @@
 					{#if post.category}
 						<span class="post-card-category">{post.category}</span>
 					{/if}
-					{#each (post.tags ?? []).slice(0, 3) as tag}
-						<span class="tag" style="padding:2px 8px;font-size:11px">{tag}</span>
+					{#if post.status}<span class="status-chip status-{post.status}">{post.status}</span>{/if}
+				</div>
+				<div class="post-card-tags">
+					{#each (post.tags ?? []) as tag}
+						<span class="tag">{tag}</span>
 					{/each}
 				</div>
 			</div>

@@ -3,6 +3,7 @@
 	import type { PageData } from './$types';
 	import { renderMarkdown, initArticleFeatures } from '$lib/markdown';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
+	import { splitLeadingHeading } from '$lib/utils';
 
 	let { data }: { data: PageData } = $props();
 	const page = $derived(data.page);
@@ -15,6 +16,7 @@
 
 	let renderedHtml = $state('');
 	let articleEl: HTMLElement | null = null;
+	const rendered = $derived(splitLeadingHeading(renderedHtml));
 
 	$effect(() => {
 		const source = markdown;
@@ -46,10 +48,15 @@
 		<span style="color: var(--text-secondary);">{page?.title ?? slug}</span>
 	</nav>
 
-	<h1 class="mb-6 text-3xl font-bold" style="color: var(--text-primary);">{page?.title ?? slug}</h1>
+	<header class="page-header">
+		<div>
+			<h1 class="page-title">{rendered.title ?? page?.title ?? slug}</h1>
+			{#if page?.summary}<p class="page-subtitle">{page.summary}</p>{/if}
+		</div>
+	</header>
 	{#if renderedHtml}
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-		<div class="article-body prose" style="color: var(--text-primary);">{@html renderedHtml}</div>
+		<div class="article-body prose" style="color: var(--text-primary);">{@html rendered.body}</div>
 	{:else if !markdown}
 		<p style="color: var(--text-secondary);">Page not found.</p>
 	{:else}

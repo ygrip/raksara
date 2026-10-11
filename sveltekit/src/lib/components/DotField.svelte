@@ -24,9 +24,9 @@
   let canvas: HTMLCanvasElement | undefined;
   let ready = $state(false);
 
-  const FRAME_MS = 1000 / 24;
+  const FRAME_MS = 1000 / 18;
   /** Frame budget while the pointer is engaged or a ripple is running. */
-  const FRAME_MS_ACTIVE = 1000 / 45;
+  const FRAME_MS_ACTIVE = 1000 / 30;
   const RIPPLE_SPEED = 520; // px/s
   const RIPPLE_WIDTH = 34; // px, gaussian half-width of the ring
   const RIPPLE_LIFE = 1.3; // s
@@ -398,6 +398,15 @@
         portrait = analysis.transparent
           ? imageTone(image, sourceCrop, pCols, pRows)
           : toneMap(image, sourceCrop, analysis.backdrop, pCols, pRows);
+        // Feather the rectangular subject once per layout, if sampling succeeded.
+        for (let row = 0; portrait && row < pRows; row++) {
+          const v = row / (pRows - 1);
+          const fadeY = smoothstep(0, 0.08, v) * smoothstep(0, 0.08, 1 - v);
+          for (let col = 0; col < pCols; col++) {
+            const u = col / (pCols - 1);
+            portrait[row * pCols + col] *= fadeY * smoothstep(0, 0.1, u) * smoothstep(0, 0.1, 1 - u);
+          }
+        }
       }
     }
 

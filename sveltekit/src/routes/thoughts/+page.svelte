@@ -102,7 +102,7 @@
 				{#if thought.body && thought.title}
 					<span class="thought-title">{thought.title}</span>
 				{/if}
-				<span class="thought-date">{formatDate(thought.date)}</span>
+				<time class="thought-date" datetime={thought.date}>{formatDate(thought.date)}</time>
 				{#each (thought.tags ?? []) as tag}
 					<a href="/tag/{tag}" class="tag">{tag}</a>
 				{/each}

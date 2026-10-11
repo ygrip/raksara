@@ -87,8 +87,10 @@
 				<div class="post-card-meta" aria-label="Post metadata">
 					<time datetime={post.date}>{formatDate(post.date)}</time>
 					{#if post.category}<span class="post-card-category">{post.category}</span>{/if}
-					{#each (post.tags ?? []).slice(0, 3) as t}
-						<span class="tag" style="padding:2px 8px;font-size:11px">{t}</span>
+				</div>
+				<div class="post-card-tags">
+					{#each (post.tags ?? []) as t}
+						<span class="tag">{t}</span>
 					{/each}
 				</div>
 			</a>
@@ -107,7 +109,7 @@
 				<div class="portfolio-card">
 					<div class="portfolio-card-title"><a href="/portfolio/{item.slug}/" style="color:inherit;text-decoration:none;">{item.title}</a></div>
 					{#if item.summary}<div class="portfolio-card-summary">{item.summary}</div>{/if}
-					{#if item.date}<div class="post-card-date">{formatDate(item.date)}</div>{/if}
+					{#if item.date}<time class="post-card-date" datetime={item.date}>{formatDate(item.date)}</time>{/if}
 				</div>
 			</div>
 		{/each}
@@ -125,7 +127,7 @@
 				<p class="thought-body">{thought.body ?? thought.title}</p>
 				<div class="thought-meta">
 					{#if thought.title}<span class="thought-title">{thought.title}</span>{/if}
-					<span class="thought-date">{formatDate(thought.date)}</span>
+					<time class="thought-date" datetime={thought.date}>{formatDate(thought.date)}</time>
 				</div>
 			</div>
 		{/each}
@@ -153,7 +155,7 @@
 				<div class="gallery-card-info">
 					<div class="gallery-card-title"><a href="/gallery?tag={tag}">{item.title}</a></div>
 					{#if item.caption}<div class="gallery-card-caption">{item.caption}</div>{/if}
-					<div class="gallery-card-footer"><div class="gallery-card-date">{formatDate(item.date)}</div></div>
+					<div class="gallery-card-footer"><time class="gallery-card-date" datetime={item.date}>{formatDate(item.date)}</time></div>
 				</div>
 			</li>
 		{/each}

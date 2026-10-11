@@ -2,6 +2,7 @@
 	import { tick } from 'svelte';
 	import { renderMarkdown, initArticleFeatures } from '$lib/markdown';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
+	import { splitLeadingHeading } from '$lib/utils';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -14,6 +15,8 @@
 
 	let renderedHtml = $state('');
 	let articleEl: HTMLElement | null = null;
+	const rendered = $derived(splitLeadingHeading(renderedHtml));
+	const headerTitle = $derived(rendered.title ?? doc?.title ?? '');
 
 	$effect(() => {
 		const source = markdown;
@@ -46,9 +49,17 @@
 		</a>
 	</div>
 
+	{#if headerTitle}
+		<header class="page-header">
+			<div>
+				<h1 class="page-title">{headerTitle}</h1>
+				{#if doc?.summary}<p class="page-subtitle">{doc.summary}</p>{/if}
+			</div>
+		</header>
+	{/if}
 	{#if renderedHtml}
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-		<div class="article-body">{@html renderedHtml}</div>
+		<div class="article-body">{@html rendered.body}</div>
 	{:else if !markdown}
 		<p style="color: var(--text-secondary);">Doc page not found.</p>
 	{:else}
