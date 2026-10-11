@@ -4,6 +4,10 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
+		<!-- Same-origin font requests otherwise start only after the CSS finishes loading.
+		     Preload only the two faces used in the initial viewport; decorative italics are synthetic. -->
+		<link rel="preload" href="/fonts/plus-jakarta-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+		<link rel="preload" href="/fonts/cormorant-garamond-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
 		<script>
 			try {
 				document.documentElement.setAttribute('data-theme', localStorage.getItem('raksara-theme') || 'dark');
