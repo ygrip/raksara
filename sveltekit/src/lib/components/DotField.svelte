@@ -398,6 +398,15 @@
         portrait = analysis.transparent
           ? imageTone(image, sourceCrop, pCols, pRows)
           : toneMap(image, sourceCrop, analysis.backdrop, pCols, pRows);
+        // Feather the rectangular subject once per layout, if sampling succeeded.
+        for (let row = 0; portrait && row < pRows; row++) {
+          const v = row / (pRows - 1);
+          const fadeY = smoothstep(0, 0.08, v) * smoothstep(0, 0.08, 1 - v);
+          for (let col = 0; col < pCols; col++) {
+            const u = col / (pCols - 1);
+            portrait[row * pCols + col] *= fadeY * smoothstep(0, 0.1, u) * smoothstep(0, 0.1, 1 - u);
+          }
+        }
       }
     }
 

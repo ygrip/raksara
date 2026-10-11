@@ -3711,41 +3711,6 @@ body {
     color: #1f2937;
 }
 
-[data-theme="light"] .rk-mermaid svg .node rect,
-[data-theme="light"] .rk-mermaid svg .node polygon,
-[data-theme="light"] .rk-mermaid svg .node circle,
-[data-theme="light"] .mermaid svg .node rect,
-[data-theme="light"] .mermaid svg .node polygon,
-[data-theme="light"] .mermaid svg .node circle {
-    fill: #ffffff !important;
-    stroke: #cbd5e1 !important;
-}
-
-[data-theme="light"] .rk-mermaid svg .nodeLabel,
-[data-theme="light"] .rk-mermaid svg .edgeLabel,
-[data-theme="light"] .mermaid svg .nodeLabel,
-[data-theme="light"] .mermaid svg .edgeLabel {
-    color: #111827 !important;
-}
-
-[data-theme="light"] .rk-mermaid svg .nodeLabel p,
-[data-theme="light"] .rk-mermaid svg .edgeLabel p,
-[data-theme="light"] .mermaid svg .nodeLabel p,
-[data-theme="light"] .mermaid svg .edgeLabel p {
-    color: #111827 !important;
-    background: transparent !important;
-}
-
-[data-theme="light"] .rk-mermaid svg .edgeLabel,
-[data-theme="light"] .mermaid svg .edgeLabel {
-    background-color: rgba(255, 255, 255, 0.9) !important;
-}
-
-[data-theme="light"] .rk-mermaid svg .flowchart-link,
-[data-theme="light"] .mermaid svg .flowchart-link {
-    stroke: #94a3b8 !important;
-}
-
 .article-body pre {
     margin: 20px 0;
     border-radius: var(--radius-md);

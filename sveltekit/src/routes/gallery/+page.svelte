@@ -303,7 +303,7 @@
 							{/each}
 						{/if}
 					</div>
-					<div class="gallery-card-date">{formatDate(item.date)}</div>
+					<time class="gallery-card-date" datetime={item.date}>{formatDate(item.date)}</time>
 				</div>
 			</div>
 		</li>

@@ -253,6 +253,12 @@
 	</div>
 
 	<header class="article-header" class:poem-header={isPoem}>
+		{#if post?.category || post?.status}
+			<div class="article-header-context">
+				{#if post?.category}<a href="/category/{post.category}" class="post-card-category">{post.category}</a>{/if}
+				{#if post?.status}<span class="status-chip status-{post.status}">{post.status}</span>{/if}
+			</div>
+		{/if}
 		<h1>{post?.title ?? ''}</h1>
 		<div class="article-meta">
 			<div class="article-meta-primary">
@@ -261,12 +267,6 @@
 						<svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
 						{formatDate(post.date)}
 					</time>
-				{/if}
-				{#if post?.status}
-					<span class="status-chip status-{post.status}">{post.status}</span>
-				{/if}
-				{#if post?.category}
-					<a href="/category/{post.category}" class="post-card-category">{post.category}</a>
 				{/if}
 				{#if post?.author}
 					<span class="article-author">{post.author}</span>
@@ -303,7 +303,7 @@
 		<nav class="post-nav" aria-label="Chapter navigation">
 			{#if chapterPrevNav}
 				<a href={chapterPrevNav.href} class="post-nav-link">
-					<span class="post-nav-label">← Previous</span>
+					<span class="post-nav-label"><svg class="post-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m14 6-6 6 6 6M8 12h12" /></svg>Previous</span>
 					<span class="post-nav-title">{chapterPrevNav.title}</span>
 				</a>
 			{:else}
@@ -311,7 +311,7 @@
 			{/if}
 			{#if chapterNextNav}
 				<a href={chapterNextNav.href} class="post-nav-link next">
-					<span class="post-nav-label">Next →</span>
+					<span class="post-nav-label">Next<svg class="post-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m10 6 6 6-6 6M16 12H4" /></svg></span>
 					<span class="post-nav-title">{chapterNextNav.title}</span>
 				</a>
 			{/if}

@@ -1852,9 +1852,11 @@ function renderPostCardPrerender(post, options = {}, imageManifest) {
           <div class="post-card-title">${escapeHtml(post.title)}</div>
           <div class="post-card-summary">${escapeHtml(post.summary || "")}</div>
           <div class="post-card-meta">
-            <span class="post-card-date">${formatDate(post.date)}</span>
+            <time class="post-card-date" datetime="${escapeHtml(post.date || '')}">${formatDate(post.date)}</time>
             ${post.category ? `<span class="post-card-category">${escapeHtml(post.category)}</span>` : ""}
-            ${(post.tags || []).map((t) => `<span class="tag" style="padding:2px 8px;font-size:11px">${escapeHtml(t)}</span>`).join("")}
+          </div>
+          <div class="post-card-tags">
+            ${(post.tags || []).map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("")}
           </div>
         </div>
       </a>`;
@@ -1869,7 +1871,7 @@ function renderThoughtCardPrerender(thought) {
         <div class="thought-body">${escapeHtml(thought.body || "")}</div>
         <div class="thought-meta">
           <span class="thought-title">${escapeHtml(thought.title)}</span>
-          <span class="thought-date">${formatDate(thought.date)}</span>
+          <time class="thought-date" datetime="${escapeHtml(thought.date || '')}">${formatDate(thought.date)}</time>
           ${tagsHtml}
         </div>
       </div>`;
@@ -2239,7 +2241,7 @@ function preprocessCardsForPrerender(md, portfolioItems, posts, imageManifest) {
         imgHtml = `<div class="content-card-img is-loading${lqipClass}"${styleAttr}><img ${imgAttrs} /></div>`;
       }
 
-      return `<a href="${escapeHtml(href)}" class="content-card">${imgHtml}<div class="content-card-body"><div class="content-card-title">${title}</div>${desc ? `<p class="content-card-desc">${desc}</p>` : ''}${date ? `<div class="content-card-date">${date}</div>` : ''}</div></a>`;
+      return `<a href="${escapeHtml(href)}" class="content-card">${imgHtml}<div class="content-card-body"><div class="content-card-title">${title}</div>${desc ? `<p class="content-card-desc">${desc}</p>` : ''}${date ? `<time class="content-card-date" datetime="${escapeHtml(entry.date || '')}">${date}</time>` : ''}</div></a>`;
     }).join('');
 
     const moreHtml = showMore ? `<div class="content-cards-more"><a href="${escapeHtml(sectionHref)}" class="content-cards-more-btn">Show more →</a></div>` : '';
@@ -2299,14 +2301,14 @@ function preprocessCarouselForPrerender(md, portfolioItems, posts, imageManifest
         imgHtml = `<div class="content-carousel-img is-loading${lqipClass}"${styleAttr}><img ${imgAttrs} /></div>`;
       }
 
-      return `<div class="content-carousel-slide${noImgClass}" data-href="${escapeHtml(href)}" role="group" aria-label="${title}" tabindex="0">${imgHtml}<div class="content-carousel-body"><div class="content-carousel-title">${title}</div>${desc ? `<p class="content-carousel-desc">${desc}</p>` : ''}${date ? `<div class="content-carousel-date">${date}</div>` : ''}</div></div>`;
+      return `<a class="content-carousel-slide${noImgClass}" href="${escapeHtml(href)}" aria-label="${title}">${imgHtml}<div class="content-carousel-body"><div class="content-carousel-title">${title}</div>${desc ? `<p class="content-carousel-desc">${desc}</p>` : ''}${date ? `<time class="content-carousel-date" datetime="${escapeHtml(entry.date || '')}">${date}</time>` : ''}</div></a>`;
     }).join('');
 
     const prevBtn = `<button class="content-carousel-btn content-carousel-prev" aria-label="Previous slide"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>`;
     const nextBtn = `<button class="content-carousel-btn content-carousel-next" aria-label="Next slide"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>`;
     const moreHtml = showMore ? `<div class="content-carousel-more"><a href="${escapeHtml(sectionHref)}" class="content-cards-more-btn">Show more →</a></div>` : '';
 
-    return `<div class="content-carousel" id="${carouselId}" data-interval="5000" role="region" aria-label="Content carousel" tabindex="0"><div class="content-carousel-stage"><div class="content-carousel-track">${slides}</div>${prevBtn}${nextBtn}</div>${moreHtml}</div>`;
+    return `<div class="content-carousel" id="${carouselId}" role="region" aria-label="Content carousel" tabindex="0"><div class="content-carousel-stage"><div class="content-carousel-viewport"><div class="content-carousel-track">${slides}</div></div>${prevBtn}${nextBtn}</div><p class="carousel-status" aria-live="polite" aria-atomic="true">1 / ${visible.length}</p>${moreHtml}</div>`;
   });
 }
 

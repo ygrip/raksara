@@ -42,8 +42,10 @@
 				<div class="post-card-meta" aria-label="Post metadata">
 					<time datetime={post.date}>{formatDate(post.date)}</time>
 					{#if post.category}<span class="post-card-category">{post.category}</span>{/if}
-					{#each (post.tags ?? []).slice(0, 3) as tag}
-						<span class="tag" style="padding:2px 8px;font-size:11px">{tag}</span>
+				</div>
+				<div class="post-card-tags">
+					{#each (post.tags ?? []) as tag}
+						<span class="tag">{tag}</span>
 					{/each}
 				</div>
 			</a>
@@ -69,7 +71,7 @@
 				<div class="gallery-card-info">
 					<div class="gallery-card-title"><a href="/gallery?category={cat}">{item.title}</a></div>
 					{#if item.caption}<div class="gallery-card-caption">{item.caption}</div>{/if}
-					<div class="gallery-card-footer"><div class="gallery-card-date">{formatDate(item.date)}</div></div>
+					<div class="gallery-card-footer"><time class="gallery-card-date" datetime={item.date}>{formatDate(item.date)}</time></div>
 				</div>
 			</li>
 		{/each}

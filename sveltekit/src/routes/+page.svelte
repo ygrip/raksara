@@ -200,8 +200,10 @@
 									<div class="post-card-meta">
 										<time datetime={post.date}>{formatDate(post.date)}</time>
 										{#if post.category}<span class="post-card-category">{post.category}</span>{/if}
-										{#each (post.tags ?? []).slice(0, 2) as tag}
-											<span class="tag" style="padding:2px 8px;font-size:11px">{tag}</span>
+									</div>
+									<div class="post-card-tags">
+										{#each (post.tags ?? []) as tag}
+											<span class="tag">{tag}</span>
 										{/each}
 									</div>
 								</div>
@@ -284,7 +286,7 @@
 									{#if item.tags?.length}
 										<div class="home-info-card-tags">
 											{#each item.tags as tag}
-												<span class="tag" style="padding:2px 8px;font-size:11px">{tag}</span>
+												<span class="tag">{tag}</span>
 											{/each}
 										</div>
 									{/if}
@@ -349,7 +351,7 @@
 								<p class="thought-body">{thought.body ?? thought.title}</p>
 								<div class="thought-meta">
 									{#if thought.title}<span class="thought-title">{thought.title}</span>{/if}
-									<span class="thought-date">{formatDate(thought.date)}</span>
+									<time class="thought-date" datetime={thought.date}>{formatDate(thought.date)}</time>
 								</div>
 							</div>
 						{/each}
@@ -439,8 +441,10 @@
 							<div class="post-card-meta">
 								<time datetime={post.date}>{formatDate(post.date)}</time>
 								{#if post.category}<span class="post-card-category">{post.category}</span>{/if}
-								{#each (post.tags ?? []).slice(0, 2) as tag}
-									<span class="tag" style="padding:2px 8px;font-size:11px">{tag}</span>
+							</div>
+							<div class="post-card-tags">
+								{#each (post.tags ?? []) as tag}
+									<span class="tag">{tag}</span>
 								{/each}
 							</div>
 						</div>
@@ -521,7 +525,7 @@
 						<p class="thought-body">{thought.body ?? thought.title}</p>
 						<div class="thought-meta">
 							{#if thought.title}<span class="thought-title">{thought.title}</span>{/if}
-							<span class="thought-date">{formatDate(thought.date)}</span>
+							<time class="thought-date" datetime={thought.date}>{formatDate(thought.date)}</time>
 						</div>
 					</div>
 				{/each}

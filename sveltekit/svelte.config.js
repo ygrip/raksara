@@ -22,7 +22,7 @@ function loadPrerenderEntries() {
 	return ['*'];
 }
 
-const prerenderEntries = loadPrerenderEntries();
+const prerenderEntries = [...loadPrerenderEntries(), '/giscus-theme/dark.css', '/giscus-theme/light.css'];
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {

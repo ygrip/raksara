@@ -68,12 +68,45 @@ export function resolveContentLink(href: string): string {
   return href;
 }
 
+/** Bare URLs become readable labels; authored labels and remote privacy stay intact. */
+export function readableLinkLabel(href: string, text: string, context?: RenderOptions['context']): string {
+  if (text && text !== href && text !== escapeHtml(href)) return text;
+  const resolved = resolveContentLink(href);
+  const path = resolved.split(/[?#]/)[0].replace(/\/$/, '');
+  const post = context?.posts?.find(item => path === `/blog/post/${item.slug}`);
+  const project = context?.portfolioItems?.find(item => path === `/portfolio/${item.slug}`);
+  if (post || project) return escapeHtml((post || project)!.title);
+  if (href.startsWith('mailto:')) return escapeHtml(href.slice(7).split('?')[0]);
+  try {
+    const url = new URL(resolved, 'https://local.invalid');
+    if (!['http:', 'https:'].includes(url.protocol)) return escapeHtml(href);
+    const segment = url.pathname.split('/').filter(Boolean).pop() || '';
+    const label = decodeURIComponent(segment).replace(/\.(?:html?|md)$/i, '').replace(/[-_]+/g, ' ').trim();
+    const host = url.hostname.replace(/^www\./, '');
+    return escapeHtml(host === 'local.invalid' ? label || href : label ? `${label} · ${host}` : host);
+  } catch {
+    return escapeHtml(href);
+  }
+}
+
+function linkSiteIcon(href: string): string {
+  let favicon = '';
+  if (href.startsWith('/') && !href.startsWith('//')) favicon = '/favicon.ico';
+  else {
+    try {
+      const url = new URL(href);
+      if (['https:', 'http:'].includes(url.protocol) && !url.username && !url.password) favicon = `${url.origin}/favicon.ico`;
+    } catch { /* Relative or non-web destinations use the globe. */ }
+  }
+  return `<span class="link-site-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg>${favicon ? `<img src="${escapeHtml(favicon)}" alt="" decoding="async" referrerpolicy="no-referrer">` : ''}</span>`;
+}
+
 // ── Code-block vault (prevents custom preprocessors from touching code) ──
 
 let _codeVault: string[] = [];
 
-function vaultCode(md: string): string {
-  _codeVault = [];
+function vaultCode(md: string, reset = true): string {
+  if (reset) _codeVault = [];
   return md
     .replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?\n\1[ \t]*$/gm, (m) => {
       _codeVault.push(m);
@@ -175,9 +208,9 @@ function injectComponents(
         const statusClass = status ? ` status-${status.toLowerCase().replace(/\s+/g, '-')}` : '';
         const href = `/${entry.slug || ''}`;
         return `<a href="${escapeHtml(href)}" class="component-card glass" data-title="${escapeHtml((entry.title || '').toLowerCase())}" data-desc="${escapeHtml((entry.summary || entry.description || '').toLowerCase())}">
-          <div class="component-card-header">${icon}<span class="component-card-title">${title}</span>${status ? `<span class="component-card-status${escapeHtml(statusClass)}">${escapeHtml(status)}</span>` : ''}</div>
+          <div class="component-card-header">${icon}<span class="component-card-title">${title}</span></div>
           ${desc ? `<p class="component-card-desc">${desc}</p>` : ''}
-          <div class="component-card-footer"><span class="component-card-link">See detail →</span></div>
+          <div class="component-card-footer">${status ? `<span class="component-card-status${escapeHtml(statusClass)}">${escapeHtml(status)}</span>` : ''}<span class="component-card-link">See details <span aria-hidden="true">→</span></span></div>
         </a>`;
       })
       .join('');
@@ -260,7 +293,7 @@ function injectCards(html: string, context: RenderOptions['context'], imageManif
       const desc = escapeHtml(entry.summary || entry.description || '');
       const date = entry.date ? escapeHtml(formatDate(entry.date)) : '';
       const imgHtml = buildContentImageHtml(entry, imageManifest, sizes, 'content-card-img');
-      return `<a href="${href}" class="content-card">${imgHtml}<div class="content-card-body"><div class="content-card-title">${title}</div>${desc ? `<p class="content-card-desc">${desc}</p>` : ''}${date ? `<div class="content-card-date">${date}</div>` : ''}</div></a>`;
+      return `<a href="${href}" class="content-card">${imgHtml}<div class="content-card-body"><div class="content-card-title">${title}</div>${desc ? `<p class="content-card-desc">${desc}</p>` : ''}${date ? `<time class="content-card-date" datetime="${escapeHtml(entry.date || '')}">${date}</time>` : ''}</div></a>`;
     }).join('');
     const sectionHref = escapeHtml(resolveSectionHref(pathArg));
     const moreHtml = showMore ? `<div class="content-cards-more"><a href="${sectionHref}" class="content-cards-more-btn">Show more →</a></div>` : '';
@@ -296,11 +329,11 @@ function injectCarousels(html: string, context: RenderOptions['context'], imageM
       const date = entry.date ? escapeHtml(formatDate(entry.date)) : '';
       const imgHtml = buildContentImageHtml(entry, imageManifest, imgSizes, 'content-carousel-img');
       const noImgClass = entry.cover ? '' : ' no-image';
-      return `<div class="content-carousel-slide${noImgClass}" data-href="${href}" role="group" aria-label="${title}" tabindex="0">${imgHtml}<div class="content-carousel-body"><div class="content-carousel-title">${title}</div>${desc ? `<p class="content-carousel-desc">${desc}</p>` : ''}${date ? `<div class="content-carousel-date">${date}</div>` : ''}</div></div>`;
+      return `<a class="content-carousel-slide${noImgClass}" href="${href}" aria-label="${title}">${imgHtml}<div class="content-carousel-body"><div class="content-carousel-title">${title}</div>${desc ? `<p class="content-carousel-desc">${desc}</p>` : ''}${date ? `<time class="content-carousel-date" datetime="${escapeHtml(entry.date || '')}">${date}</time>` : ''}</div></a>`;
     }).join('');
     const sectionHref = escapeHtml(resolveSectionHref(pathArg));
     const moreHtml = showMore ? `<div class="content-carousel-more"><a href="${sectionHref}" class="content-cards-more-btn">Show more →</a></div>` : '';
-    return `<div class="content-carousel" id="${carouselId}" data-interval="5000" role="region" aria-label="Content carousel" tabindex="0"><div class="content-carousel-stage"><div class="content-carousel-track">${slides}</div><button class="content-carousel-btn content-carousel-prev" aria-label="Previous slide"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button><button class="content-carousel-btn content-carousel-next" aria-label="Next slide"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button></div>${moreHtml}</div>`;
+    return `<div class="content-carousel" id="${carouselId}" role="region" aria-label="Content carousel" tabindex="0"><div class="content-carousel-stage"><div class="content-carousel-viewport"><div class="content-carousel-track">${slides}</div></div><button class="content-carousel-btn content-carousel-prev" aria-label="Previous slide"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button><button class="content-carousel-btn content-carousel-next" aria-label="Next slide"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button></div><p class="carousel-status" aria-live="polite" aria-atomic="true">1 / ${visible.length}</p>${moreHtml}</div>`;
   });
 }
 
@@ -359,7 +392,7 @@ function injectChapters(
       for (const post of childPosts) {
         rows += `<tr class="chapters-row chapters-row-child" data-parent-dir="${dirId}" data-slug="${escapeHtml(post.slug)}" hidden>
           <td class="chapters-cell-title chapters-cell-indented">${escapeHtml(post.title)}</td>
-          <td class="chapters-cell-date">${escapeHtml(formatDate(post.date))}</td>
+          <td class="chapters-cell-date"><time datetime="${escapeHtml(post.date)}">${escapeHtml(formatDate(post.date))}</time></td>
           <td class="chapters-cell-type chapters-type-page" title="Page">${iconPage}</td>
         </tr>`;
       }
@@ -368,7 +401,7 @@ function injectChapters(
     for (const post of directPosts) {
       rows += `<tr class="chapters-row chapters-row-page" data-slug="${escapeHtml(post.slug)}">
         <td class="chapters-cell-title">${escapeHtml(post.title)}</td>
-        <td class="chapters-cell-date">${escapeHtml(formatDate(post.date))}</td>
+        <td class="chapters-cell-date"><time datetime="${escapeHtml(post.date)}">${escapeHtml(formatDate(post.date))}</time></td>
         <td class="chapters-cell-type chapters-type-page" title="Page">${iconPage}</td>
       </tr>`;
     }
@@ -463,7 +496,7 @@ function preprocessPanels(md: string): string {
 
 function injectPanels(html: string, markedParse: (s: string) => string): string {
   if (_panelStorage.length === 0) return html;
-  return html.replace(/\[\[RAKSARA_PANEL:(\d+)\]\]/g, (_m, idxStr) => {
+  return html.replace(/(?:<p>\s*)?\[\[RAKSARA_PANEL:(\d+)\]\](?:\s*<\/p>)?/g, (_m, idxStr) => {
     const { type, content } = _panelStorage[parseInt(idxStr)] ?? { type: 'info', content: '' };
     const body = markedParse(restoreCode(content));
     const icon = PANEL_ICONS[type] ?? PANEL_ICONS.info;
@@ -484,7 +517,7 @@ function preprocessContainers(md: string): string {
 
 function injectContainers(html: string, markedParse: (s: string) => string): string {
   if (_containerStorage.length === 0) return html;
-  return html.replace(/\[\[RAKSARA_CONTAINER:(\d+)\]\]/g, (_m, idxStr) => {
+  return html.replace(/(?:<p>\s*)?\[\[RAKSARA_CONTAINER:(\d+)\]\](?:\s*<\/p>)?/g, (_m, idxStr) => {
     const content = markedParse(restoreCode(_containerStorage[parseInt(idxStr)] ?? ''));
     return `<div class="custom-container glass">${content}</div>`;
   });
@@ -552,9 +585,10 @@ let _gridStorage: Array<{ cols: number; gap: string; content: string }> = [];
 function preprocessGrid(md: string): string {
   return md.replace(/<grid((?:\s+[\w-]+(?:=(?:"[^"]*"|'[^']*'|\S+))?)*)\s*>([\s\S]*?)<\/grid>/gi, (_m, attrsStr, inner) => {
     const attrs = parseAttrs(attrsStr);
-    const cols = attrs['cols'] ?? attrs['columns'] ?? attrs['column'] ?? '2';
-    const gap = attrs['gap'] ?? '1rem';
-    _gridStorage.push({ cols: parseInt(cols, 10) || 2, gap, content: inner.trim() });
+    const cols = Math.min(4, Math.max(1, parseInt(attrs['cols'] ?? attrs['columns'] ?? attrs['column'] ?? '3', 10) || 3));
+    const rawGap = attrs['gap'] ?? '1rem';
+    const gap = /^(?:\d+(?:\.\d+)?(?:px|rem|em|%)|0)$/.test(rawGap) ? rawGap : '1rem';
+    _gridStorage.push({ cols, gap, content: inner.trim() });
     return `[[RAKSARA_GRID:${_gridStorage.length - 1}]]`;
   });
 }
@@ -564,7 +598,7 @@ function injectGrid(html: string, markedParse: (s: string) => string): string {
   return html.replace(/(?:<p>)?\[\[RAKSARA_GRID:(\d+)\]\](?:<\/p>)?/g, (_m, idxStr) => {
     const { cols, gap, content } = _gridStorage[parseInt(idxStr)] ?? { cols: 2, gap: '1rem', content: '' };
     const body = markedParse(restoreCode(content));
-    return `<div class="rk-grid" style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:${escapeHtml(gap)}">${body}</div>`;
+    return `<div class="rk-grid" style="--grid-columns:${cols};--grid-gap:${escapeHtml(gap)}">${body}</div>`;
   });
 }
 
@@ -750,7 +784,8 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
     const text = typeof token === 'object' ? token.text ?? '' : '';
     const resolved = resolveContentLink(href);
     const external = resolved.startsWith('http://') || resolved.startsWith('https://');
-    return `<a class="prose-link" href="${escapeHtml(resolved)}"${title ? ` title="${escapeHtml(title)}"` : ''}${external ? ' target="_blank" rel="noopener noreferrer"' : ''}>${text || escapeHtml(resolved)}${external ? '<span class="link-external" aria-hidden="true">↗</span><span class="link-new-tab"> (opens in a new tab)</span>' : ''}</a>`;
+    if (resolved.startsWith('#')) return `<a href="${escapeHtml(resolved)}">${text || escapeHtml(resolved)}</a>`;
+    return `<a class="prose-link" href="${escapeHtml(resolved)}"${title ? ` title="${escapeHtml(title)}"` : ''}${external ? ' target="_blank" rel="noopener noreferrer"' : ''}>${linkSiteIcon(resolved)}${readableLinkLabel(href, text, opts.context)}${external ? '<span class="link-external" aria-hidden="true">↗</span><span class="link-new-tab"> (opens in a new tab)</span>' : ''}</a>`;
   };
 
   // Code blocks: chart.js / mermaid / hljs-ready markup
@@ -769,13 +804,21 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
   marked.use({ renderer, breaks: opts.breaks ?? false, gfm: true });
 
   // Helper: nested marked.parse for panels/containers/grid
-  const markedParse = (s: string) => marked.parse(s) as string;
+  let nestedDepth = 0;
+  const markedParse = (s: string): string => {
+    // Bound recursion even if authored text contains a storage placeholder.
+    if (nestedDepth >= 16) return marked.parse(s) as string;
+    nestedDepth++;
+    try { return injectCustomElements(marked.parse(preprocessCustom(vaultCode(s, false))) as string); }
+    finally { nestedDepth--; }
+  };
 
   // 1. Vault code blocks
   const vaulted = vaultCode(md);
 
   // 2. Preprocessors (order matters — file first, then structural, then inline)
-  const preprocessed = restoreCode(
+  function preprocessCustom(source: string): string {
+    return restoreCode(
     preprocessGrid(
       preprocessProgress(
         preprocessChips(
@@ -787,7 +830,7 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
                     preprocessCards(
                       preprocessComponents(
                         preprocessThoughts(
-                          preprocessFileAttachments(vaulted)
+                          preprocessFileAttachments(source)
                         )
                       )
                     )
@@ -798,14 +841,16 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
           )
         )
       )
-    )
-  );
+    ).replace(/\[\[RAKSARA_(?:TOC|PANEL|CONTAINER|GRID|PROGRESS|THOUGHT|COMPONENT|CHAPTERS|CARDS|CAROUSEL):\d+\]\]/g, '\n\n$&\n\n')
+    );
+  }
 
   // 3. marked parse
-  const rawHtml = marked.parse(preprocessed) as string;
+  const rawHtml = marked.parse(preprocessCustom(vaulted)) as string;
 
-  // 4. Inject custom elements
-  const finalHtml = injectGrid(
+  // Resolve stored children too: grids/containers may contain panels and code.
+  function injectCustomElements(html: string): string {
+    return injectGrid(
     injectProgress(
       injectThoughts(
         injectChips(
@@ -815,7 +860,7 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
                 injectCards(
                   injectChapters(
                     injectComponents(
-                      injectToc(rawHtml),
+                      injectToc(html),
                       opts.components
                     ),
                     opts.context
@@ -835,9 +880,10 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
       )
     ),
     markedParse
-  );
+    );
+  }
 
-  return finalHtml;
+  return injectCustomElements(rawHtml);
 }
 
 // ── Post-render DOM init functions ────────────────────
@@ -1292,10 +1338,17 @@ function openMermaidViewer(block: HTMLElement): void {
   closeButton.focus();
 }
 
-/** Render all rk-mermaid elements with Mermaid (lazy-loads from CDN). */
-export async function initMermaid(container: HTMLElement): Promise<void> {
+let mermaidRenderQueue = Promise.resolve();
+
+/** Serialize Mermaid's global configuration and retain source for theme changes. */
+export function initMermaid(container: HTMLElement): Promise<void> {
+  mermaidRenderQueue = mermaidRenderQueue.then(() => renderMermaid(container));
+  return mermaidRenderQueue;
+}
+
+async function renderMermaid(container: HTMLElement): Promise<void> {
   const blocks = container.querySelectorAll<HTMLElement>('.rk-mermaid');
-  if (!blocks.length) return;
+  if (!blocks.length || !container.isConnected) return;
   try {
     // @ts-expect-error mermaid global
     let mermaid = window['mermaid'] as { initialize: (cfg: object) => void; run: (opts: object) => Promise<void> | void } | undefined;
@@ -1305,15 +1358,68 @@ export async function initMermaid(container: HTMLElement): Promise<void> {
       mermaid = window['mermaid'] as typeof mermaid;
     }
     if (!mermaid) return;
-    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
-    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
-    blocks.forEach((el, i) => {
-      el.setAttribute('id', `mermaid-${i}`);
+    const root = document.documentElement;
+    const isDark = root.getAttribute('data-theme') !== 'light';
+    const styles = getComputedStyle(root);
+    const accent = styles.getPropertyValue('--accent').trim() || '#b76e00';
+    const surface = isDark ? '#1b1814' : '#fffdf9';
+    const text = isDark ? '#f4eee4' : '#29251f';
+    // Mermaid requires concrete colours, not CSS variables or color-mix strings.
+    const swatch = document.createElement('canvas');
+    swatch.width = swatch.height = 1;
+    const ctx = swatch.getContext('2d', { willReadFrequently: true });
+    const mix = (weight: number) => {
+      if (!ctx) return surface;
+      ctx.fillStyle = `color-mix(in srgb, ${accent} ${weight}%, ${surface})`;
+      ctx.fillRect(0, 0, 1, 1);
+      return '#' + Array.from(ctx.getImageData(0, 0, 1, 1).data).slice(0, 3).map(n => n.toString(16).padStart(2, '0')).join('');
+    };
+    const node = mix(16);
+    const line = isDark ? '#cbc2b4' : '#5d554b';
+    mermaid.initialize({
+      startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true,
+      // SVG text avoids host prose CSS changing foreignObject measurements.
+      htmlLabels: false, flowchart: { htmlLabels: false }, theme: 'base',
+      themeVariables: {
+        darkMode: isDark, fontFamily: styles.getPropertyValue('--font-sans').trim(), fontSize: '16px',
+        background: surface, primaryColor: node, primaryTextColor: text, primaryBorderColor: line,
+        secondaryColor: mix(8), secondaryTextColor: text, secondaryBorderColor: line,
+        tertiaryColor: surface, tertiaryTextColor: text, tertiaryBorderColor: line,
+        textColor: text, lineColor: line, mainBkg: node, nodeBkg: node, nodeBorder: line,
+        edgeLabelBackground: surface, clusterBkg: mix(5), clusterBorder: line,
+        actorBkg: node, actorBorder: line, actorTextColor: text,
+        signalColor: line, signalTextColor: text, labelBoxBkgColor: surface,
+        labelBoxBorderColor: line, labelTextColor: text, loopTextColor: text,
+        noteBkgColor: mix(12), noteTextColor: text, noteBorderColor: line,
+        titleColor: text, stateLabelColor: text, compositeBackground: surface,
+      },
+    });
+    blocks.forEach((el) => {
+      const source = el.dataset['mermaidSource'] ?? el.textContent ?? '';
+      el.dataset['mermaidSource'] = source;
+      el.replaceChildren(document.createTextNode(source));
+      el.removeAttribute('data-processed');
+      delete el.dataset['mermaidViewerInit'];
+      el.classList.remove('mermaid-error', 'mermaid-rendered');
+      el.removeAttribute('aria-label');
+      if (!el.id) el.id = `mermaid-${crypto.randomUUID()}`;
     });
     await mermaid.run({ nodes: Array.from(blocks) });
 
     blocks.forEach((block) => {
       if (block.dataset['mermaidViewerInit'] === '1' || !block.querySelector('svg')) return;
+      block.classList.add('mermaid-rendered');
+      // Measure connected SVG geometry, after site fonts/styles have applied.
+      // Mermaid's detached measurement can otherwise clip the final diagram.
+      const svg = block.querySelector<SVGSVGElement>('svg')!;
+      const bounds = svg.getBBox();
+      if (bounds.width > 0 && bounds.height > 0) {
+        const width = bounds.width + 32;
+        svg.setAttribute('viewBox', `${bounds.x - 16} ${bounds.y - 16} ${width} ${bounds.height + 32}`);
+        svg.style.width = `${width}px`;
+        svg.style.maxWidth = '100%';
+        svg.style.height = 'auto';
+      }
       block.dataset['mermaidViewerInit'] = '1';
       const button = document.createElement('button');
       button.type = 'button';
@@ -1324,8 +1430,13 @@ export async function initMermaid(container: HTMLElement): Promise<void> {
       button.addEventListener('click', () => openMermaidViewer(block));
       block.appendChild(button);
     });
-  } catch {
-    // mermaid unavailable
+  } catch (error) {
+    console.warn('Mermaid diagram could not render; source remains available.', error);
+    blocks.forEach((block) => {
+      if (block.querySelector('svg')) return;
+      block.classList.add('mermaid-error');
+      block.setAttribute('aria-label', 'Diagram could not render; source shown');
+    });
   }
 }
 
@@ -1422,6 +1533,29 @@ export async function initFileAttachmentSizes(container: HTMLElement): Promise<v
  * Call this once after setting innerHTML with the rendered markdown.
  */
 export async function initArticleFeatures(container: HTMLElement): Promise<void> {
+  // Raw HTML anchors get the same treatment, without rewriting authored markup or image links.
+  container.querySelectorAll<HTMLAnchorElement>('p > a:not([class]), li > a:not([class]), td > a:not([class])').forEach(link => {
+    if (link.closest('.toc-block') || link.querySelector('img, svg, code') || !link.getAttribute('href') || link.getAttribute('href')!.startsWith('#')) return;
+    const href = link.getAttribute('href')!;
+    const text = link.textContent?.trim() || '';
+    link.classList.add('prose-link');
+    if (!link.children.length && (!text || text === href)) link.innerHTML = readableLinkLabel(href, text);
+    link.insertAdjacentHTML('afterbegin', linkSiteIcon(href));
+    if (link.target === '_blank') {
+      link.relList.add('noopener', 'noreferrer');
+      const hint = document.createElement('span');
+      hint.className = 'link-new-tab';
+      hint.textContent = ' (opens in a new tab)';
+      link.appendChild(hint);
+    }
+  });
+  container.querySelectorAll<HTMLImageElement>('.link-site-icon img:not([data-icon-init])').forEach(img => {
+    img.dataset.iconInit = '1';
+    const settle = () => img.parentElement?.classList.toggle('has-favicon', img.naturalWidth > 0);
+    img.addEventListener('load', settle, { once: true });
+    img.addEventListener('error', settle, { once: true });
+    if (img.complete) settle();
+  });
   initArticleImages(container);
   initProgressBars(container);
   initVideoPlayers(container);
@@ -1447,36 +1581,31 @@ function initCarousels(container: HTMLElement): void {
     const slides = Array.from(carousel.querySelectorAll<HTMLElement>('.content-carousel-slide'));
     const prevBtn = carousel.querySelector<HTMLButtonElement>('.content-carousel-prev');
     const nextBtn = carousel.querySelector<HTMLButtonElement>('.content-carousel-next');
-    const autoInterval = parseInt(carousel.dataset['interval'] || '5000', 10);
+    const status = carousel.querySelector<HTMLElement>('.carousel-status');
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     if (!track || !stage || slides.length === 0) return;
-
-    // Single slide — just make it clickable
-    if (slides.length === 1) {
-      slides[0].addEventListener('click', () => {
-        const href = slides[0]?.dataset['href'];
-        if (href) window.location.href = href;
-      });
-      slides[0].classList.add('active');
-      return;
-    }
+    if (prevBtn) prevBtn.hidden = slides.length < 2;
+    if (nextBtn) nextBtn.hidden = slides.length < 2;
 
     let current = 0;
-    let timer: ReturnType<typeof setInterval> | null = null;
     let touchStartX = 0;
     let touchStartY = 0;
 
     function update(animated = true) {
       const sw = slides[0]?.offsetWidth ?? 0;
       const gap = parseFloat(getComputedStyle(track!).gap || '0') || 0;
-      const cw = stage!.offsetWidth;
+      const cw = carousel.querySelector<HTMLElement>('.content-carousel-viewport')?.clientWidth ?? stage!.clientWidth;
       const offset = -(current * (sw + gap)) + cw / 2 - sw / 2;
-      track!.style.transition = animated ? 'transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)' : 'none';
+      track!.style.transition = animated && !reducedMotion.matches ? 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)' : 'none';
       track!.style.transform = `translateX(${offset}px)`;
       slides.forEach((s, i) => {
         s.classList.toggle('active', i === current);
         s.setAttribute('aria-current', i === current ? 'true' : 'false');
+        s.setAttribute('aria-hidden', i === current ? 'false' : 'true');
+        s.tabIndex = i === current ? 0 : -1;
       });
+      if (status) status.textContent = `${current + 1} / ${slides.length}`;
     }
 
     function goTo(idx: number, animated = true) {
@@ -1484,53 +1613,31 @@ function initCarousels(container: HTMLElement): void {
       update(animated);
     }
 
-    function startAuto() {
-      stopAuto();
-      timer = setInterval(() => goTo(current + 1), autoInterval);
-    }
-
-    function stopAuto() {
-      if (timer !== null) { clearInterval(timer); timer = null; }
-    }
-
-    slides.forEach((slide, i) => {
-      slide.addEventListener('click', () => {
-        if (i === current) {
-          const href = slide.dataset['href'];
-          if (href) window.location.href = href;
-        } else {
-          goTo(i); stopAuto(); startAuto();
-        }
-      });
-      slide.addEventListener('keydown', (e: KeyboardEvent) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); slide.click(); }
-      });
-    });
-
-    prevBtn?.addEventListener('click', (e) => { e.stopPropagation(); goTo(current - 1); stopAuto(); startAuto(); });
-    nextBtn?.addEventListener('click', (e) => { e.stopPropagation(); goTo(current + 1); stopAuto(); startAuto(); });
+    // Navigation stays user-controlled; never move a reading/focused slide.
+    prevBtn?.addEventListener('click', () => goTo(current - 1));
+    nextBtn?.addEventListener('click', () => goTo(current + 1));
 
     stage.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; }, { passive: true });
     stage.addEventListener('touchend', (e) => {
       const dx = e.changedTouches[0].clientX - touchStartX;
       const dy = e.changedTouches[0].clientY - touchStartY;
-      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) { goTo(dx < 0 ? current + 1 : current - 1); stopAuto(); startAuto(); }
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) goTo(dx < 0 ? current + 1 : current - 1);
     }, { passive: true });
 
     carousel.addEventListener('keydown', (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(current - 1); stopAuto(); startAuto(); }
-      if (e.key === 'ArrowRight') { e.preventDefault(); goTo(current + 1); stopAuto(); startAuto(); }
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      const moveFocus = slides.includes(e.target as HTMLElement);
+      goTo(current + (e.key === 'ArrowLeft' ? -1 : 1));
+      if (moveFocus) slides[current].focus({ preventScroll: true });
     });
 
-    carousel.addEventListener('mouseenter', stopAuto);
-    carousel.addEventListener('mouseleave', startAuto);
-    carousel.addEventListener('focusin', stopAuto);
-    carousel.addEventListener('focusout', startAuto);
-
-    window.addEventListener('resize', () => update(false), { passive: true });
-
+    const observer = new ResizeObserver(() => {
+      if (!carousel.isConnected) { observer.disconnect(); return; }
+      update(false);
+    });
+    observer.observe(stage);
     update(false);
-    startAuto();
   });
 }
 
@@ -1565,7 +1672,7 @@ function initProgressBars(container: HTMLElement): void {
 }
 
 function initArticleImages(container: HTMLElement): void {
-  container.querySelectorAll<HTMLImageElement>('img').forEach((img) => {
+  container.querySelectorAll<HTMLImageElement>('img:not(.link-site-icon img)').forEach((img) => {
     const shell = img.closest<HTMLElement>('.is-loading, .post-card-thumb, .gallery-card-img, .gallery-stack-card, .article-cover, .poem-cover, .img-skeleton, .content-card-img, .content-carousel-img');
     const lqip = img.dataset['lqip'];
     if (shell && lqip && !shell.classList.contains('lqip-shown')) {
@@ -1670,7 +1777,7 @@ function initVideoPlayers(container: HTMLElement): void {
     const player = document.createElement('button');
     player.type = 'button';
     player.className = 'video-player';
-    player.setAttribute('aria-label', title ? `Open video: ${title}` : 'Open video');
+    player.setAttribute('aria-label', `${title ? `Open video: ${title}` : 'Open video'} (opens in a new tab)`);
     player.innerHTML = `
       <img src="${escapeHtml(thumbSrc)}" alt="${escapeHtml(title)}" loading="lazy" decoding="async">
       <div class="video-player-overlay">

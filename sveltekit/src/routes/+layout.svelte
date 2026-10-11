@@ -16,6 +16,39 @@
 	let { children, data }: { children: import('svelte').Snippet; data: LayoutData } = $props();
 
 	const config = $derived(data.config);
+	let Fireflies: typeof import('$lib/components/Fireflies.svelte').default | null = $state(null);
+
+	// Enhancement is imported only after page assets load and the browser is idle.
+	onMount(() => {
+		const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+		if (connection?.saveData || matchMedia('(prefers-reduced-motion: reduce)').matches || matchMedia('(prefers-reduced-transparency: reduce)').matches || matchMedia('(forced-colors: active)').matches) return;
+		let disposed = false;
+		let cancelIdle = () => {};
+		const start = async () => {
+			try {
+				const component = await import('$lib/components/Fireflies.svelte');
+				if (!disposed) Fireflies = component.default;
+			} catch (error) {
+				console.warn('[fireflies] Enhancement unavailable; keeping the static background.', error);
+			}
+		};
+		const defer = () => {
+			if ('requestIdleCallback' in window) {
+				const id = window.requestIdleCallback(() => void start(), { timeout: 1200 });
+				cancelIdle = () => window.cancelIdleCallback(id);
+			} else {
+				const id = setTimeout(() => void start(), 400);
+				cancelIdle = () => clearTimeout(id);
+			}
+		};
+		if (document.readyState === 'complete') defer();
+		else window.addEventListener('load', defer, { once: true });
+		return () => {
+			disposed = true;
+			window.removeEventListener('load', defer);
+			cancelIdle();
+		};
+	});
 
 	const defaultNav = [
 		{ label: 'Home', href: '/' },
@@ -181,21 +214,6 @@
 			hljsLight.disabled = theme !== 'light';
 			hljsLight.media = theme === 'light' ? 'all' : 'not all';
 		}
-		const giscusTheme = theme === 'light' ? 'light' : 'dark_dimmed';
-		const syncGiscus = () => {
-			const iframe = document.querySelector<HTMLIFrameElement>('.giscus-frame');
-			if (!iframe?.contentWindow || !iframe.src.startsWith('https://giscus.app/')) return;
-			try {
-				iframe.contentWindow.postMessage(
-					{ giscus: { setConfig: { theme: giscusTheme } } },
-					'https://giscus.app'
-				);
-			} catch {
-				// Giscus can briefly be about:blank/local before the iframe finishes loading.
-			}
-		};
-		syncGiscus();
-		window.setTimeout(syncGiscus, 400);
 		document.dispatchEvent(new CustomEvent('raksara-theme-change', { detail: { theme } }));
 	}
 
@@ -325,6 +343,14 @@
 		document.addEventListener('load', onImageLoad, true);
 		document.addEventListener('error', onImageLoad, true);
 
+		const onDiagramThemeChange = () => {
+			const app = document.getElementById('app');
+			if (!app?.querySelector('.rk-mermaid')) return;
+			document.querySelector<HTMLButtonElement>('.mermaid-viewer-close')?.click();
+			void import('$lib/markdown').then(({ initMermaid }) => initMermaid(app));
+		};
+		document.addEventListener('raksara-theme-change', onDiagramThemeChange);
+
 		const onGlobalSearchKey = (event: KeyboardEvent) => {
 			if (event.key !== '/' || ['INPUT', 'TEXTAREA'].includes((event.target as Element)?.tagName ?? '')) return;
 			event.preventDefault();
@@ -359,6 +385,7 @@
 			document.removeEventListener('load', onImageLoad, true);
 			document.removeEventListener('error', onImageLoad, true);
 			window.removeEventListener('keydown', onGlobalSearchKey);
+			document.removeEventListener('raksara-theme-change', onDiagramThemeChange);
 			imageObserver.disconnect();
 			if (injectAdsense) {
 				['pointerdown', 'scroll', 'keydown'].forEach((ev) =>
@@ -426,7 +453,9 @@
 </svelte:head>
 
 <!-- Fixed background gradient -->
-<div class="bg-gradient" aria-hidden="true"></div>
+<div class="bg-gradient" aria-hidden="true">
+	{#if Fireflies}<Fireflies />{/if}
+</div>
 
 <!-- Mobile overlay -->
 {#if sidebarOpen}
