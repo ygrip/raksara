@@ -65,6 +65,7 @@
   --hg-code-bg: #0d1117;
   --hg-code-ink: #e6edf3;
   --hg-surface: #1b1814;
+  --hg-panel-tint: 22%;
   --hg-carve: .7;
   --hg-dot: color-mix(in oklab, var(--accent) 55%, transparent);
   --hg-dot-opacity: .32;
@@ -88,6 +89,7 @@
   --hg-code-bg: #ffffff;
   --hg-code-ink: #24292f;
   --hg-surface: #fffdf9;
+  --hg-panel-tint: 14%;
   --hg-carve: .62;
   --hg-glass-fill: linear-gradient(180deg, color-mix(in oklab, var(--accent) 22%, rgb(255 255 255 / .7)), color-mix(in oklab, var(--accent) 16%, rgb(255 255 255 / .45)));
   --hg-glass-fill-hover: linear-gradient(180deg, color-mix(in oklab, var(--accent) 30%, rgb(255 255 255 / .7)), color-mix(in oklab, var(--accent) 22%, rgb(255 255 255 / .45)));
@@ -549,7 +551,7 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 #app .thought-bubble-body p { font: inherit; }
 #app .thought-bubble-attribution { justify-content: flex-end; padding-top: 16px; margin-top: 20px; }
 
-#app .article-body .panel { --panel-ink: #83baff; padding: 24px; gap: 18px; border: 1px solid color-mix(in srgb, var(--panel-ink) 55%, var(--hg-surface)); border-left: 4px solid var(--panel-ink); border-radius: 18px; background: var(--hg-surface); color: var(--text-primary); box-shadow: var(--card-shadow); }
+#app .article-body .panel { --panel-ink: #83baff; padding: 24px; gap: 18px; border: 1px solid color-mix(in srgb, var(--panel-ink) 55%, var(--hg-surface)); border-left: 4px solid var(--panel-ink); border-radius: 18px; background: color-mix(in srgb, var(--panel-ink) var(--hg-panel-tint), var(--hg-surface)); color: var(--text-primary); box-shadow: var(--card-shadow); }
 #app .article-body .panel-note { --panel-ink: #c4a7ff; }
 #app .article-body .panel-warning { --panel-ink: #f5c064; }
 #app .article-body .panel-error { --panel-ink: #ff9a9a; }
