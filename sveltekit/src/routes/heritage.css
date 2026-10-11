@@ -1,0 +1,110 @@
+/*
+ * Raksara Heritage Glass foundation.
+ *
+ * Decorative motifs are original, culturally inspired SVG silhouettes.
+ * The motifs stay neutral and derive only a small part of their color from
+ * the existing --accent token; no fixed amber/brown branding is introduced.
+ * Avoid adding an extra canvas or backdrop-filter layer to the DotField.
+ */
+:root {
+    --heritage-ink: color-mix(in srgb, var(--text-secondary) 78%, var(--accent) 22%);
+    --heritage-ornament-opacity: 0.25;
+    --heritage-paper: color-mix(in srgb, var(--bg-card) 94%, var(--bg-base));
+    --heritage-frost: var(--raksara-glass);
+    --heritage-border: color-mix(in srgb, var(--raksara-glass-border) 84%, var(--accent) 16%);
+}
+
+[data-theme="light"] {
+    --heritage-ornament-opacity: 0.20;
+    --heritage-ink: color-mix(in srgb, var(--text-secondary) 88%, var(--accent) 12%);
+}
+
+[data-theme="dark"] {
+    --heritage-ornament-opacity: 0.31;
+    --heritage-ink: color-mix(in srgb, var(--text-secondary) 80%, var(--accent) 20%);
+}
+
+/* Opt-in material primitives. Reading surfaces can remain fully opaque. */
+.material-paper {
+    background: var(--heritage-paper);
+    border: 1px solid var(--border-color);
+}
+
+.material-frost {
+    background: var(--bg-glass-heavy); /* fallback without backdrop-filter */
+    border: 1px solid var(--heritage-border);
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .material-frost {
+        background: var(--heritage-frost);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+    }
+}
+
+/* Adds a restrained crafted edge without replacing existing frosted surfaces. */
+.heritage-frame {
+    border-color: var(--heritage-border);
+}
+
+/* Absolute-positioned decorative children; place in an already positioned shell. */
+.heritage-ornament {
+    position: absolute;
+    display: block;
+    width: var(--heritage-ornament-size, 90px);
+    height: var(--heritage-ornament-size, 90px);
+    pointer-events: none;
+    user-select: none;
+    opacity: var(--heritage-ornament-opacity);
+    background-color: var(--heritage-ink);
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+}
+.heritage-ornament--kawung {
+    -webkit-mask-image: url('/heritage/kawung.svg');
+    mask-image: url('/heritage/kawung.svg');
+}
+.heritage-ornament--ukiran {
+    -webkit-mask-image: url('/heritage/ukiran.svg');
+    mask-image: url('/heritage/ukiran.svg');
+}
+.heritage-ornament--mega-mendung {
+    -webkit-mask-image: url('/heritage/mega-mendung.svg');
+    mask-image: url('/heritage/mega-mendung.svg');
+}
+.heritage-ornament--small { --heritage-ornament-size: 44px; }
+.heritage-ornament--medium { --heritage-ornament-size: 90px; }
+.heritage-ornament--large { --heritage-ornament-size: 148px; }
+.heritage-ornament--top-left { top: 18px; left: 18px; }
+.heritage-ornament--top-right { top: 18px; right: 18px; }
+.heritage-ornament--bottom-left { bottom: 18px; left: 18px; }
+.heritage-ornament--bottom-right { bottom: 18px; right: 18px; }
+
+/* First adoption: one ornament, behind hero text, with DotField preserved. */
+.home-hero-content.heritage-frame > .heritage-ornament {
+    z-index: 0;
+}
+.home-hero-content.heritage-frame > .home-hero-copy,
+.home-hero-content.heritage-frame > .home-hero-visual {
+    z-index: 1;
+}
+
+@media (max-width: 640px) {
+    /* Preserve text room and keep small devices as calm as possible. */
+    .home-hero-content.heritage-frame > .heritage-ornament {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+    .material-frost {
+        background: var(--bg-glass-heavy);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+}
