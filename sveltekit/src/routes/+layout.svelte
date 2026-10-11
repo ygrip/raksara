@@ -7,7 +7,6 @@
 	import { goto } from '$app/navigation';
 	import type { LayoutData } from './$types';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
-	import AgenticTools from '$lib/components/AgenticTools.svelte';
 	import AdcashAutoTag from '$lib/components/AdcashAutoTag.svelte';
 	import { getAdsenseId, getGiscusConfig } from '$lib/seo';
 	import { assetUrl } from '$lib/utils';
@@ -16,29 +15,28 @@
 	let { children, data }: { children: import('svelte').Snippet; data: LayoutData } = $props();
 
 	const config = $derived(data.config);
-	let Fireflies: typeof import('$lib/components/Fireflies.svelte').default | null = $state(null);
+	let AgenticTools: typeof import('$lib/components/AgenticTools.svelte').default | null = $state(null);
 
-	// Enhancement is imported only after page assets load and the browser is idle.
+	// WebMCP is an agent-facing enhancement, not a prerequisite for painting the UI.
+	// Keep its config fetch, setup and module parsing out of initial hydration.
 	onMount(() => {
-		const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
-		if (connection?.saveData || matchMedia('(prefers-reduced-motion: reduce)').matches || matchMedia('(prefers-reduced-transparency: reduce)').matches || matchMedia('(forced-colors: active)').matches) return;
 		let disposed = false;
 		let cancelIdle = () => {};
-		const start = async () => {
+		const load = async () => {
 			try {
-				const component = await import('$lib/components/Fireflies.svelte');
-				if (!disposed) Fireflies = component.default;
+				const module = await import('$lib/components/AgenticTools.svelte');
+				if (!disposed) AgenticTools = module.default;
 			} catch (error) {
-				console.warn('[fireflies] Enhancement unavailable; keeping the static background.', error);
+				console.warn('[agentic] Enhancement unavailable.', error);
 			}
 		};
 		const defer = () => {
 			if ('requestIdleCallback' in window) {
-				const id = window.requestIdleCallback(() => void start(), { timeout: 1200 });
+				const id = window.requestIdleCallback(() => void load(), { timeout: 2500 });
 				cancelIdle = () => window.cancelIdleCallback(id);
 			} else {
-				const id = setTimeout(() => void start(), 400);
-				cancelIdle = () => clearTimeout(id);
+				const id = window.setTimeout(() => void load(), 1000);
+				cancelIdle = () => window.clearTimeout(id);
 			}
 		};
 		if (document.readyState === 'complete') defer();
@@ -452,10 +450,8 @@
 	{/if}
 </svelte:head>
 
-<!-- Fixed background gradient -->
-<div class="bg-gradient" aria-hidden="true">
-	{#if Fireflies}<Fireflies />{/if}
-</div>
+<!-- Static dot grid and restrained accent lighting; no perpetual canvas repaint. -->
+<div class="bg-gradient" aria-hidden="true"></div>
 
 <!-- Mobile overlay -->
 {#if sidebarOpen}
@@ -557,7 +553,7 @@
 	</main>
 </div>
 
-<AgenticTools />
+{#if AgenticTools}<AgenticTools />{/if}
 <AdcashAutoTag />
 
 {#if SearchOverlay}
