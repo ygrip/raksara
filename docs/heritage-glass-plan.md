@@ -82,7 +82,7 @@ Available motifs: kawung, ukiran, mega-mendung. Corner placement: top-left, top-
 3. Light/dark and each named palette/custom accent stay readable and distinct.
 4. Decoration is aria-hidden, pointer-events none, no keyboard interference.
 5. No layout shifts or horizontal overflow from frames, especially on phones.
-6. Ordinary ornaments add 0 KB JS; no extra blur/render layer on DotField.
+6. Ordinary ornaments add no drawing library, animation loop or extra blur/render layer on DotField; the small Svelte component still has normal framework cost.
 7. Compare LCP, INP, CLS and scroll smoothness against the base branch on a real mid-range phone.
 8. Cultural design is deliberate and subtle, not overloaded.
 
