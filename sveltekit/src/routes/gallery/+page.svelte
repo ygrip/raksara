@@ -324,7 +324,6 @@
 {#if activeItem}
 	<div
 		class="gallery-lightbox-overlay fixed inset-0 flex items-center justify-center"
-		style="background: rgba(0,0,0,0.9);"
 		role="dialog"
 		aria-modal="true"
 		aria-label={activeItem.title}
@@ -335,8 +334,7 @@
 			<div class="relative flex w-full items-center justify-center">
 				{#if images.length > 1}
 					<button
-						class="absolute left-0 z-10 flex h-9 w-9 items-center justify-center rounded-full text-white"
-						style="background: rgba(255,255,255,0.15);"
+						class="glb-nav prev absolute z-10"
 						onclick={prevImage}
 						aria-label="Previous image"
 					>‹</button>
@@ -346,14 +344,13 @@
 					<img
 						{...buildResponsiveAttrs(currentImg.src, imageManifest, { sizes: lightboxImageSizes, eager: true })}
 						alt={currentImg.alt ?? currentImg.caption ?? activeItem.caption ?? activeItem.title}
-						class="max-h-[72vh] rounded-xl object-contain"
+						class="glb-image max-h-[72vh] object-contain"
 					/>
 				{/if}
 
 				{#if images.length > 1}
 					<button
-						class="absolute right-0 z-10 flex h-9 w-9 items-center justify-center rounded-full text-white"
-						style="background: rgba(255,255,255,0.15);"
+						class="glb-nav next absolute z-10"
 						onclick={nextImage}
 						aria-label="Next image"
 					>›</button>
@@ -364,29 +361,28 @@
 				<div class="mt-3 flex items-center gap-1.5">
 					{#each images as _, i}
 						<button
-							class="h-1.5 rounded-full transition-all"
-							style={i === carouselIdx ? 'width:1.25rem;background:#fff;' : 'width:0.375rem;background:rgba(255,255,255,0.4);'}
+							class="glb-dot"
+							class:active={i === carouselIdx}
 							onclick={() => { carouselIdx = i; }}
 							aria-label="Go to image {i + 1}"
 						></button>
 					{/each}
-					<span class="ml-2 text-xs" style="color:rgba(255,255,255,0.5);">{carouselIdx + 1} / {images.length}</span>
+					<span class="glb-count ml-2 text-xs">{carouselIdx + 1} / {images.length}</span>
 				</div>
 			{/if}
 
 			{#if currentImg?.caption || activeItem.caption || activeItem.description}
-				<figcaption class="mt-3 w-full max-w-xl text-center">
+				<figcaption class="glb-caption mt-4 w-full max-w-xl text-center">
 					{#if currentImg?.caption || activeItem.caption}
-						<p class="text-sm" style="color:rgba(255,255,255,0.85);">{currentImg?.caption ?? activeItem.caption}</p>
+						<p class="text-sm">{currentImg?.caption ?? activeItem.caption}</p>
 					{/if}
 					{#if activeItem.description}
 						<button
-							class="mt-1 text-xs underline"
-							style="color:rgba(255,255,255,0.5);"
+							class="glb-desc-toggle mt-1 text-xs underline"
 							onclick={() => { descExpanded = !descExpanded; }}
 						>{descExpanded ? 'Hide description' : 'Show description'}</button>
 						{#if descExpanded}
-							<p class="mt-2 text-sm leading-relaxed" style="color:rgba(255,255,255,0.7);">{activeItem.description}</p>
+							<p class="glb-desc mt-2 text-sm leading-relaxed">{activeItem.description}</p>
 						{/if}
 					{/if}
 				</figcaption>
@@ -394,11 +390,11 @@
 		</figure>
 
 		<button
-			class="absolute right-4 top-4 z-20 text-white opacity-70 hover:opacity-100"
+			class="glb-close absolute right-4 top-4 z-20"
 			onclick={closeLightbox}
 			aria-label="Close"
 		>
-			<svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
 			</svg>
 		</button>
