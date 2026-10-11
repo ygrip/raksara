@@ -96,6 +96,8 @@ export interface HomePageConfig {
     title?: string;
     subtitle?: string;
     description?: string;
+    /** Direct links to the work mentioned in the introduction. */
+    links?: Array<{ label: string; href: string }>;
     actions?: Array<{
       label: string;
       href: string;

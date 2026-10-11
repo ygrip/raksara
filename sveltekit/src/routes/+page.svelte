@@ -143,6 +143,13 @@
 			{#if hero?.description}
 				<p class="home-hero-description">{hero.description}</p>
 			{/if}
+			{#if hero?.links?.length}
+				<nav class="home-hero-work" aria-label="Projects mentioned in the introduction">
+					{#each hero.links as link}
+						<a href={link.href}>{link.label}<span aria-hidden="true"> ↗</span></a>
+					{/each}
+				</nav>
+			{/if}
 			{#if hero?.actions?.length}
 				<div class="home-hero-actions">
 					{#each hero.actions as action}
@@ -526,6 +533,51 @@
 
 
 <style>
+	/* Keep the portrait and atmosphere; make the introduction easier to read. */
+	.home-hero.dot-hero .home-hero-eyebrow,
+	.home-hero.dot-hero .home-btn-secondary { color: var(--accent-hover); }
+	:global([data-theme="light"]) .home-hero-title .accent-gradient {
+		background-image: linear-gradient(135deg, var(--accent-hover), var(--gradient-3));
+	}
+	.home-hero.dot-hero .home-hero-subtitle {
+		font-size: clamp(1.125rem, 1.5vw, 1.3rem);
+		line-height: 1.6;
+		color: var(--text-primary);
+		text-wrap: pretty;
+	}
+	.home-hero.dot-hero .home-hero-description {
+		font-size: 1rem;
+		line-height: 1.75;
+		color: var(--text-secondary);
+		text-shadow: none;
+	}
+	.home-hero-work {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem 1.25rem;
+		margin-top: 0.75rem;
+	}
+	.home-hero-work a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+		font-size: 0.9375rem;
+		gap: 0.25rem;
+		color: var(--text-primary);
+		text-decoration: underline;
+		text-underline-offset: 4px;
+	}
+	.home-hero-work a:hover { color: var(--accent-hover); }
+	.home-hero.dot-hero .home-btn {
+		min-height: 44px;
+		white-space: normal;
+		line-height: 1.4;
+	}
+	.home-hero a:focus-visible {
+		outline: 2px solid var(--text-primary);
+		outline-offset: 4px;
+	}
+
 	/* Skip layout/paint work for below-the-fold homepage sections until they
 	   approach the viewport. The intrinsic fallback keeps scroll geometry stable. */
 	.home-section {

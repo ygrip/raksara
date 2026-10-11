@@ -20,6 +20,19 @@ Raksara keeps the engine in this repository and the content in a separate reposi
 - RSS (`/feed.xml`) and Atom (`/atom.xml`) feeds for blog discovery
 - WebSite + Person JSON-LD structured data on homepage; BreadcrumbList + BlogPosting/SoftwareApplication on content pages
 
+### Homepage project references
+
+Keep the animated hero and add optional, crawlable links to the work mentioned in its copy. In the content repository's `homepage.yaml`:
+
+```yaml
+hero:
+  links:
+    - label: My test framework
+      href: /portfolio/testara/
+```
+
+These links supplement (not replace) `hero.actions` and render in the static HTML. Sites without `hero.links` keep their existing hero content.
+
 ## Repository Layout
 
 ```text
