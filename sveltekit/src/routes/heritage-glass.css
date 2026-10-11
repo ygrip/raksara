@@ -1,3 +1,370 @@
-/* Heritage Glass: Nusantara glassmorphism layered over the classic tokens. */
+/*
+ * Heritage Glass — Nusantara glassmorphism.
+ * Layered last over layout.css + visual-polish.css. Every ornament is a white
+ * alpha mask painted with the configured accent, so `color` / `accent` in the
+ * site config re-themes carvings, borders and buttons together.
+ * Assets in /static/heritage were generated with fal.ai (flux-pro v1.1) and
+ * converted to white-on-alpha WebP masks; nusantara-mist is greyscale so the
+ * accent can tint it.
+ */
 @font-face { font-family: 'Raksara Newsreader'; src: url('/fonts/newsreader-latin-variable.woff2') format('woff2'); font-style: normal; font-weight: 200 800; font-display: swap; }
 @font-face { font-family: 'Raksara Inter'; src: url('/fonts/inter-latin-variable.woff2') format('woff2'); font-style: normal; font-weight: 100 900; font-display: swap; }
+
+:root {
+  --hg-display: 'Raksara Newsreader', 'Iowan Old Style', Georgia, serif;
+  --font-sans: 'Raksara Inter', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --hg-gold-hi: color-mix(in oklab, var(--accent) 52%, #fff3d6);
+  --hg-gold-lo: color-mix(in oklab, var(--accent) 62%, #160c03);
+  --hg-metal: linear-gradient(135deg, var(--hg-gold-hi) 0%, var(--accent) 34%, var(--hg-gold-lo) 58%, var(--hg-gold-hi) 82%, var(--accent) 100%);
+  --hg-line: color-mix(in oklab, var(--accent) 46%, transparent);
+  --hg-line-soft: color-mix(in oklab, var(--accent) 22%, transparent);
+  --hg-carve: .5;
+  --hg-radius: 26px;
+  --hg-radius-card: 20px;
+  --hg-ukiran-corner: url('/heritage/ukiran-corner.webp');
+  --hg-ukiran-bracket: url('/heritage/ukiran-bracket.webp');
+  --hg-ukiran-panel: url('/heritage/ukiran-panel.webp');
+  --hg-ukiran-divider: url('/heritage/ukiran-divider.webp');
+  --hg-ukiran-flourish: url('/heritage/ukiran-flourish.webp');
+}
+
+:root[data-theme='dark'] {
+  --bg-base: color-mix(in oklab, #0a0907 94%, var(--accent));
+  --bg-card: color-mix(in oklab, rgb(24 19 14 / .58) 94%, var(--accent));
+  --bg-glass-heavy: color-mix(in oklab, rgb(18 14 10 / .86) 94%, var(--accent));
+  --bg-secondary: rgb(20 16 12 / .7);
+  --text-primary: color-mix(in oklab, #f6ecdc 94%, var(--accent));
+  --text-secondary: color-mix(in oklab, #c8baa4 90%, var(--accent));
+  --text-tertiary: color-mix(in oklab, #a3947f 88%, var(--accent));
+  --border-color: color-mix(in oklab, var(--accent) 20%, rgb(255 255 255 / .06));
+  --raksara-glass: color-mix(in oklab, rgb(22 17 12 / .52) 92%, var(--accent));
+  --raksara-glass-strong: color-mix(in oklab, rgb(26 20 14 / .74) 92%, var(--accent));
+  --raksara-edge-border: color-mix(in oklab, var(--accent) 38%, transparent);
+  --card-shadow: 0 24px 60px rgb(0 0 0 / .45), inset 0 1px 0 color-mix(in oklab, var(--hg-gold-hi) 22%, transparent);
+  --card-shadow-hover: 0 28px 70px rgb(0 0 0 / .5), 0 0 34px color-mix(in oklab, var(--accent) 18%, transparent), inset 0 1px 0 color-mix(in oklab, var(--hg-gold-hi) 34%, transparent);
+  --hg-mist-opacity: .34;
+  --hg-ink-on-metal: #1a1208;
+}
+
+:root[data-theme='light'] {
+  --bg-base: color-mix(in oklab, #f6efe3 92%, var(--accent));
+  --bg-card: rgb(255 251 244 / .62);
+  --bg-glass-heavy: rgb(255 251 244 / .9);
+  --text-primary: color-mix(in oklab, #2a1f14 92%, var(--accent));
+  --text-secondary: color-mix(in oklab, #5c4c3a 90%, var(--accent));
+  --text-tertiary: color-mix(in oklab, #7a6852 90%, var(--accent));
+  --border-color: color-mix(in oklab, var(--accent) 24%, rgb(60 40 20 / .08));
+  --raksara-glass: rgb(255 250 242 / .56);
+  --raksara-glass-strong: rgb(255 251 245 / .8);
+  --raksara-edge-border: color-mix(in oklab, var(--accent) 42%, transparent);
+  --card-shadow: 0 20px 50px rgb(80 50 20 / .12), inset 0 1px 0 rgb(255 255 255 / .9);
+  --card-shadow-hover: 0 26px 60px rgb(80 50 20 / .16), 0 0 30px color-mix(in oklab, var(--accent) 14%, transparent), inset 0 1px 0 #fff;
+  --hg-gold-lo: color-mix(in oklab, var(--accent) 70%, #2a1606);
+  --hg-carve: .62;
+  --hg-mist-opacity: .2;
+  --hg-ink-on-metal: #1f1408;
+}
+
+body { background: var(--bg-base); font-family: var(--font-sans); }
+
+/* ── Atmosphere: monochrome Javanese mist, re-tinted by the accent ───────── */
+:root .bg-gradient { background: var(--bg-base); isolation: isolate; overflow: hidden; }
+:root .bg-gradient::before,
+:root .bg-gradient::after { content: ''; position: absolute; inset: 0; pointer-events: none; }
+:root .bg-gradient::before {
+  background: url('/heritage/nusantara-mist.webp') center 62% / cover no-repeat;
+  opacity: var(--hg-mist-opacity);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 30%, #000 80%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 30%, #000 80%, transparent 100%);
+}
+:root .bg-gradient::after {
+  background:
+    radial-gradient(ellipse 70% 55% at 72% 18%, color-mix(in oklab, var(--accent) 34%, transparent), transparent 70%),
+    linear-gradient(180deg, color-mix(in oklab, var(--accent) 50%, transparent), color-mix(in oklab, var(--hg-gold-lo) 40%, transparent));
+  mix-blend-mode: color;
+  opacity: .9;
+}
+:root[data-theme='light'] .bg-gradient::after { mix-blend-mode: multiply; opacity: .18; }
+:root .bg-noise { opacity: .035; }
+
+/* ── Shared ukiran mask painting ─────────────────────────────────────────── */
+#app :is(.hg-frame, .home-section, .page-header, .article-header, .home-hero-content)::before,
+#app :is(.hg-frame, .home-section, .page-header, .article-header, .home-hero-content)::after,
+#sidebar::before, #sidebar::after,
+#app :is(.post-card, .portfolio-card, .home-info-card, .home-link-item, .thought-card, .gallery-window)::after,
+#app .home-section-header::after, .content-footer::before,
+#app :is(.home-btn, .btn-github, .btn-demo, .share-btn)::after {
+  background: var(--hg-metal);
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  pointer-events: none;
+}
+
+/* ── Sidebar: floating glass with carved corners ─────────────────────────── */
+#sidebar {
+  border: 1px solid var(--raksara-edge-border);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--hg-gold-hi) 6%, transparent), transparent 30%), var(--raksara-glass);
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  box-shadow: var(--card-shadow);
+}
+#sidebar::before, #sidebar::after {
+  content: ''; position: absolute; width: 112px; height: 94px; opacity: var(--hg-carve); z-index: 0;
+  -webkit-mask-image: var(--hg-ukiran-corner); mask-image: var(--hg-ukiran-corner);
+  -webkit-mask-size: contain; mask-size: contain;
+}
+#sidebar::before { top: 4px; left: 4px; opacity: calc(var(--hg-carve) * .55); }
+#sidebar::after { bottom: 4px; right: 4px; transform: rotate(180deg); }
+#sidebar > * { position: relative; z-index: 1; }
+#sidebar .logo-text, .mobile-header .logo-text { font-family: var(--hg-display); font-weight: 500; font-size: 21px; letter-spacing: -.01em; }
+#sidebar .logo-icon { border-radius: 999px; }
+#sidebar .search-trigger { border-radius: 999px; border-color: var(--hg-line-soft); }
+#sidebar .nav-link { border-radius: 999px; border: 1px solid transparent; }
+#sidebar .nav-link:hover { background: color-mix(in oklab, var(--accent) 8%, transparent); border-color: var(--hg-line-soft); }
+#sidebar .nav-link.active {
+  color: var(--text-primary);
+  border-color: var(--hg-line);
+  background: linear-gradient(90deg, color-mix(in oklab, var(--accent) 22%, transparent), color-mix(in oklab, var(--accent) 4%, transparent) 70%), var(--raksara-glass-strong);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, var(--hg-gold-hi) 30%, transparent), 0 8px 24px color-mix(in oklab, var(--accent) 14%, transparent);
+}
+#sidebar .nav-link.active :is(svg, .nav-icon) { color: var(--hg-gold-hi); }
+#sidebar .icon-btn { border-radius: 999px; border-color: var(--hg-line-soft); }
+.mobile-header { border-color: var(--raksara-edge-border); background: var(--raksara-glass-strong); }
+
+/* ── Typography ──────────────────────────────────────────────────────────── */
+#app :is(.home-hero-title, .page-title, .article-header h1, .home-section-header h2, .profile-info h1, .content-footer-title) {
+  font-family: var(--hg-display);
+  font-optical-sizing: auto;
+  font-weight: 450;
+  letter-spacing: -.015em;
+}
+#app :is(.post-card-title, .portfolio-card-title, .home-info-card-title, .home-link-item-label) { font-family: var(--hg-display); font-weight: 500; font-size: 1.16em; letter-spacing: -.005em; }
+#app .home-hero-title .accent-gradient,
+#app .page-title {
+  background: linear-gradient(120deg, var(--hg-gold-hi) 0%, var(--accent) 45%, var(--hg-gold-hi) 70%, var(--text-primary) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  filter: none; text-shadow: none;
+}
+:root[data-theme='light'] #app :is(.home-hero-title .accent-gradient, .page-title) {
+  background-image: linear-gradient(120deg, var(--hg-gold-lo) 0%, var(--accent) 55%, var(--text-primary) 100%);
+}
+#app :is(.home-hero-eyebrow, .post-card-category, .portfolio-card-tags .tag, .home-info-card-tags .tag) { text-transform: uppercase; letter-spacing: .16em; font-size: 10.5px; font-weight: 600; }
+
+/* ── Bento frames: rounded glass with ukiran brackets at the sides ───────── */
+#app :is(.hg-frame, .home-section, .page-header, .article-header) {
+  position: relative;
+  border: 1px solid var(--raksara-edge-border);
+  border-radius: var(--hg-radius);
+  background:
+    linear-gradient(160deg, color-mix(in oklab, var(--hg-gold-hi) 7%, transparent), transparent 42%),
+    var(--raksara-glass);
+  backdrop-filter: blur(22px) saturate(1.25);
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
+  box-shadow: var(--card-shadow);
+  isolation: isolate;
+}
+#app .home-section { padding: clamp(24px, 3vw, 36px) clamp(26px, 4.6vw, 62px); margin-inline: clamp(0px, 1.2vw, 14px); }
+#app :is(.page-header, .article-header) { padding: clamp(24px, 3.4vw, 40px) clamp(28px, 4.8vw, 64px); }
+#app :is(.hg-frame, .home-section, .page-header, .article-header)::before,
+#app :is(.hg-frame, .home-section, .page-header, .article-header)::after {
+  content: ''; position: absolute; z-index: -1;
+  top: 50%; width: clamp(34px, 3.6vw, 50px); height: min(78%, 260px);
+  inset-inline: auto; border: 0; border-radius: 0;
+  opacity: var(--hg-carve);
+  -webkit-mask-image: var(--hg-ukiran-bracket); mask-image: var(--hg-ukiran-bracket);
+  -webkit-mask-size: contain; mask-size: contain;
+  -webkit-mask-position: left center; mask-position: left center;
+  animation: none; filter: none;
+}
+/* Inside the frame: .home-section uses content-visibility (paint containment clips overflow). */
+#app :is(.hg-frame, .home-section, .page-header, .article-header)::before { left: 7px; transform: translateY(-50%); }
+#app :is(.hg-frame, .home-section, .page-header, .article-header)::after { right: 7px; transform: translateY(-50%) scaleX(-1); }
+
+/* Section header: serif title + carved divider underneath. */
+#app .home-section-header { position: relative; padding-bottom: 16px; margin-bottom: 18px; align-items: center; }
+#app .home-section-header h2 { font-size: clamp(24px, 2.4vw, 30px); font-weight: 450; }
+#app .home-section-header::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 20px;
+  opacity: .7;
+  -webkit-mask-image: var(--hg-ukiran-divider); mask-image: var(--hg-ukiran-divider);
+  -webkit-mask-size: auto 100%; mask-size: auto 100%;
+  -webkit-mask-position: left center; mask-position: left center;
+}
+#app .home-section-header > a {
+  border: 1px solid var(--hg-line); border-radius: 999px; padding: 7px 16px; font-size: 12.5px;
+  background: color-mix(in oklab, var(--accent) 8%, transparent); color: var(--text-primary);
+  transition: background .2s ease, border-color .2s ease;
+}
+#app .home-section-header > a:hover { background: color-mix(in oklab, var(--accent) 18%, transparent); border-color: var(--accent); }
+
+/* Cards inside frames: lighter glass, carved corner, gilded hairline on hover. */
+#app :is(.post-card, .portfolio-card, .home-info-card, .home-link-item, .thought-card, .gallery-window) {
+  border: 1px solid var(--hg-line-soft);
+  border-radius: var(--hg-radius-card);
+  background: linear-gradient(170deg, color-mix(in oklab, var(--hg-gold-hi) 5%, transparent), transparent 50%), var(--raksara-glass-strong);
+  box-shadow: 0 12px 30px rgb(0 0 0 / .18), inset 0 1px 0 color-mix(in oklab, var(--hg-gold-hi) 16%, transparent);
+}
+#app .home-link-item::after { display: none; }
+#app :is(.post-card, .portfolio-card, .home-info-card, .thought-card, .gallery-window)::after {
+  content: ''; position: absolute; z-index: 1;
+  top: auto; left: auto; right: 6px; bottom: 6px;
+  width: 64px; height: 54px; border: 0; border-radius: 0;
+  opacity: calc(var(--hg-carve) * .45);
+  transform: rotate(180deg);
+  -webkit-mask-image: var(--hg-ukiran-corner); mask-image: var(--hg-ukiran-corner);
+  -webkit-mask-size: contain; mask-size: contain;
+  transition: opacity .3s ease;
+}
+#app :is(.post-card, .portfolio-card, a.home-info-card-link, .home-link-item, .thought-card, .gallery-window):hover {
+  border-color: var(--hg-line);
+  box-shadow: var(--card-shadow-hover);
+}
+#app :is(.post-card, .portfolio-card, .home-info-card, .home-link-item, .thought-card, .gallery-window):hover::after { opacity: 1; }
+#app .post-card-thumb { border-radius: 14px; outline: 1px solid var(--hg-line-soft); outline-offset: -1px; }
+#app .gallery-window-dots .dot { background: color-mix(in oklab, var(--accent) 70%, transparent); }
+#app .gallery-window-dots .dot + .dot { background: color-mix(in oklab, var(--accent) 45%, transparent); }
+#app .gallery-window-dots .dot + .dot + .dot { background: color-mix(in oklab, var(--accent) 25%, transparent); }
+#app .thought-card::before { color: color-mix(in oklab, var(--accent) 50%, transparent); font-family: var(--hg-display); }
+
+/* ── Buttons: rounded pills, metallic primary with an engraved ukiran end ── */
+#app :is(.home-btn, .btn-github, .btn-demo, .share-btn, .pagination a) { border-radius: 999px; }
+#app .home-btn { min-height: 48px; padding: 12px 22px 12px 26px; font-weight: 600; letter-spacing: .01em; overflow: hidden; isolation: isolate; }
+#app :is(.home-btn, .btn-github, .btn-demo)::after {
+  content: ''; position: absolute; z-index: -1; left: 4px; top: 50%; transform: translateY(-50%);
+  width: 78%; height: 92%; opacity: .38;
+  -webkit-mask-image: var(--hg-ukiran-flourish); mask-image: var(--hg-ukiran-flourish);
+  -webkit-mask-size: contain; mask-size: contain;
+  -webkit-mask-position: left center; mask-position: left center;
+}
+#app .home-btn-primary {
+  color: var(--hg-ink-on-metal) !important;
+  border: 1px solid color-mix(in oklab, var(--hg-gold-hi) 70%, transparent);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--hg-gold-hi) 92%, #fff), var(--accent) 58%, var(--hg-gold-lo) 130%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .55), inset 0 -2px 6px color-mix(in oklab, var(--hg-gold-lo) 50%, transparent), 0 10px 28px color-mix(in oklab, var(--accent) 30%, transparent);
+  text-shadow: 0 1px 0 rgb(255 255 255 / .25);
+}
+#app .home-btn-primary::after { background: var(--hg-gold-lo); opacity: .5; }
+#app .home-btn-primary:hover { filter: brightness(1.06) saturate(1.05); box-shadow: inset 0 1px 0 rgb(255 255 255 / .6), 0 14px 34px color-mix(in oklab, var(--accent) 38%, transparent); }
+#app .home-btn-primary:active { filter: brightness(.94); transform: none; }
+:root[data-theme='light'] #app .home-btn-primary {
+  background: linear-gradient(180deg, color-mix(in oklab, var(--hg-gold-hi) 70%, #fff), color-mix(in oklab, var(--accent) 62%, var(--hg-gold-hi)) 100%);
+}
+:root[data-theme='light'] #app .home-btn-primary::after { opacity: .36; }
+#app :is(.home-btn-secondary, .home-btn-ghost, .btn-github, .btn-demo, .share-btn) {
+  color: var(--text-primary);
+  border: 1px solid var(--hg-line);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--hg-gold-hi) 10%, transparent), transparent), var(--raksara-glass-strong);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, var(--hg-gold-hi) 20%, transparent);
+}
+#app :is(.home-btn-secondary, .home-btn-ghost, .btn-github, .btn-demo):hover { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 16%, var(--raksara-glass-strong)); }
+#app :is(.home-btn, .btn-github, .btn-demo, .share-btn):focus-visible { outline: 2px solid var(--hg-gold-hi); outline-offset: 3px; }
+
+/* Tags: tracked micro-pills with a gilded hairline. */
+#app :is(.tag, .post-card-category, .status-chip) {
+  border-radius: 999px; border: 1px solid var(--hg-line-soft);
+  background: color-mix(in oklab, var(--accent) 7%, transparent);
+  color: color-mix(in oklab, var(--text-primary) 70%, var(--accent));
+}
+
+/* ── Home hero: framed glass with a carved side panel ────────────────────── */
+#app .home-hero::before, #app :is(.home-hero-aurora, .hero-waves) { display: none; }
+#app .home-hero.dot-hero { background: transparent; }
+#app .home-hero.dot-hero .home-hero-content {
+  width: min(1080px, calc(100% - 64px));
+  min-height: 560px;
+  padding: clamp(36px, 4.6vw, 60px) clamp(64px, 6vw, 88px) clamp(36px, 4.6vw, 60px) clamp(28px, 4vw, 56px);
+  margin-top: 28px;
+}
+#app .home-hero-content {
+  border: 1px solid var(--raksara-edge-border);
+  border-radius: calc(var(--hg-radius) + 6px);
+  /* No backdrop blur: the DotField portrait sits behind and must stay crisp. */
+  background: linear-gradient(105deg, color-mix(in oklab, var(--raksara-glass-strong) 88%, transparent) 0%, color-mix(in oklab, var(--raksara-glass) 70%, transparent) 48%, transparent 78%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: var(--card-shadow);
+  isolation: isolate;
+}
+#app .home-hero-content::before,
+#app .home-hero-content::after { content: ''; position: absolute; z-index: -1; border: 0; border-radius: 0; animation: none; }
+#app .home-hero-content::before {
+  top: 10px; left: 10px; right: auto; width: clamp(110px, 12vw, 170px); height: clamp(92px, 10vw, 142px);
+  opacity: calc(var(--hg-carve) * .9);
+  -webkit-mask-image: var(--hg-ukiran-corner); mask-image: var(--hg-ukiran-corner);
+  -webkit-mask-size: contain; mask-size: contain;
+}
+#app .home-hero-content::after {
+  top: 50%; right: 14px; transform: translateY(-50%);
+  width: clamp(44px, 4.6vw, 70px); height: 84%;
+  opacity: calc(var(--hg-carve) * .85);
+  -webkit-mask-image: var(--hg-ukiran-panel); mask-image: var(--hg-ukiran-panel);
+  -webkit-mask-size: contain; mask-size: contain;
+  -webkit-mask-position: center; mask-position: center;
+}
+#app .home-hero-eyebrow {
+  background: none; border: 0; box-shadow: none; padding: 0 0 0 46px; position: relative;
+  color: color-mix(in oklab, var(--text-secondary) 70%, var(--accent));
+}
+#app .home-hero-eyebrow::before { content: ''; position: absolute; left: 0; top: 50%; width: 36px; height: 1px; background: linear-gradient(90deg, transparent, var(--accent)); }
+#app .home-hero-subtitle { font-family: var(--hg-display); font-style: italic; font-size: clamp(20px, 2vw, 24px); color: color-mix(in oklab, var(--text-primary) 80%, var(--accent)); }
+#app .home-hero-work a { text-decoration-color: var(--hg-line); }
+
+/* ── Page header / article body / footer ─────────────────────────────────── */
+#app :is(.page-header, .article-header) { margin-bottom: 30px; }
+#app .article-body {
+  border: 1px solid var(--hg-line-soft); border-radius: var(--hg-radius);
+  background: var(--raksara-glass-strong);
+}
+.content-footer { position: relative; border-top: 0 !important; padding-top: 44px; }
+.content-footer::before {
+  content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: min(520px, 86%); height: 36px; opacity: .8;
+  -webkit-mask-image: var(--hg-ukiran-divider); mask-image: var(--hg-ukiran-divider);
+  -webkit-mask-size: contain; mask-size: contain;
+  -webkit-mask-position: center; mask-position: center;
+}
+.content-footer :is(.content-footer-grid, .content-footer-glow) { display: none; }
+
+/* ── Profile ─────────────────────────────────────────────────────────────── */
+#app .profile-card { border: 1px solid var(--raksara-edge-border); border-radius: var(--hg-radius); background: var(--raksara-glass-strong); box-shadow: var(--card-shadow); }
+#app :is(.profile-links a, .profile-meta-chip) { border-radius: 999px; border-color: var(--hg-line-soft); }
+
+/* ── Search overlay ──────────────────────────────────────────────────────── */
+.search-overlay-content { border: 1px solid var(--raksara-edge-border); border-radius: var(--hg-radius); background: var(--bg-glass-heavy); }
+
+::selection { background: color-mix(in oklab, var(--accent) 45%, transparent); color: var(--text-primary); }
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  #app .home-section { margin-inline: 0; padding: 20px 18px; border-radius: 22px; }
+  #app :is(.hg-frame, .home-section, .page-header, .article-header)::before { left: 4px; }
+  #app :is(.hg-frame, .home-section, .page-header, .article-header)::after { right: 4px; }
+  #app :is(.hg-frame, .home-section, .page-header, .article-header)::before,
+  #app :is(.hg-frame, .home-section, .page-header, .article-header)::after { width: 22px; height: min(60%, 160px); opacity: calc(var(--hg-carve) * .5); }
+  #app .home-hero-content::after { display: none; }
+  #app .home-hero.dot-hero .home-hero-content { width: calc(100% - 24px); min-height: 0; margin-top: 16px; padding: 12px 20px 28px; border-radius: var(--hg-radius); }
+  #app .home-hero.dot-hero .home-hero-visual { margin-top: 20px; }
+  #app .home-hero-content::before { width: 96px; height: 80px; }
+  #app .home-btn { flex: 1 1 auto; justify-content: center; }
+}
+
+/* ── Accessibility & fallbacks ───────────────────────────────────────────── */
+@media (prefers-reduced-transparency: reduce) {
+  #sidebar, .mobile-header, #app :is(.home-section, .page-header, .article-header, .home-hero-content, .post-card, .portfolio-card, .home-info-card) {
+    background: var(--bg-glass-heavy); backdrop-filter: none; -webkit-backdrop-filter: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #app :is(.post-card, .portfolio-card, .home-info-card, .home-btn)::after { transition: none; }
+}
+@media (forced-colors: active) {
+  #sidebar::before, #sidebar::after, .content-footer::before,
+  #app :is(.home-section, .page-header, .article-header, .home-hero-content, .home-section-header, .post-card, .portfolio-card, .home-info-card, .home-link-item, .thought-card, .gallery-window, .home-btn, .btn-github, .btn-demo)::after,
+  #app :is(.home-section, .page-header, .article-header, .home-hero-content)::before { display: none; }
+  #app :is(.home-hero-title .accent-gradient, .page-title) { -webkit-text-fill-color: CanvasText; color: CanvasText; background: none; }
+}
+@media print {
+  :root .bg-gradient, #sidebar::before, #sidebar::after, .content-footer::before,
+  #app :is(.home-section, .page-header, .article-header, .home-hero-content, .home-section-header, .post-card, .portfolio-card)::after,
+  #app :is(.home-section, .page-header, .article-header, .home-hero-content)::before { display: none; }
+}

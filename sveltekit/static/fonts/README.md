@@ -1,4 +1,4 @@
-# Opt-in editorial fonts
+# Heritage Glass editorial fonts
 
 Self-hosted Latin, normal variable WOFF2 assets from pinned Fontsource npm
 tarballs (5.3.0). No application dependency or runtime CDN was added.
@@ -9,6 +9,7 @@ tarballs (5.3.0). No application dependency or runtime CDN was added.
 - Inter: `files/inter-latin-wght-normal.woff2`, 48,256 bytes; weight 100–900.
   SHA256 `3100e775e8616cd2611beecfa23a4263d7037586789b43f035236a2e6fbd4c62`.
 
-Separate SIL OFL licenses accompany the files. Family names are scoped to
-heritage usage, without preloads; classic pages do not request either asset.
-Unsupported glyphs use system fallbacks. No italic face is downloaded.
+Separate SIL OFL licenses accompany the files. Loaded by
+`src/routes/heritage-glass.css` without preloads (`font-display: swap`).
+Unsupported glyphs use system fallbacks. No italic face is downloaded; the
+hero subtitle uses the browser's synthesized oblique.
