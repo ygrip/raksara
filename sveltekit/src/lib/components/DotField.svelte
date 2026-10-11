@@ -24,9 +24,9 @@
   let canvas: HTMLCanvasElement | undefined;
   let ready = $state(false);
 
-  const FRAME_MS = 1000 / 18;
+  const FRAME_MS = 1000 / 12;
   /** Frame budget while the pointer is engaged or a ripple is running. */
-  const FRAME_MS_ACTIVE = 1000 / 30;
+  const FRAME_MS_ACTIVE = 1000 / 24;
   const RIPPLE_SPEED = 520; // px/s
   const RIPPLE_WIDTH = 34; // px, gaussian half-width of the ring
   const RIPPLE_LIFE = 1.3; // s
@@ -349,9 +349,9 @@
     const bounds = host.getBoundingClientRect();
     if (bounds.width < 2 || bounds.height < 2) return null;
 
-    // Slightly tighter grid gives the subject more photographic detail without
-    // returning to the very dense/high-cost field used before the mobile perf pass.
-    const spacing = bounds.width < 640 ? 6.75 : 6.25;
+    // Bound the number of cells the portrait analyses and repaints on every frame.
+    // A slightly wider grid retains the silhouette while reducing O(cols * rows) work.
+    const spacing = bounds.width < 640 ? 8 : 7.5;
     const cols = Math.ceil(bounds.width / spacing) + 1;
     const rows = Math.ceil(bounds.height / spacing) + 1;
     const originX = (bounds.width - (cols - 1) * spacing) / 2;
