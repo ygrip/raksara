@@ -750,7 +750,7 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
     const text = typeof token === 'object' ? token.text ?? '' : '';
     const resolved = resolveContentLink(href);
     const external = resolved.startsWith('http://') || resolved.startsWith('https://');
-    return `<a href="${resolved}"${title ? ` title="${escapeHtml(title)}"` : ''}${external ? ' target="_blank" rel="noopener noreferrer"' : ''}>${text || resolved}</a>`;
+    return `<a class="prose-link" href="${escapeHtml(resolved)}"${title ? ` title="${escapeHtml(title)}"` : ''}${external ? ' target="_blank" rel="noopener noreferrer"' : ''}>${text || escapeHtml(resolved)}${external ? '<span class="link-external" aria-hidden="true">↗</span><span class="link-new-tab"> (opens in a new tab)</span>' : ''}</a>`;
   };
 
   // Code blocks: chart.js / mermaid / hljs-ready markup
@@ -763,7 +763,7 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
     if (lang === 'mermaid') return collectMermaidBlock(rawCode.trim());
 
     const classAttr = lang ? ` class="language-${escapeHtml(lang)}"` : '';
-    return `<pre><code${classAttr}>${escapeHtml(rawCode)}</code></pre>\n`;
+    return `<pre tabindex="0" aria-label="${lang ? escapeHtml(lang) + ' code' : 'Code block'}"><code${classAttr}>${escapeHtml(rawCode)}</code></pre>\n`;
   };
 
   marked.use({ renderer, breaks: opts.breaks ?? false, gfm: true });

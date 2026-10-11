@@ -12,7 +12,6 @@
 	import { getAdsenseId, getGiscusConfig } from '$lib/seo';
 	import { assetUrl } from '$lib/utils';
 	import { themeTokens, earlyThemeScript } from '$lib/theme';
-	import { loadHeritageShader } from '$lib/heritage-shaders';
 
 	let { children, data }: { children: import('svelte').Snippet; data: LayoutData } = $props();
 
@@ -246,14 +245,6 @@
 		}).join('');
 	}
 
-	// Ambient accent light (WebGPU only); loaded after first paint, CSS background is the fallback.
-	let HeritageShader: Awaited<ReturnType<typeof loadHeritageShader>> = $state(null);
-	onMount(() => {
-		const start = () => void loadHeritageShader().then((component) => (HeritageShader = component));
-		if (document.readyState === 'complete') setTimeout(start, 400);
-		else window.addEventListener('load', () => setTimeout(start, 400), { once: true });
-	});
-
 	// Apply stored theme, accent colour, and optional Google Font before first paint
 	onMount(() => {
 		const saved = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
@@ -436,9 +427,6 @@
 
 <!-- Fixed background gradient -->
 <div class="bg-gradient" aria-hidden="true"></div>
-{#if HeritageShader}
-	<div class="hg-ambient" aria-hidden="true"><HeritageShader variant="ambient" /></div>
-{/if}
 
 <!-- Mobile overlay -->
 {#if sidebarOpen}

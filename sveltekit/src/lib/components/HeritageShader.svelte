@@ -2,11 +2,9 @@
 	/** Public core API exposes the frame/pixel budgets absent from the Svelte wrapper. */
 	import { onMount } from 'svelte';
 	import { shaderRendererGPU, rootPassthrough, createGpuUniformsMap } from 'shaders/core';
-	import LightLeak from 'shaders/core/LightLeak';
 	import Sparkle from 'shaders/core/Sparkle';
 	import ImageTexture from 'shaders/core/ImageTexture';
-	import SolidColor from 'shaders/core/SolidColor';
-	import { readHeritagePalette, watchHeritagePalette, type HeritageShaderVariant } from '$lib/heritage-shaders';
+	import type { HeritageShaderVariant } from '$lib/heritage-shaders';
 
 	let { variant, src = '' }: { variant: HeritageShaderVariant; src?: string } = $props();
 	let ready = $state(false);
@@ -51,21 +49,6 @@
 		});
 		resize.observe(wrapper);
 
-		const paletteProps = () => {
-			const palette = readHeritagePalette();
-			const dark = palette.theme === 'dark';
-			return {
-				position: { x: 0.78, y: -0.05 }, spread: dark ? 0.85 : 0.7,
-				intensity: dark ? 0.32 : 0.22, streaks: 0.35,
-				colorHot: palette.hi, colorMid: palette.accent, colorFringe: palette.lo,
-				flicker: 0.18, speed: 0.25, seed: 7
-			};
-		};
-		const stopPalette = watchHeritagePalette(() => {
-			if (!initialized || variant !== 'ambient') return;
-			for (const [key, value] of Object.entries(paletteProps())) renderer.updateUniformValue('effect', key, value);
-			renderer.updateUniformValue('source', 'color', readHeritagePalette().transparent);
-		});
 		void (async () => {
 			try {
 				await renderer.initialize({ canvas, colorSpace: 'srgb', toneMapping: 'linear' });
@@ -75,12 +58,12 @@
 				renderer.setResolutionScale(0.75);
 				renderer.resize(wrapper.clientWidth, wrapper.clientHeight);
 				renderer.registerNode('root', rootPassthrough.fragment, null, null, {}, rootPassthrough);
-				const effect = variant === 'ambient' ? LightLeak : Sparkle;
-				const props = variant === 'ambient' ? paletteProps() : {
+				const effect = Sparkle;
+				const props = {
 					size: 64, intensity: 11, threshold: 0.62, expand: 0, rayLength: 9, colorize: 0.6, speed: 0.6, seed: 3
 				};
-				const source = variant === 'ambient' ? SolidColor : ImageTexture;
-				const sourceProps = variant === 'ambient' ? { color: readHeritagePalette().transparent } : { url: src, objectFit: 'cover' };
+				const source = ImageTexture;
+				const sourceProps = { url: src, objectFit: 'cover' };
 				// Vendor bridge erases prop types to unknown; its contravariant transform signature
 				// rejects its own definitions under strictFunctionTypes despite identical runtime shape.
 				renderer.registerNode('effect', effect.fragment, 'root', null, createGpuUniformsMap(effect as Parameters<typeof createGpuUniformsMap>[0], props, 'effect'), effect);
@@ -90,7 +73,6 @@
 		})();
 		return () => {
 			disposed = true;
-			stopPalette();
 			visibility.disconnect();
 			resize.disconnect();
 			document.removeEventListener('visibilitychange', syncVisibility);
