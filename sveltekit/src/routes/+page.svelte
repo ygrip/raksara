@@ -3,6 +3,7 @@
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
 	import { dotFieldImages } from '$lib/dot-field';
+	import HeritageOrnament from '$lib/components/HeritageOrnament.svelte';
 	import { assetUrl, formatDate } from '$lib/utils';
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import { buildWebSiteSchema, buildPersonSchema, serializeJsonLd } from '$lib/seo';
@@ -129,7 +130,8 @@
 			className="hero-dot-field"
 		/>
 	{/if}
-	<div class="home-hero-content">
+	<div class="home-hero-content heritage-frame">
+		<HeritageOrnament motif="ukiran" corner="top-right" size="medium" />
 		<div class="home-hero-copy">
 			{#if hero?.eyebrow}
 				<p class="home-hero-eyebrow">{hero.eyebrow}</p>
