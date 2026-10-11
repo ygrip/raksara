@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Original botanical corner ornament inspired by Indonesian ukiran. -->
+  <path d="M11 165C13 82 38 32 165 11"/>
+  <path d="M11 119C22 92 51 83 80 85 63 64 65 43 84 26"/>
+  <path d="M45 153C63 118 97 105 125 110 112 88 116 65 137 50"/>
+  <path d="M80 85C52 84 34 66 38 43 60 45 75 58 80 85Z"/>
+  <path d="M84 26C83 49 99 62 122 65 122 42 109 29 84 26Z"/>
+  <path d="M125 110C140 88 159 88 171 97 165 113 145 120 125 110Z"/>
+  <path d="M45 153C30 134 15 135 7 143 16 160 28 166 45 153Z"/>
+  <path d="M25 90c5-14 17-23 31-26M91 109c10-11 22-17 34-18"/>
+  <circle cx="15" cy="164" r="5"/>
+  <circle cx="165" cy="11" r="5"/>
+</svg>
