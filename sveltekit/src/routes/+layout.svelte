@@ -16,13 +16,22 @@
 
 	const config = $derived(data.config);
 	let AgenticTools: typeof import('$lib/components/AgenticTools.svelte').default | null = $state(null);
+	let Fireflies: typeof import('$lib/components/Fireflies.svelte').default | null = $state(null);
 
-	// WebMCP is an agent-facing enhancement, not a prerequisite for painting the UI.
-	// Keep its config fetch, setup and module parsing out of initial hydration.
+	// WebMCP and the ambient fireflies are enhancements, not prerequisites for painting
+	// the UI. Keep their module parsing and setup out of initial hydration.
 	onMount(() => {
 		let disposed = false;
 		let cancelIdle = () => {};
+		const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+		const ambient = !connection?.saveData
+			&& !matchMedia('(prefers-reduced-transparency: reduce), (forced-colors: active)').matches;
 		const load = async () => {
+			if (ambient) {
+				import('$lib/components/Fireflies.svelte')
+					.then((module) => { if (!disposed) Fireflies = module.default; })
+					.catch((error) => console.warn('[fireflies] Enhancement unavailable; keeping the static background.', error));
+			}
 			try {
 				const module = await import('$lib/components/AgenticTools.svelte');
 				if (!disposed) AgenticTools = module.default;
@@ -35,8 +44,8 @@
 				const id = window.requestIdleCallback(() => void load(), { timeout: 2500 });
 				cancelIdle = () => window.cancelIdleCallback(id);
 			} else {
-				const id = window.setTimeout(() => void load(), 1000);
-				cancelIdle = () => window.clearTimeout(id);
+				const id = setTimeout(() => void load(), 1000);
+				cancelIdle = () => clearTimeout(id);
 			}
 		};
 		if (document.readyState === 'complete') defer();
@@ -450,8 +459,10 @@
 	{/if}
 </svelte:head>
 
-<!-- Static dot grid and restrained accent lighting; no perpetual canvas repaint. -->
-<div class="bg-gradient" aria-hidden="true"></div>
+<!-- Static dot grid and accent lighting; fireflies are compositor-only CSS animation. -->
+<div class="bg-gradient" aria-hidden="true">
+	{#if Fireflies}<Fireflies />{/if}
+</div>
 
 <!-- Mobile overlay -->
 {#if sidebarOpen}
