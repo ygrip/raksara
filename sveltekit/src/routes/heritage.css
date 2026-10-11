@@ -87,11 +87,7 @@
 
 /* First adoption: one ornament, behind hero text, with DotField preserved. */
 .home-hero-content.heritage-frame > .heritage-ornament {
-    z-index: 0;
-}
-.home-hero-content.heritage-frame > .home-hero-copy,
-.home-hero-content.heritage-frame > .home-hero-visual {
-    z-index: 1;
+    z-index: 2; /* Below existing DotField hero visual (3) and copy (4). */
 }
 
 @media (max-width: 640px) {
