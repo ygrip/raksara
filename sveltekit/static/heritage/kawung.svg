@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Original geometric study inspired by kawung; transparent for CSS masking. -->
+  <ellipse cx="60" cy="31" rx="16" ry="29"/>
+  <ellipse cx="60" cy="89" rx="16" ry="29"/>
+  <ellipse cx="31" cy="60" rx="29" ry="16"/>
+  <ellipse cx="89" cy="60" rx="29" ry="16"/>
+  <path d="M60 47 73 60 60 73 47 60Z"/>
+  <circle cx="60" cy="60" r="3" fill="#000" stroke="none"/>
+</svg>
