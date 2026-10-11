@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onDestroy, onMount, tick } from 'svelte';
+	import { mount, onDestroy, onMount, tick, unmount } from 'svelte';
+	import { loadHeritageShader } from '$lib/heritage-shaders';
 	import type { PageData } from './$types';
 	import { initArticleFeatures } from '$lib/markdown';
 	import { assetUrl } from '$lib/utils';
@@ -12,6 +13,22 @@
 
 	let containerEl: HTMLElement | null = $state(null);
 	let cleanupParallax: (() => void) | null = null;
+	let shaderMounts: Array<{ host: HTMLElement; instance: Record<string, unknown> }> = [];
+
+	/** Shader accents for the prerendered hero: glints on the cover image. */
+	async function initProfileShaders() {
+		const HeritageShader = await loadHeritageShader();
+		if (!HeritageShader || !containerEl) return;
+		const cover = containerEl.querySelector<HTMLElement>('#profile-hero-bg');
+		const src = cover?.dataset['src'] ? assetUrl(cover.dataset['src']) : '';
+		if (!cover || !src || shaderMounts.some((m) => m.host === cover)) return;
+		shaderMounts.push({ host: cover, instance: mount(HeritageShader, { target: cover, props: { variant: 'cover', src } }) });
+	}
+
+	function destroyProfileShaders() {
+		for (const { instance } of shaderMounts) void unmount(instance);
+		shaderMounts = [];
+	}
 
 	// ── Easter egg: 7 taps on avatar → /admin ──────────────────
 	let eggCount = $state(0);
@@ -181,6 +198,7 @@
 			initProfileParallax();
 			initProfileShare();
 			initAvatarEasterEgg();
+			void initProfileShaders();
 			await initArticleFeatures(containerEl);
 		}
 	});
@@ -193,12 +211,14 @@
 			initProfileParallax();
 			initProfileShare();
 			initAvatarEasterEgg();
+			void initProfileShaders();
 			if (containerEl) await initArticleFeatures(containerEl);
 		})();
 	});
 
 	onDestroy(() => {
 		cleanupParallax?.();
+		destroyProfileShaders();
 		if (eggResetTimer) clearTimeout(eggResetTimer);
 		if (eggToastTimer) clearTimeout(eggToastTimer);
 	});

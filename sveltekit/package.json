@@ -23,6 +23,7 @@
 		"vite": "^7.3.1"
 	},
 	"dependencies": {
-		"minisearch": "^7.2.0"
+		"minisearch": "^7.2.0",
+		"shaders": "^4.0.4"
 	}
 }

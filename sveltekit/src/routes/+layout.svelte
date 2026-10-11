@@ -12,6 +12,7 @@
 	import { getAdsenseId, getGiscusConfig } from '$lib/seo';
 	import { assetUrl } from '$lib/utils';
 	import { themeTokens, earlyThemeScript } from '$lib/theme';
+	import { loadHeritageShader } from '$lib/heritage-shaders';
 
 	let { children, data }: { children: import('svelte').Snippet; data: LayoutData } = $props();
 
@@ -245,6 +246,14 @@
 		}).join('');
 	}
 
+	// Ambient accent light (WebGPU only); loaded after first paint, CSS background is the fallback.
+	let HeritageShader: Awaited<ReturnType<typeof loadHeritageShader>> = $state(null);
+	onMount(() => {
+		const start = () => void loadHeritageShader().then((component) => (HeritageShader = component));
+		if (document.readyState === 'complete') setTimeout(start, 400);
+		else window.addEventListener('load', () => setTimeout(start, 400), { once: true });
+	});
+
 	// Apply stored theme, accent colour, and optional Google Font before first paint
 	onMount(() => {
 		const saved = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
@@ -427,6 +436,9 @@
 
 <!-- Fixed background gradient -->
 <div class="bg-gradient" aria-hidden="true"></div>
+{#if HeritageShader}
+	<div class="hg-ambient" aria-hidden="true"><HeritageShader variant="ambient" /></div>
+{/if}
 
 <!-- Mobile overlay -->
 {#if sidebarOpen}
@@ -443,14 +455,14 @@
 <!-- Mobile header -->
 <header class="mobile-header">
 	<button
-		class="icon-btn"
+		class="icon-btn sidebar-toggle"
+		class:is-open={sidebarOpen}
 		onclick={() => (sidebarOpen = !sidebarOpen)}
-		aria-label="Toggle sidebar"
+		aria-controls="sidebar"
+		aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
 		aria-expanded={sidebarOpen}
 	>
-		<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-			<path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-		</svg>
+		<span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
 	</button>
 	<a href="/" class="logo" onclick={(event) => navigateSidebar(event, '/')}>
 		<span class="logo-icon" aria-hidden={!!config?.logo}><span id="site-logo-img-mobile"></span></span>
@@ -505,6 +517,10 @@
 						<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8.586V3a1 1 0 011-1h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 010 1.414l-5.586 5.586a1 1 0 01-1.414 0L2.293 9.293A1 1 0 012 8.586z" stroke="currentColor" stroke-width="1.2"/><circle cx="5.5" cy="5.5" r="1" fill="currentColor"/></svg>
 					{:else if route === 'categories'}
 						<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4.5A1.5 1.5 0 013.5 3h3.586a1.5 1.5 0 011.06.44L8.854 4.145A.5.5 0 009.207 4.3H12.5A1.5 1.5 0 0114 5.8V12a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 12V4.5z" stroke="currentColor" stroke-width="1.2"/></svg>
+					{:else if route === 'documentation' || route.startsWith('doc')}
+						<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 4.2C6.7 3.1 4.8 2.6 2.5 2.7v9.6c2.3-.1 4.2.4 5.5 1.5 1.3-1.1 3.2-1.6 5.5-1.5V2.7c-2.3-.1-4.2.4-5.5 1.5zM8 4.2v9.6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+					{:else if route === 'contact'}
+						<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.75" y="3.25" width="12.5" height="9.5" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M2.5 4.5L8 8.75l5.5-4.25" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
 					{:else}
 						<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M8 7v4M8 5.5v0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
 					{/if}

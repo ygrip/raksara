@@ -66,3 +66,14 @@ export async function shareUrl(title: string, url: string, text?: string): Promi
     return false;
   }
 }
+
+/**
+ * Split a leading `<h1>` off rendered Markdown so standalone pages can show it in the
+ * shared page header instead of repeating it as the first line of the body.
+ */
+export function splitLeadingHeading(html: string): { title: string | null; body: string } {
+  const match = html.match(/^\s*<h1\b[^>]*>([\s\S]*?)<\/h1>\s*/i);
+  if (!match) return { title: null, body: html };
+  const title = match[1].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"').trim();
+  return { title: title || null, body: html.slice(match[0].length) };
+}

@@ -24,9 +24,9 @@
   let canvas: HTMLCanvasElement | undefined;
   let ready = $state(false);
 
-  const FRAME_MS = 1000 / 24;
+  const FRAME_MS = 1000 / 18;
   /** Frame budget while the pointer is engaged or a ripple is running. */
-  const FRAME_MS_ACTIVE = 1000 / 45;
+  const FRAME_MS_ACTIVE = 1000 / 30;
   const RIPPLE_SPEED = 520; // px/s
   const RIPPLE_WIDTH = 34; // px, gaussian half-width of the ring
   const RIPPLE_LIFE = 1.3; // s

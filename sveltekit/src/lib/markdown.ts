@@ -1342,23 +1342,30 @@ export function initSortableTables(container: HTMLElement): void {
       wrapper.appendChild(table);
     }
 
+    // Chapters keep directory children grouped through their dedicated sorter.
+    if (table.classList.contains('chapters-table')) return;
+    if (table.dataset['sortInit']) return;
+    table.dataset['sortInit'] = '1';
     const thead = table.querySelector('thead');
     if (!thead) return;
     const headers = thead.querySelectorAll<HTMLTableCellElement>('th');
     headers.forEach((th, colIndex) => {
       th.style.cursor = 'pointer';
       th.style.userSelect = 'none';
-      th.setAttribute('role', 'button');
+      th.tabIndex = 0;
+      th.setAttribute('scope', 'col');
       th.setAttribute('aria-sort', 'none');
+      th.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); th.click(); }
+      });
       
       th.addEventListener('click', () => {
         const tbody = table.querySelector('tbody');
         if (!tbody) return;
         const rows = Array.from(tbody.querySelectorAll('tr'));
         const cur = th.getAttribute('aria-sort') ?? 'none';
-        let asc: boolean | null = cur === 'none' || cur === 'desc' ? true : cur === 'ascending' ? false : null;
+        const asc = cur !== 'ascending';
         headers.forEach((h) => h.setAttribute('aria-sort', 'none'));
-        if (asc === null) return;
         th.setAttribute('aria-sort', asc ? 'ascending' : 'descending');
         rows.sort((a, b) => {
           const ca = a.querySelectorAll('td')[colIndex]?.textContent?.trim() ?? '';
@@ -1688,13 +1695,19 @@ function initChaptersTables(container: HTMLElement): void {
     const hideChildren = () => tbody.querySelectorAll<HTMLTableRowElement>('.chapters-row-child').forEach((row) => { row.hidden = true; });
 
     block.querySelectorAll<HTMLTableCellElement>('.chapters-th-sortable').forEach((th) => {
+      th.tabIndex = 0;
+      th.setAttribute('aria-sort', 'none');
+      th.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); th.click(); }
+      });
       th.addEventListener('click', () => {
         const col = th.dataset['col'];
         const next = th.dataset['order'] === 'asc' ? 'desc' : 'asc';
-        block.querySelectorAll<HTMLElement>('.chapters-th-sortable').forEach((header) => { header.dataset['order'] = ''; });
+        block.querySelectorAll<HTMLElement>('.chapters-th-sortable').forEach((header) => { header.dataset['order'] = ''; header.setAttribute('aria-sort', 'none'); });
         th.dataset['order'] = next;
+        th.setAttribute('aria-sort', next === 'asc' ? 'ascending' : 'descending');
         const rows = getTopRows();
-        rows.forEach((row) => { row.hidden = false; row.dataset['expanded'] = 'false'; });
+        rows.forEach((row) => { row.hidden = false; row.dataset['expanded'] = 'false'; if (row.classList.contains('chapters-row-dir')) row.setAttribute('aria-expanded', 'false'); });
         hideChildren();
         rows.sort((a, b) => {
           if (col === 'date') {
@@ -1716,6 +1729,13 @@ function initChaptersTables(container: HTMLElement): void {
       });
     });
 
+    block.querySelectorAll<HTMLElement>('.chapters-row-dir, .chapters-row-page, .chapters-row-child[data-slug]').forEach((row) => {
+      row.tabIndex = 0;
+      if (row.classList.contains('chapters-row-dir')) row.setAttribute('aria-expanded', 'false');
+      row.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); row.click(); }
+      });
+    });
     block.addEventListener('click', (event) => {
       const target = event.target as HTMLElement;
       const dirRow = target.closest<HTMLTableRowElement>('.chapters-row-dir');
@@ -1723,6 +1743,7 @@ function initChaptersTables(container: HTMLElement): void {
         const id = dirRow.dataset['dirId'];
         const expanded = dirRow.dataset['expanded'] === 'true';
         dirRow.dataset['expanded'] = expanded ? 'false' : 'true';
+        dirRow.setAttribute('aria-expanded', expanded ? 'false' : 'true');
         block.querySelectorAll<HTMLTableRowElement>(`.chapters-row-child[data-parent-dir="${CSS.escape(id ?? '')}"]`).forEach((row) => {
           row.hidden = expanded;
         });

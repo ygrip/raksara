@@ -1,15 +1,14 @@
-# Heritage Glass editorial fonts
+# Heritage Glass fonts
 
-Self-hosted Latin, normal variable WOFF2 assets from pinned Fontsource npm
-tarballs (5.3.0). No application dependency or runtime CDN was added.
+Self-hosted Latin variable WOFF2 files from the Fontsource npm packages
+(`@fontsource-variable/*` 5.3.0). No runtime dependency or font CDN.
 
-- Newsreader: `files/newsreader-latin-standard-normal.woff2`, 132,000 bytes;
-  weight 200–800 and optical size 6–72. SHA256
-  `6e4f2958c3a7c4a80acde4e5a679abe7e01bc1e30b92be3c7a8b696ef401d101`.
-- Inter: `files/inter-latin-wght-normal.woff2`, 48,256 bytes; weight 100–900.
-  SHA256 `3100e775e8616cd2611beecfa23a4263d7037586789b43f035236a2e6fbd4c62`.
+- Cormorant Garamond (display): `cormorant-garamond-latin-wght-normal.woff2`
+  (37,640 bytes) and `cormorant-garamond-latin-wght-italic.woff2`
+  (39,260 bytes), weight 300–700.
+- Plus Jakarta Sans (body/UI, designed by Tokotype, Jakarta):
+  `plus-jakarta-sans-latin-wght-normal.woff2` (27,348 bytes), weight 200–800.
 
-Separate SIL OFL licenses accompany the files. Loaded by
-`src/routes/heritage-glass.css` without preloads (`font-display: swap`).
-Unsupported glyphs use system fallbacks. No italic face is downloaded; the
-hero subtitle uses the browser's synthesized oblique.
+SIL OFL 1.1 licenses accompany the files. Loaded by
+`src/routes/heritage-glass.css` with `font-display: swap`; a `config.font`
+override in `raksara.yml` still replaces the body face at runtime.

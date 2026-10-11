@@ -3,6 +3,7 @@
 	import type { PageData } from './$types';
 	import { initArticleFeatures } from '$lib/markdown';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
+	import { splitLeadingHeading } from '$lib/utils';
 
 	let { data }: { data: PageData } = $props();
 	const page = $derived(data.page);
@@ -12,7 +13,9 @@
 	const nextPage = $derived(data.nextPage);
 	const previousPage = $derived(data.previousPage);
 	const docs = $derived(data.docs);
-	const renderedHtml = $derived(data.renderedHtml ?? '');
+	const rendered = $derived(splitLeadingHeading(data.renderedHtml ?? ''));
+	const renderedHtml = $derived(rendered.body);
+	const headerTitle = $derived(rendered.title ?? page?.title ?? '');
 	const pageDescription = $derived(
 		page?.summary?.trim()
 			|| page?.description?.trim()
@@ -41,7 +44,15 @@
 	<meta name="description" content={pageDescription} />
 </svelte:head>
 
-<article bind:this={articleEl} class="mx-auto max-w-3xl">
+<article bind:this={articleEl} class="mx-auto max-w-3xl standalone-page">
+	{#if headerTitle}
+		<header class="page-header">
+			<div>
+				<h1 class="page-title">{headerTitle}</h1>
+				{#if page?.summary}<p class="page-subtitle">{page.summary}</p>{/if}
+			</div>
+		</header>
+	{/if}
 	{#if renderedHtml}
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 		<div class="article-body prose" style="color: var(--text-primary);">{@html renderedHtml}</div>
