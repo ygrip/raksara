@@ -1,6 +1,7 @@
 <script lang="ts">
 	import './layout.css';
 	import './visual-polish.css';
+	import './heritage-glass.css';
 	import { onMount } from 'svelte';
 	import { navigating, page } from '$app/stores';
 	import { goto } from '$app/navigation';
@@ -10,6 +11,7 @@
 	import AdcashAutoTag from '$lib/components/AdcashAutoTag.svelte';
 	import { getAdsenseId, getGiscusConfig } from '$lib/seo';
 	import { assetUrl } from '$lib/utils';
+	import { themeTokens, earlyThemeScript } from '$lib/theme';
 
 	let { children, data }: { children: import('svelte').Snippet; data: LayoutData } = $props();
 
@@ -217,17 +219,6 @@
 		}
 	});
 
-	// BL-015: Named color palette system
-	const COLOR_PALETTES: Record<string, { accent: string; hoverDark: string; hoverLight: string; g1: string; g2: string; g3: string; rgb: string }> = {
-		purple: { accent: '#6366f1', hoverDark: '#818cf8', hoverLight: '#4f46e5', g1: '#6366f1', g2: '#8b5cf6', g3: '#a855f7', rgb: '99,102,241' },
-		blue: { accent: '#3b82f6', hoverDark: '#60a5fa', hoverLight: '#2563eb', g1: '#3b82f6', g2: '#06b6d4', g3: '#0ea5e9', rgb: '59,130,246' },
-		red: { accent: '#ef4444', hoverDark: '#f87171', hoverLight: '#dc2626', g1: '#ef4444', g2: '#f43f5e', g3: '#ec4899', rgb: '239,68,68' },
-		yellow: { accent: '#eab308', hoverDark: '#facc15', hoverLight: '#ca8a04', g1: '#eab308', g2: '#f59e0b', g3: '#f97316', rgb: '234,179,8' },
-		amber: { accent: '#b76e00', hoverDark: '#efc06e', hoverLight: '#9a5c00', g1: '#e5a940', g2: '#b76e00', g3: '#7c4a03', rgb: '183,110,0' },
-		green: { accent: '#22c55e', hoverDark: '#4ade80', hoverLight: '#16a34a', g1: '#22c55e', g2: '#10b981', g3: '#14b8a6', rgb: '34,197,94' },
-		orange: { accent: '#f97316', hoverDark: '#fb923c', hoverLight: '#ea580c', g1: '#f97316', g2: '#fb923c', g3: '#fbbf24', rgb: '249,115,22' },
-	};
-
 	function getPwaAssetVersion(siteConfig: LayoutData['config']): string {
 		if (!siteConfig) return 'default';
 		const extended = siteConfig as typeof siteConfig & { pwa_asset_version?: string };
@@ -237,68 +228,26 @@
 			.replace(/[^a-zA-Z0-9_-]+/g, '-');
 	}
 
-	const selectedAccent = $derived(
-		config?.accent
-			?? COLOR_PALETTES[(config?.color || '').toLowerCase()]?.accent
-			?? COLOR_PALETTES.purple.accent
-	);
+	const selectedAccent = $derived(themeTokens(config ?? {}, currentTheme)['--accent']);
 	const pwaAssetVersion = $derived(getPwaAssetVersion(config));
 	const pwaAssetQuery = $derived(`?v=${encodeURIComponent(pwaAssetVersion)}`);
 
 	function applyAccentColor(theme = currentTheme) {
-		if (!config) return;
-		const palette = COLOR_PALETTES[(config.color || '').toLowerCase()] ?? COLOR_PALETTES.purple;
-		const isDark = theme !== 'light';
-		const root = document.documentElement.style;
-		root.setProperty('--accent', config.accent || palette.accent);
-		root.setProperty('--accent-hover', isDark ? palette.hoverDark : palette.hoverLight);
-		root.setProperty('--accent-subtle', `rgba(${palette.rgb},${isDark ? 0.12 : 0.08})`);
-		root.setProperty('--accent-border', `rgba(${palette.rgb},${isDark ? 0.3 : 0.2})`);
-		root.setProperty('--accent-glow', `rgba(${palette.rgb},${isDark ? 0.15 : 0.1})`);
-		root.setProperty('--accent-rgb', palette.rgb);
-		root.setProperty('--gradient-1', config.gradient_1 || palette.g1);
-		root.setProperty('--gradient-2', config.gradient_2 || palette.g2);
-		root.setProperty('--gradient-3', config.gradient_3 || palette.g3);
-		root.setProperty('--gradient-4', config.gradient_1 || palette.g1);
-		root.setProperty('--bg-hover', isDark ? 'rgba(255,255,255,0.06)' : `rgba(${palette.rgb},0.06)`);
-		root.setProperty('--bg-active', isDark ? 'rgba(255,255,255,0.08)' : `rgba(${palette.rgb},0.08)`);
-		root.setProperty(
-			'--gradient-bg',
-			`radial-gradient(ellipse 80% 60% at 20% 0%, rgba(${palette.rgb},${isDark ? 0.12 : 0.08}) 0%, transparent 50%),` +
-				`radial-gradient(ellipse 60% 50% at 80% 100%, rgba(${palette.rgb},${isDark ? 0.08 : 0.06}) 0%, transparent 50%),` +
-				`radial-gradient(ellipse 50% 40% at 50% 50%, rgba(${palette.rgb},${isDark ? 0.05 : 0.03}) 0%, transparent 50%)`
-		);
+		for (const [key, value] of Object.entries(themeTokens(config ?? {}, theme))) {
+			document.documentElement.style.setProperty(key, value);
+		}
 	}
 
-	function paletteStyle(theme = currentTheme): string {
-		const palette = COLOR_PALETTES[(config?.color || '').toLowerCase()] ?? COLOR_PALETTES.purple;
-		const isDark = theme !== 'light';
-		const accent = config?.accent || palette.accent;
-		const hover = isDark ? palette.hoverDark : palette.hoverLight;
-		const subtle = `rgba(${palette.rgb},${isDark ? 0.12 : 0.08})`;
-		const border = `rgba(${palette.rgb},${isDark ? 0.3 : 0.2})`;
-		const glow = `rgba(${palette.rgb},${isDark ? 0.15 : 0.1})`;
-		const bgHover = isDark ? 'rgba(255,255,255,0.06)' : `rgba(${palette.rgb},0.06)`;
-		const bgActive = isDark ? 'rgba(255,255,255,0.08)' : `rgba(${palette.rgb},0.08)`;
-		const g1 = config?.gradient_1 || palette.g1;
-		const g2 = config?.gradient_2 || palette.g2;
-		const g3 = config?.gradient_3 || palette.g3;
-		const gradient = `radial-gradient(ellipse 80% 60% at 20% 0%, rgba(${palette.rgb},${isDark ? 0.12 : 0.08}) 0%, transparent 50%),radial-gradient(ellipse 60% 50% at 80% 100%, rgba(${palette.rgb},${isDark ? 0.08 : 0.06}) 0%, transparent 50%),radial-gradient(ellipse 50% 40% at 50% 50%, rgba(${palette.rgb},${isDark ? 0.05 : 0.03}) 0%, transparent 50%)`;
-		return `:root{--accent:${accent};--accent-hover:${hover};--accent-subtle:${subtle};--accent-border:${border};--accent-glow:${glow};--accent-rgb:${palette.rgb};--gradient-1:${g1};--gradient-2:${g2};--gradient-3:${g3};--gradient-4:${g1};--bg-hover:${bgHover};--bg-active:${bgActive};--gradient-bg:${gradient};}`;
-	}
-
-	function earlyThemeScript(): string {
-		const color = (config?.color || 'green').toLowerCase();
-		const accent = config?.accent ?? '';
-		const gradient1 = config?.gradient_1 ?? '';
-		const gradient2 = config?.gradient_2 ?? '';
-		const gradient3 = config?.gradient_3 ?? '';
-		return `(function(){try{var palettes=${JSON.stringify(COLOR_PALETTES)};var color=${JSON.stringify(color)};var explicitAccent=${JSON.stringify(accent)};var explicitG1=${JSON.stringify(gradient1)};var explicitG2=${JSON.stringify(gradient2)};var explicitG3=${JSON.stringify(gradient3)};var theme=localStorage.getItem('raksara-theme')||'dark';var palette=palettes[color]||palettes.green||palettes.purple;var dark=theme!=='light';var root=document.documentElement;var style=root.style;root.setAttribute('data-theme',theme);root.style.colorScheme=dark?'dark':'light';style.setProperty('--accent',explicitAccent||palette.accent);style.setProperty('--accent-hover',dark?palette.hoverDark:palette.hoverLight);style.setProperty('--accent-subtle','rgba('+palette.rgb+','+(dark?0.12:0.08)+')');style.setProperty('--accent-border','rgba('+palette.rgb+','+(dark?0.3:0.2)+')');style.setProperty('--accent-glow','rgba('+palette.rgb+','+(dark?0.15:0.1)+')');style.setProperty('--accent-rgb',palette.rgb);style.setProperty('--gradient-1',explicitG1||palette.g1);style.setProperty('--gradient-2',explicitG2||palette.g2);style.setProperty('--gradient-3',explicitG3||palette.g3);style.setProperty('--gradient-4',explicitG1||palette.g1);style.setProperty('--bg-hover',dark?'rgba(255,255,255,0.06)':'rgba('+palette.rgb+',0.06)');style.setProperty('--bg-active',dark?'rgba(255,255,255,0.08)':'rgba('+palette.rgb+',0.08)');style.setProperty('--gradient-bg','radial-gradient(ellipse 80% 60% at 20% 0%, rgba('+palette.rgb+','+(dark?0.12:0.08)+') 0%, transparent 50%),radial-gradient(ellipse 60% 50% at 80% 100%, rgba('+palette.rgb+','+(dark?0.08:0.06)+') 0%, transparent 50%),radial-gradient(ellipse 50% 40% at 50% 50%, rgba('+palette.rgb+','+(dark?0.05:0.03)+') 0%, transparent 50%)');}catch(e){}})();`;
+	function paletteStyle(): string {
+		return ['dark', 'light'].map(theme => {
+			const tokens = Object.entries(themeTokens(config ?? {}, theme)).map(([key, value]) => `${key}:${value};`).join('');
+			return `${theme === 'dark' ? ':root' : '[data-theme="light"]'}{${tokens}}`;
+		}).join('');
 	}
 
 	// Apply stored theme, accent colour, and optional Google Font before first paint
 	onMount(() => {
-		const saved = localStorage.getItem('raksara-theme') ?? 'dark';
+		const saved = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 		currentTheme = saved;
 		document.documentElement.setAttribute('data-theme', saved);
 		syncThemeAssets(saved);
@@ -423,14 +372,15 @@
 		const next = currentTheme === 'dark' ? 'light' : 'dark';
 		currentTheme = next;
 		document.documentElement.setAttribute('data-theme', next);
-		localStorage.setItem('raksara-theme', next);
+		try { localStorage.setItem('raksara-theme', next); }
+		catch { /* Private/storage-disabled browsing still switches this session. */ }
 		applyAccentColor(next);
 		syncThemeAssets(next);
 	}
 </script>
 
 <svelte:head>
-	{@html `<script>${earlyThemeScript()}</script>`}
+	{@html `<script>${earlyThemeScript(config ?? {})}</script>`}
 	{@html `<style id="raksara-config-palette">${paletteStyle()}</style>`}
 	<meta name="theme-color" content={selectedAccent} />
 	<meta name="mobile-web-app-capable" content="yes" />
