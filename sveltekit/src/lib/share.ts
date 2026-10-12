@@ -135,9 +135,25 @@ function loadImage(src: string, timeout = 2500): Promise<HTMLImageElement> {
 	return promise;
 }
 
-function createLogoImage(color: string): Promise<HTMLImageElement> {
-	const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-14 -10 124 120" fill="${color}" stroke="${color}"><path d="M50 8 L8 50 L50 92 L92 50" stroke-width="10" stroke-linejoin="miter" stroke-linecap="butt" fill="none"/><path d="M 50 8 L 68 26" stroke-width="10" stroke-linecap="butt" fill="none"/><rect x="52" y="45" width="40" height="10" stroke="none"/><path d="M 35 22 C 22 8, 6 -2, -8 -4 C -4 4, 10 18, 26 32 Z" stroke="none"/><path d="M 26 68 C 10 84, -4 96, -8 104 C 4 96, 18 82, 35 78 Z" stroke="none"/></svg>`;
-	const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+/**
+ * The site's own logo, tinted for the footer medallion. Prefers the inline SVG
+ * the layout injects from `config.logo` (exactly what the sidebar shows) and
+ * falls back to `/favicon.svg`, which the metadata build renders from it.
+ */
+async function loadSiteLogo(color: string): Promise<HTMLImageElement | null> {
+	const inline = document.querySelector('#site-logo-img svg, #site-logo-img-mobile svg');
+	const markup = inline?.outerHTML
+		?? await fetch('/favicon.svg').then((response) => (response.ok ? response.text() : '')).catch(() => '');
+	if (!markup) return null;
+	const svg = new DOMParser().parseFromString(markup, 'image/svg+xml').documentElement;
+	if (svg.nodeName !== 'svg') return null;
+	svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+	// Logos paint with `currentColor` (or a baked favicon fill); force the accent.
+	svg.setAttribute('fill', color);
+	svg.setAttribute('color', color);
+	svg.setAttribute('width', '256');
+	svg.setAttribute('height', '256');
+	const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' }));
 	return loadImage(url).finally(() => URL.revokeObjectURL(url));
 }
 
@@ -508,7 +524,7 @@ export async function generateShareImage(payload: SharePayload): Promise<Blob | 
 	const theme = readShareTheme();
 	const [ornaments, logo, cover, avatar, galleryImages] = await Promise.all([
 		loadOrnaments(),
-		createLogoImage(rgba(theme.accentText)).catch(() => null),
+		loadSiteLogo(rgba(theme.accentText)).catch(() => null),
 		payload.coverUrl ? loadImage(assetUrl(payload.coverUrl)).catch(() => null) : null,
 		payload.avatarUrl ? loadImage(assetUrl(payload.avatarUrl)).catch(() => null) : null,
 		Promise.all((payload.galleryImageUrls ?? []).slice(0, 3).map((url) => loadImage(assetUrl(url)).catch(() => null))),
