@@ -4,11 +4,9 @@
    * Full-bleed halftone dot field. Every dot sits on one shared grid that spans
    * the host; dots inside the `anchor` element's box are sized from the portrait
    * image, the rest form a faint ambient grid. Colour comes from `--accent`.
-   * Motion: staggered reveal, per-dot twinkle and a slow diagonal glint. With
-   * several images, lit dots fly along curved, staggered paths into the next
-   * image's dots. Mouse and touch push nearby dots aside and light them up;
-   * clicks/taps send a ripple. Reduced-motion users get a single static,
-   * non-interactive frame.
+   * Motion is limited to reveal, image morphs, theme changes and pointer input.
+   * Held images stay still; a single image has no idle frame loop.
+   * Reduced-motion users get a single static, non-interactive frame.
    */
   interface Props {
     src?: string;
@@ -40,9 +38,6 @@
   const REVEAL_END = 2;
   /** Resting ambient alpha, as a multiple of --dot-field-ambient. */
   const AMBIENT_BASE = 0.8;
-  /** Cached-layer glint: bands either side of centre, spanning ±GLINT_REACH × band. */
-  const GLINT_STEPS = 4;
-  const GLINT_REACH = 2;
   /** Theme switch: the halftone inverts in a wave from the focal centre. */
   const INVERT_MS = 1100;
   /** Width of the inversion wavefront, as a share of the normalised reveal delay. */
@@ -66,7 +61,6 @@
     tone: Float32Array;
     /** Ink-on-paper variant for light themes; same array when not invertible. */
     ink: Float32Array;
-    phase: Float32Array;
     delay: Float32Array;
   };
 
@@ -80,7 +74,7 @@
     return t * t * (3 - 2 * t);
   }
 
-  /** Deterministic 0..1 hash so twinkle phases are stable across rebuilds. */
+  /** Deterministic 0..1 hash keeps reveal and flight staggering stable. */
   function hash(x: number, y: number): number {
     const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
     return s - Math.floor(s);
@@ -436,7 +430,6 @@
     const tone = new Float32Array(total);
     const invertible = Boolean(portrait && portraitInk && portraitInk !== portrait);
     const ink = invertible ? new Float32Array(total) : tone;
-    const phase = new Float32Array(total);
     const delay = new Float32Array(total);
     const slot = anchor?.getBoundingClientRect();
     const centerX = portrait ? px + pw / 2 : slot ? slot.left - bounds.left + slot.width / 2 : bounds.width * 0.7;
@@ -475,7 +468,6 @@
         x[count] = dx;
         y[count] = dy;
         tone[count] = t;
-        phase[count] = hash(col, row) * Math.PI * 2;
         delay[count] = (Math.hypot(dx - centerX, dy - centerY) / reach) * 1.1 + hash(row, col) * 0.18;
         count += 1;
       }
@@ -483,7 +475,7 @@
 
     return {
       width: bounds.width, height: bounds.height, spacing, cols, rows, originX, originY, count,
-      cx: centerX, cy: centerY, x, y, tone, ink, phase, delay
+      cx: centerX, cy: centerY, x, y, tone, ink, delay
     };
   }
 
@@ -521,6 +513,10 @@
     let lastPaint = 0;
     let start = performance.now();
     let visible = true;
+    let inViewport = true;
+    let dirty = true;
+    let paintedImage = -1;
+    let wasMoving = false;
     // Interaction: a smoothed pointer (mouse or touch) pushes nearby dots
     // outward and lights them up; taps/clicks emit an expanding ripple.
     let pointerX = -1e4;
@@ -649,7 +645,14 @@
 
     const readTheme = () => {
       if (!host) return;
-      color = getComputedStyle(host).getPropertyValue('--accent').trim() || color;
+      // `--dot-field-color` (via the host's `color`) lets the theme pick a more
+      // luminous tint than the raw accent; canvas ignores colours it can't parse,
+      // so fall back to the accent rather than painting black.
+      const style = getComputedStyle(host);
+      const accent = style.getPropertyValue('--accent').trim() || color;
+      ctx.fillStyle = accent;
+      ctx.fillStyle = style.color || accent;
+      color = String(ctx.fillStyle);
       ambient = cssNumber(host, '--dot-field-ambient', 0.1);
       strength = cssNumber(host, '--dot-field-strength', 1);
     };
@@ -663,7 +666,7 @@
       // Arrays are resized; an in-flight inversion can't blend across layouts.
       invertStart = -Infinity;
       blendFrames = [];
-      dpr = lowPower.matches ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+      dpr = lowPower.matches ? 1 : Math.min(window.devicePixelRatio || 1, 1.5);
       canvas.width = Math.round(field.width * dpr);
       canvas.height = Math.round(field.height * dpr);
       canvas.style.width = `${field.width}px`;
@@ -681,14 +684,10 @@
 
     const paint = (elapsed: number, animate: boolean, now = performance.now()) => {
       if (!field) return;
-      const { width, height, spacing, cols, rows, originX, originY, count, x, y, tone, ink, phase, delay } = field;
+      const { width, height, spacing, cols, rows, originX, originY, count, x, y, tone, ink, delay } = field;
       ctx.clearRect(0, 0, width, height);
       ctx.fillStyle = color;
 
-      // Diagonal glint sweeping across the field every ~11s.
-      const span = width * 0.8 + height * 0.6;
-      const band = Math.max(140, span * 0.12);
-      const glintAt = animate ? ((elapsed * span) / 11) % (span + band * 4) - band * 2 : -1e6;
       const pointerRadius = Math.max(90, Math.min(150, width * 0.09));
       const pointerRadius2 = 2 * pointerRadius * pointerRadius;
       const reach2 = pointerRadius2 * 4.5; // skip the exp() for far dots
@@ -706,7 +705,7 @@
       const gridLit = flight || inverting ? null : (litFrames[morph.from] ?? litBase);
       // During the reveal (and the static reduced-motion frame) every dot is
       // individually shaded. Afterwards resting ambient dots come from the
-      // cached layer and only lit, glinting-near-pointer or rippled dots and
+      // cached layer and only lit, near-pointer or rippled dots and
       // particles are shaded: a few thousand dots instead of the whole grid.
       // The inversion wave touches lit and unlit cells alike, so shade them all briefly.
       const full = !animate || elapsed < REVEAL_END || inverting;
@@ -720,7 +719,7 @@
 
       let total = 0;
       /** Shade one dot drawn at (bx, by); `energy` (0..1) marks a dot in flight. */
-      const shade = (bx: number, by: number, t: number, dotPhase: number, dotDelay: number, energy: number) => {
+      const shade = (bx: number, by: number, t: number, dotDelay: number, energy: number) => {
         const reveal = animate ? smoothstep(0, 1, (elapsed - dotDelay) / 0.7) : 1;
         if (reveal <= 0) return;
         const slot = total;
@@ -728,9 +727,6 @@
         drawX[slot] = bx;
         drawY[slot] = by;
         const occupancy = smoothstep(0, 0.12, t);
-        const d = (bx * 0.8 + by * 0.6 - glintAt) / band;
-        const glint = d > -3 && d < 3 ? Math.exp(-d * d) : 0;
-        const wave = animate && occupancy > 0 ? Math.sin(elapsed * (0.8 + 0.6 * occupancy) + dotPhase) : 0;
 
         let lift = 0;
         if (pointerOn) {
@@ -759,15 +755,13 @@
         ring = Math.min(1, ring);
 
         // Blend occupancy too: switching at t > 0 would make faint subject dots
-        // pop between the ambient and subject looks. Ambient dots don't twinkle,
-        // so resting ones match the cached layer exactly.
-        const ambientAlpha = ambient * AMBIENT_BASE + glint * ambient * 1.6 + lift * 0.32 + ring * 0.38;
-        const subjectAlpha = (0.16 + 0.84 * t) * (0.84 + 0.16 * wave) * strength + glint * 0.2 + lift * 0.35 + ring * 0.45
-          + energy * 0.16;
-        const ambientRadius = baseRadius * (1 + glint * 0.6 + lift * 1.9 + ring * 2.2) + 0.45;
+        // pop between ambient and subject. Resting dots match the cached layer.
+        const ambientAlpha = ambient * AMBIENT_BASE + lift * 0.32 + ring * 0.38;
+        const subjectAlpha = (0.16 + 0.84 * t) * strength + lift * 0.35 + ring * 0.45 + energy * 0.16;
+        const ambientRadius = baseRadius * (1 + lift * 1.9 + ring * 2.2) + 0.45;
         // Wider radius range adds depth: shadow/detail dots stay finer while
         // highlights carry more visual weight. In-flight dots tighten into sparks.
-        const subjectRadius = spacing * (0.08 + 0.4 * t) * (1 + glint * 0.14 + lift * 0.35 + ring * 0.45) * (1 - 0.18 * energy);
+        const subjectRadius = spacing * (0.08 + 0.4 * t) * (1 + lift * 0.35 + ring * 0.45) * (1 - 0.18 * energy);
         const alpha = ambientAlpha + (subjectAlpha - ambientAlpha) * occupancy;
         const radius = ambientRadius + (subjectRadius - ambientRadius) * occupancy;
         alphaOut[slot] = Math.min(1, alpha * reveal);
@@ -777,7 +771,7 @@
       const cell = (i: number) => {
         if (stamp[i] === paintId) return;
         stamp[i] = paintId;
-        shade(x[i], y[i], gridTone ? gridTone[i] : 0, phase[i], delay[i], 0);
+        shade(x[i], y[i], gridTone ? gridTone[i] : 0, delay[i], 0);
       };
       /** Shade every cell whose centre lies within `radius` of (px, py). */
       const cellsNear = (px: number, py: number, radius: number, inner = 0) => {
@@ -801,8 +795,7 @@
       if (full) {
         for (let i = 0; i < count; i += 1) cell(i);
       } else {
-        // Resting ambient grid: cached layer minus the pointer disc (those dots
-        // move, so they're shaded live), glint added as stepped clipped bands.
+        // Reuse the resting grid except for dots displaced by interaction.
         ctx.save();
         if (pointerOn) {
           ctx.beginPath();
@@ -811,31 +804,6 @@
           ctx.clip('evenodd');
         }
         ctx.drawImage(ambientLayer, 0, 0, width, height);
-        const far = width + height;
-        const strip = (band * GLINT_REACH * 2) / (GLINT_STEPS * 2 + 1);
-        for (let step = -GLINT_STEPS; step <= GLINT_STEPS; step += 1) {
-          const s0 = glintAt + (step - 0.5) * strip;
-          const s1 = s0 + strip;
-          if (s1 < 0 || s0 > span) continue;
-          const mid = step * strip;
-          // Overlaying the layer with alpha a adds ≈ a × base; aim for the
-          // live glint's extra 1.6 × ambient (base is AMBIENT_BASE × ambient).
-          let gain = (Math.exp(-((mid / band) ** 2)) * 1.6) / AMBIENT_BASE;
-          ctx.save();
-          ctx.beginPath();
-          ctx.moveTo(0.8 * s0 - 0.6 * far, 0.6 * s0 + 0.8 * far);
-          ctx.lineTo(0.8 * s0 + 0.6 * far, 0.6 * s0 - 0.8 * far);
-          ctx.lineTo(0.8 * s1 + 0.6 * far, 0.6 * s1 - 0.8 * far);
-          ctx.lineTo(0.8 * s1 - 0.6 * far, 0.6 * s1 + 0.8 * far);
-          ctx.closePath();
-          ctx.clip();
-          while (gain > 0.02) {
-            ctx.globalAlpha = Math.min(1, gain);
-            ctx.drawImage(ambientLayer, 0, 0, width, height);
-            gain -= 1;
-          }
-          ctx.restore();
-        }
         ctx.restore();
         if (gridLit) for (let k = 0; k < gridLit.length; k += 1) cell(gridLit[k]);
         if (pointerOn) cellsNear(pointerX, pointerY, reach);
@@ -848,7 +816,7 @@
       if (flight) {
         // Each particle leaves its source dot on a staggered schedule, bows out
         // along a curved path and lands exactly on its destination dot (same
-        // tone, phase and size as the next held frame).
+        // tone and size as the next held frame).
         const fromTone = toneFrames[morph.from];
         const toTone = toneFrames[morph.to];
         const { src, dst, lag, curl, bloomX, bloomY } = flight;
@@ -863,7 +831,6 @@
             x[s] + dx * p - dy * curl[k] * arc + bloomX[k] * arc,
             y[s] + dy * p + dx * curl[k] * arc + bloomY[k] * arc,
             fromTone[s] + (toTone[d] - fromTone[s]) * p,
-            phase[s] + (phase[d] - phase[s]) * p,
             delay[s] + (delay[d] - delay[s]) * p,
             arc
           );
@@ -906,11 +873,14 @@
     const tick = (now: number) => {
       frame = 0;
       if (disposed || !visible) return;
-      // Once the deferred field is loaded, keep the subtle breathing motion on
-      // mobile too; low-power devices still use 1x DPR and the lower frame rate.
-      const interactive = pointerLift > 0.01 || ripples.length > 0 || invertProgress(now) < 1;
-      const budget = interactive ? FRAME_MS_ACTIVE : FRAME_MS;
-      if (now - lastPaint >= budget - 2) {
+      const elapsed = (now - start) / 1000;
+      const morph = morphFrame(elapsed, toneFrames.length);
+      const pointerMoving = Math.abs((pointerActive ? 1 : 0) - pointerLift) > 0.002
+        || (pointerActive && (Math.abs(targetX - pointerX) > 0.1 || Math.abs(targetY - pointerY) > 0.1));
+      const moving = elapsed < REVEAL_END || morph.progress > 0
+        || pointerMoving || ripples.length > 0 || invertProgress(now) < 1;
+      const budget = pointerMoving || ripples.length > 0 || invertProgress(now) < 1 ? FRAME_MS_ACTIVE : FRAME_MS;
+      if ((dirty || moving || wasMoving || paintedImage !== morph.from) && now - lastPaint >= budget - 2) {
         lastPaint = now;
         pointerLift += ((pointerActive ? 1 : 0) - pointerLift) * 0.14;
         if (pointerX < -1e3) {
@@ -920,23 +890,23 @@
           pointerX += (targetX - pointerX) * 0.3;
           pointerY += (targetY - pointerY) * 0.3;
         }
-        paint((now - start) / 1000, true, now);
+        paint(elapsed, true, now);
+        dirty = false;
+        paintedImage = morph.from;
+        wasMoving = moving;
       }
-      // Sleep until the next frame is due rather than waking on every display
-      // refresh just to skip it (60–120 Hz callbacks for a 24 fps animation).
-      const wait = lastPaint + budget - performance.now();
-      if (wait > 10) {
-        wakeTimer = setTimeout(() => {
-          wakeTimer = 0;
-          if (!disposed && visible && !frame) frame = requestAnimationFrame(tick);
-        }, wait - 6);
-      } else {
-        frame = requestAnimationFrame(tick);
-      }
+      if (!moving && !dirty && !wasMoving && toneFrames.length < 2) return;
+      // Held images only check for their next morph; they do not repaint.
+      const wait = moving || dirty || wasMoving ? Math.max(0, lastPaint + budget - performance.now() - 6) : 250;
+      wakeTimer = setTimeout(() => {
+        wakeTimer = 0;
+        if (!disposed && visible && !frame) frame = requestAnimationFrame(tick);
+      }, wait);
     };
 
     const schedule = () => {
-      if (disposed) return;
+      if (disposed || !visible) return;
+      dirty = true;
       if (wakeTimer) {
         clearTimeout(wakeTimer);
         wakeTimer = 0;
@@ -1035,14 +1005,27 @@
     });
 
     const intersection = new IntersectionObserver(([entry]) => {
-      visible = entry.isIntersecting && document.visibilityState === 'visible';
+      inViewport = entry.isIntersecting;
+      visible = inViewport && document.visibilityState === 'visible';
       if (visible) schedule();
+      else {
+        cancelAnimationFrame(frame);
+        frame = 0;
+        if (wakeTimer) clearTimeout(wakeTimer);
+        wakeTimer = 0;
+      }
     });
     intersection.observe(host);
 
     const onVisibility = () => {
-      visible = document.visibilityState === 'visible';
+      visible = inViewport && document.visibilityState === 'visible';
       if (visible) schedule();
+      else {
+        cancelAnimationFrame(frame);
+        frame = 0;
+        if (wakeTimer) clearTimeout(wakeTimer);
+        wakeTimer = 0;
+      }
     };
     document.addEventListener('visibilitychange', onVisibility);
 
@@ -1056,6 +1039,7 @@
       return { x: clientX - rect.left, y: clientY - rect.top };
     };
     const track = (clientX: number, clientY: number) => {
+      if (!canAnimate()) return;
       const p = toLocal(clientX, clientY);
       if (!p) return;
       targetX = p.x;
@@ -1072,6 +1056,7 @@
       schedule();
     };
     const addRipple = (clientX: number, clientY: number) => {
+      if (!canAnimate()) return;
       const p = toLocal(clientX, clientY);
       if (!p) return;
       ripples.push({ x: p.x, y: p.y, t: performance.now() });
@@ -1096,16 +1081,13 @@
       const touch = event.touches[0];
       if (touch) track(touch.clientX, touch.clientY);
     };
-    const interactive = canAnimate();
-    if (interactive) {
-      pointerTarget.addEventListener('pointermove', onPointerMove, { passive: true });
-      pointerTarget.addEventListener('pointerdown', onPointerDown, { passive: true });
-      pointerTarget.addEventListener('pointerleave', release);
-      pointerTarget.addEventListener('touchstart', onTouchStart, { passive: true });
-      pointerTarget.addEventListener('touchmove', onTouchMove, { passive: true });
-      pointerTarget.addEventListener('touchend', release, { passive: true });
-      pointerTarget.addEventListener('touchcancel', release, { passive: true });
-    }
+    pointerTarget.addEventListener('pointermove', onPointerMove, { passive: true });
+    pointerTarget.addEventListener('pointerdown', onPointerDown, { passive: true });
+    pointerTarget.addEventListener('pointerleave', release);
+    pointerTarget.addEventListener('touchstart', onTouchStart, { passive: true });
+    pointerTarget.addEventListener('touchmove', onTouchMove, { passive: true });
+    pointerTarget.addEventListener('touchend', release, { passive: true });
+    pointerTarget.addEventListener('touchcancel', release, { passive: true });
 
     reducedMotion.addEventListener('change', rebuild);
     lowPower.addEventListener('change', rebuild);
@@ -1121,15 +1103,13 @@
       document.removeEventListener('visibilitychange', onVisibility);
       reducedMotion.removeEventListener('change', rebuild);
       lowPower.removeEventListener('change', rebuild);
-      if (interactive) {
-        pointerTarget.removeEventListener('pointermove', onPointerMove);
-        pointerTarget.removeEventListener('pointerdown', onPointerDown);
-        pointerTarget.removeEventListener('pointerleave', release);
-        pointerTarget.removeEventListener('touchstart', onTouchStart);
-        pointerTarget.removeEventListener('touchmove', onTouchMove);
-        pointerTarget.removeEventListener('touchend', release);
-        pointerTarget.removeEventListener('touchcancel', release);
-      }
+      pointerTarget.removeEventListener('pointermove', onPointerMove);
+      pointerTarget.removeEventListener('pointerdown', onPointerDown);
+      pointerTarget.removeEventListener('pointerleave', release);
+      pointerTarget.removeEventListener('touchstart', onTouchStart);
+      pointerTarget.removeEventListener('touchmove', onTouchMove);
+      pointerTarget.removeEventListener('touchend', release);
+      pointerTarget.removeEventListener('touchcancel', release);
       for (const timer of loadTimers) clearTimeout(timer);
       for (const image of pendingImages) {
         image.onload = null;
@@ -1153,6 +1133,7 @@
 
 <style>
   .dot-field {
+    color: var(--dot-field-color, var(--accent));
     position: absolute;
     inset: 0;
     overflow: hidden;

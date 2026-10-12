@@ -4,12 +4,11 @@
   /**
    * Ambient accent fireflies behind the glass shell.
    *
-   * Pure CSS compositor animation: each firefly is a pre-rasterised radial
-   * gradient that only animates `transform` and `opacity`, so there is no JS
-   * frame loop, no canvas upload and no main-thread paint after mount.
-   * Positions use a jittered grid (one firefly per cell) so they are spread
-   * evenly instead of clumping, with a dedicated column behind the floating
-   * sidebar so its frosted glass always has soft light to diffuse.
+   * CSS-only: each firefly is a pre-rasterised radial gradient with ONE
+   * animation that moves `transform` and `opacity` together, so the compositor
+   * drives it with no JS frame loop, canvas upload or main-thread paint.
+   * Counts stay small (16 desktop, 6 mobile); positions use a jittered grid
+   * so they spread evenly, with a column behind the floating sidebar.
    */
   type Fly = {
     x: string;
@@ -17,10 +16,8 @@
     size: number;
     dx: number;
     dy: number;
-    drift: number;
+    duration: number;
     delay: number;
-    pulse: number;
-    pulseDelay: number;
     peak: number;
     glass: boolean;
   };
@@ -40,15 +37,12 @@
         out.push({
           x: `calc(${left} + ${width} * ${u.toFixed(4)})`,
           y: `${(v * 100).toFixed(2)}%`,
-          // Behind the sidebar's ~26px blur a firefly must be larger to read as bokeh.
-          size: Math.round(glass ? between(84, 132) : between(30, 58)),
-          dx: Math.round(between(16, 42) * (Math.random() < 0.5 ? -1 : 1)),
-          dy: Math.round(between(18, 48) * (Math.random() < 0.5 ? -1 : 1)),
-          drift: Math.round(between(16, 28)),
-          delay: -Math.round(between(0, 28)),
-          pulse: +between(3.8, 7.2).toFixed(2),
-          pulseDelay: -+between(0, 7).toFixed(2),
-          peak: +(glass ? between(0.75, 1) : between(0.55, 0.9)).toFixed(2),
+          size: Math.round(glass ? between(72, 110) : between(30, 56)),
+          dx: Math.round(between(16, 40) * (Math.random() < 0.5 ? -1 : 1)),
+          dy: Math.round(between(18, 44) * (Math.random() < 0.5 ? -1 : 1)),
+          duration: Math.round(between(18, 30)),
+          delay: -Math.round(between(0, 30)),
+          peak: +(glass ? between(0.7, 1) : between(0.55, 0.9)).toFixed(2),
           glass
         });
       }
@@ -57,12 +51,12 @@
   }
 
   function layout(compact: boolean): Fly[] {
-    if (compact) return grid(3, 4, '0px', '100%', false);
+    if (compact) return grid(2, 3, '0px', '100%', false);
     // Desktop: the floating sidebar occupies 12px … (--sidebar-width − 12px).
     const sidebar = 'var(--sidebar-width, 276px)';
     return [
-      ...grid(1, 6, '28px', `(${sidebar} - 56px)`, true),
-      ...grid(5, 4, sidebar, `(100% - ${sidebar})`, false)
+      ...grid(1, 4, '28px', `(${sidebar} - 56px)`, true),
+      ...grid(4, 3, sidebar, `(100% - ${sidebar})`, false)
     ];
   }
 
@@ -92,10 +86,8 @@
       style:--size="{fly.size}px"
       style:--dx="{fly.dx}px"
       style:--dy="{fly.dy}px"
-      style:--drift="{fly.drift}s"
+      style:--duration="{fly.duration}s"
       style:--delay="{fly.delay}s"
-      style:--pulse="{fly.pulse}s"
-      style:--pulse-delay="{fly.pulseDelay}s"
       style:--peak={fly.peak}
     ></span>
   {/each}
@@ -146,28 +138,25 @@
     border-radius: 50%;
     background: radial-gradient(circle closest-side, var(--ff-core) 0 7%, var(--ff-mid) 18%, var(--ff-halo) 45%, transparent 100%);
     opacity: 0;
-    will-change: transform, opacity;
-    animation:
-      firefly-drift var(--drift) ease-in-out var(--delay) infinite alternate,
-      firefly-glow var(--pulse) ease-in-out var(--pulse-delay) infinite;
+    animation: firefly var(--duration) ease-in-out var(--delay) infinite alternate;
   }
-  /* Behind frosted glass: wider core so the blur diffuses it into visible bokeh. */
+  /* Behind the sidebar: wider core so it still reads as soft bokeh. */
   .firefly.glass {
     background: radial-gradient(circle closest-side, var(--ff-core) 0 16%, var(--ff-mid) 34%, var(--ff-glass-halo) 58%, transparent 100%);
   }
 
-  @keyframes firefly-drift {
-    0% { transform: translate3d(0, 0, 0); }
+  /* Drift and glow share one timeline: one animation per firefly. */
+  @keyframes firefly {
+    0% { transform: translate3d(0, 0, 0); opacity: calc(var(--peak) * var(--ff-strength) * .14); }
+    25% { opacity: calc(var(--peak) * var(--ff-strength)); }
     35% { transform: translate3d(var(--dx), calc(var(--dy) * -.6), 0); }
+    50% { opacity: calc(var(--peak) * var(--ff-strength) * .2); }
     70% { transform: translate3d(calc(var(--dx) * -.4), var(--dy), 0); }
-    100% { transform: translate3d(calc(var(--dx) * .5), calc(var(--dy) * -1), 0); }
-  }
-  @keyframes firefly-glow {
-    0%, 100% { opacity: calc(var(--peak) * var(--ff-strength) * .14); }
-    45%, 58% { opacity: calc(var(--peak) * var(--ff-strength)); }
+    75% { opacity: calc(var(--peak) * var(--ff-strength) * .9); }
+    100% { transform: translate3d(calc(var(--dx) * .5), calc(var(--dy) * -1), 0); opacity: calc(var(--peak) * var(--ff-strength) * .25); }
   }
 
-  /* Reduced motion keeps a still glow so the glass keeps its depth. */
+  /* Reduced motion keeps a still glow. */
   @media (prefers-reduced-motion: reduce) {
     .firefly {
       animation: none;

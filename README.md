@@ -33,6 +33,14 @@ hero:
 
 These links supplement (not replace) `hero.actions` and render in the static HTML. Sites without `hero.links` keep their existing hero content.
 
+### Heritage rendering
+
+The heritage theme uses Cormorant for editorial headings and link-directory labels, with Jakarta for body copy. Accent-colored ukiran frames and dividers preserve the Nusantara identity; GitHub stays a secondary outlined action and Demo uses a filled accent action.
+
+The divider mask is a 10.7 KiB WebP, decoded only after the page `load` event and an idle callback. A hairline remains if loading fails or data saving is enabled, with space reserved so the ornament does not shift content.
+
+Cards, buttons, and mobile frames use painted frost instead of backdrop filters. Title shimmer and avatar breathing are removed. Ambient fireflies remain as a deferred, CSS-only layer: 16 on desktop and 6 on mobile, each with a single transform/opacity animation and no JS frame loop; they are skipped for data saving, reduced transparency, forced colors, and reading mode, and held still for reduced motion. The dot canvas caps desktop backing resolution at 1.5× (1× on small/coarse-pointer devices), renders only reveal/morph/theme/pointer changes, and suspends offscreen or hidden. Held images do not repaint; a single-image or globe field stops scheduling frames after settling. Reduced motion keeps a static field.
+
 ## Repository Layout
 
 ```text
