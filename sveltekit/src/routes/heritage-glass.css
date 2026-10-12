@@ -6,7 +6,7 @@
  * re-themes carvings, borders, buttons and dots together.
  */
 @font-face { font-family: 'Raksara Cormorant'; src: url('/fonts/cormorant-garamond-latin-wght-normal.woff2') format('woff2'); font-style: normal; font-weight: 300 700; font-display: swap; }
-@font-face { font-family: 'Raksara Cormorant'; src: url('/fonts/cormorant-garamond-latin-wght-italic.woff2') format('woff2'); font-style: italic; font-weight: 300 700; font-display: swap; }
+/* Rare editorial italics use synthetic slant instead of fetching a third 40 KiB font. */
 @font-face { font-family: 'Raksara Jakarta'; src: url('/fonts/plus-jakarta-sans-latin-wght-normal.woff2') format('woff2'); font-style: normal; font-weight: 200 800; font-display: swap; }
 
 :root {
@@ -21,7 +21,6 @@
   --hg-bl: url('/heritage/ukiran-corner-bl.webp');
   --hg-br: url('/heritage/ukiran-corner-br.webp');
   --hg-side: url('/heritage/ukiran-side.webp');
-  --hg-divider: url('/heritage/ukiran-divider.webp');
   --hg-lotus: url('/heritage/ukiran-lotus.webp');
 
   /* Accent-derived metal; fallbacks first, relative colour below when supported. */
@@ -49,39 +48,60 @@
 }
 
 :root[data-theme='dark'] {
-  --bg-base: color-mix(in oklab, #0c0b09 95%, var(--accent));
-  --bg-card: color-mix(in oklab, rgb(22 20 17 / .62) 95%, var(--accent));
-  --bg-glass-heavy: color-mix(in oklab, rgb(17 15 13 / .92) 95%, var(--accent));
+  --bg-base: #111316;
+  --bg-card: rgb(22 24 27 / .7);
+  --bg-glass-heavy: rgb(18 20 23 / .93);
   --text-primary: #f4eee4;
   --text-secondary: #cbc2b4;
   --text-tertiary: #a59c8e;
   --border-color: color-mix(in oklab, var(--accent) 16%, rgb(255 255 255 / .08));
-  --raksara-glass: color-mix(in oklab, rgb(24 21 18 / .6) 94%, var(--accent));
-  --raksara-glass-strong: color-mix(in oklab, rgb(28 25 21 / .78) 94%, var(--accent));
-  --raksara-edge-border: color-mix(in oklab, var(--accent) 30%, rgb(255 255 255 / .06));
+  --raksara-glass: rgb(22 24 28 / .52);
+  --raksara-glass-strong: rgb(22 24 28 / .78);
+  --raksara-edge-border: color-mix(in oklab, var(--accent) 18%, rgb(255 255 255 / .2));
   --card-shadow: 0 1px 0 rgb(255 255 255 / .04) inset, 0 24px 48px -24px rgb(0 0 0 / .7);
   --card-shadow-hover: 0 1px 0 rgb(255 255 255 / .06) inset, 0 28px 56px -24px rgb(0 0 0 / .75), 0 0 0 1px var(--hg-line);
   /* Readable accent for text and icons on dark glass. */
   --hg-accent-text: color-mix(in oklab, var(--accent) 55%, #fff);
   --hg-code-bg: #0d1117;
   --hg-code-ink: #e6edf3;
-  --hg-surface: #1b1814;
+  --hg-surface: #202226;
   --hg-panel-tint: 22%;
   --hg-carve: .7;
   --hg-dot: color-mix(in oklab, var(--accent) 55%, transparent);
-  --hg-dot-opacity: .32;
+  --hg-dot-opacity: .23;
+  /* Frosted glass: thin smoked fill, strong blur + saturation so the fireflies
+     and accent light behind read as diffused colour, a diagonal sheen and a lit rim. */
+  --hg-frost: rgb(24 26 31 / .4);
+  --hg-frost-card: rgb(26 28 33 / .5);
+  --hg-frost-modal: rgb(20 22 26 / .6);
+  --hg-frost-blur: blur(22px) saturate(1.6) brightness(1.06);
+  --hg-sheen: linear-gradient(135deg, rgb(255 255 255 / .085) 0%, rgb(255 255 255 / .02) 34%, transparent 58%, rgb(255 255 255 / .03) 100%);
+  --hg-rim: inset 0 1px 0 rgb(255 255 255 / .13), inset 0 0 0 1px rgb(255 255 255 / .025), inset 0 -1px 0 rgb(0 0 0 / .22);
+  --hg-scrim: rgb(8 9 12 / .46);
+  --hg-lightbox-scrim: rgb(8 9 12 / .68);
+  --hg-modal-shadow: 0 32px 90px -24px rgb(0 0 0 / .7), 0 0 90px -30px color-mix(in oklab, var(--accent) 45%, transparent);
+  /* Component glass: painted (no backdrop blur) so embedded components stay cheap on long articles. */
+  --hg-comp-fill: linear-gradient(180deg, rgb(255 255 255 / .045), rgb(255 255 255 / .012)), rgb(30 32 38 / .58);
+  --hg-gloss: linear-gradient(180deg, rgb(255 255 255 / .2) 0%, rgb(255 255 255 / .06) 48%, rgb(255 255 255 / 0) 52%, rgb(255 255 255 / .04) 100%);
+  --hg-gloss-rim: inset 0 1px 0 rgb(255 255 255 / .26), inset 0 -1px 1px rgb(0 0 0 / .32);
+  --hg-head-fill: linear-gradient(180deg, rgb(255 255 255 / .07), rgb(255 255 255 / .015)), color-mix(in oklab, var(--accent) 9%, rgb(30 32 38 / .9));
+  /* Counters: accent-tinted glossy pill; pale accent-tinted ink keeps >= 4.5:1 on every accent. */
+  --hg-count-fill: linear-gradient(180deg, color-mix(in oklab, var(--accent) 34%, #2a2c32), color-mix(in oklab, var(--accent) 16%, #16171b));
+  --hg-count-ink: color-mix(in oklab, var(--hg-accent-text) 35%, #fff);
+  --hg-count-edge: color-mix(in oklab, var(--accent) 55%, rgb(255 255 255 / .12));
+  --hg-count-glow: 0 3px 10px -4px color-mix(in oklab, var(--accent) 70%, transparent);
 }
 :root[data-theme='light'] {
-  --bg-base: color-mix(in oklab, #f6f2eb 96%, var(--accent));
-  --bg-card: rgb(255 253 249 / .7);
-  --bg-glass-heavy: rgb(255 253 249 / .94);
+  --bg-base: #f7f6f2;
+  --bg-card: rgb(255 255 255 / .76);
+  --bg-glass-heavy: rgb(255 255 255 / .94);
   --text-primary: #211a12;
   --text-secondary: #4f4537;
   --text-tertiary: #6b604f;
   --border-color: color-mix(in oklab, var(--accent) 22%, rgb(40 30 20 / .1));
-  --raksara-glass: rgb(255 253 249 / .62);
-  --raksara-glass-strong: rgb(255 253 249 / .84);
-  --raksara-edge-border: color-mix(in oklab, var(--accent) 34%, rgb(40 30 20 / .08));
+  --raksara-glass: rgb(255 255 255 / .56);
+  --raksara-glass-strong: rgb(255 255 255 / .82);
+  --raksara-edge-border: color-mix(in oklab, var(--accent) 21%, rgb(40 40 50 / .13));
   --card-shadow: 0 1px 0 #fff inset, 0 22px 44px -26px rgb(70 50 25 / .28);
   --card-shadow-hover: 0 1px 0 #fff inset, 0 26px 52px -24px rgb(70 50 25 / .32), 0 0 0 1px var(--hg-line);
   --hg-accent-text: color-mix(in oklab, var(--accent) 72%, #000);
@@ -89,7 +109,7 @@
   --hg-metal: linear-gradient(135deg, color-mix(in oklab, var(--accent) 70%, #fff) 0%, var(--accent) 40%, var(--hg-lo) 100%);
   --hg-code-bg: #ffffff;
   --hg-code-ink: #24292f;
-  --hg-surface: #fffdf9;
+  --hg-surface: #fffefa;
   --hg-panel-tint: 14%;
   --hg-carve: .62;
   --hg-glass-fill: linear-gradient(180deg, color-mix(in oklab, var(--accent) 22%, rgb(255 255 255 / .7)), color-mix(in oklab, var(--accent) 16%, rgb(255 255 255 / .45)));
@@ -97,11 +117,34 @@
   --hg-glass-edge: color-mix(in oklab, var(--accent) 60%, transparent);
   --hg-glass-shadow: inset 0 1px 0 #fff, 0 12px 26px -16px color-mix(in oklab, var(--accent) 60%, transparent);
   --hg-dot: color-mix(in oklab, var(--accent) 60%, transparent);
-  --hg-dot-opacity: .38;
+  --hg-dot-opacity: .24;
+  --hg-frost: rgb(255 255 255 / .44);
+  --hg-frost-card: rgb(255 255 255 / .56);
+  --hg-frost-modal: rgb(255 254 250 / .62);
+  --hg-frost-blur: blur(22px) saturate(1.7);
+  --hg-sheen: linear-gradient(135deg, rgb(255 255 255 / .72) 0%, rgb(255 255 255 / .18) 36%, transparent 60%, rgb(255 255 255 / .28) 100%);
+  --hg-rim: inset 0 1px 0 #fff, inset 0 0 0 1px rgb(255 255 255 / .45), inset 0 -1px 0 rgb(110 80 40 / .07);
+  --hg-scrim: rgb(246 242 234 / .4);
+  --hg-lightbox-scrim: rgb(244 240 232 / .66);
+  --hg-modal-shadow: 0 32px 80px -28px rgb(70 50 25 / .4), 0 0 90px -30px color-mix(in oklab, var(--accent) 40%, transparent);
+  --hg-comp-fill: linear-gradient(180deg, rgb(255 255 255 / .9), rgb(255 255 255 / .52)), rgb(255 252 246 / .6);
+  --hg-gloss: linear-gradient(180deg, rgb(255 255 255 / .95) 0%, rgb(255 255 255 / .4) 48%, rgb(255 255 255 / 0) 52%, rgb(255 255 255 / .2) 100%);
+  --hg-gloss-rim: inset 0 1px 0 #fff, inset 0 -1px 1px color-mix(in oklab, var(--accent) 28%, transparent);
+  --hg-head-fill: linear-gradient(180deg, rgb(255 255 255 / .95), rgb(255 255 255 / .4)), color-mix(in oklab, var(--accent) 12%, #fffaf2);
+  --hg-count-fill: linear-gradient(180deg, color-mix(in oklab, var(--accent) 16%, #fff), color-mix(in oklab, var(--accent) 36%, #fff4e2));
+  --hg-count-ink: color-mix(in oklab, var(--hg-accent-text) 82%, #000);
+  --hg-count-edge: color-mix(in oklab, var(--accent) 50%, transparent);
+  --hg-count-glow: 0 3px 10px -5px color-mix(in oklab, var(--accent) 65%, transparent);
 }
 @supports (color: oklch(from red l c h)) {
   :root[data-theme='dark'] { --hg-accent-text: oklch(from var(--accent) max(l, .8) min(c, .12) h); }
   :root[data-theme='light'] { --hg-accent-text: oklch(from var(--accent) min(l, .45) c h); }
+  /* Dark counters become accent jewels: pinned lightness keeps dark ink >= 5:1 on any accent hue. */
+  :root[data-theme='dark'] {
+    --hg-count-fill: linear-gradient(180deg, oklch(from var(--accent) .8 min(c, .13) h), oklch(from var(--accent) .64 min(c, .13) h));
+    --hg-count-ink: oklch(from var(--accent) .2 min(c, .05) h);
+    --hg-count-edge: oklch(from var(--accent) .86 min(c, .1) h / .7);
+  }
 }
 
 body { background: var(--bg-base); font-family: var(--font-sans); font-feature-settings: 'ss01', 'cv11'; }
@@ -122,10 +165,10 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 }
 :root .bg-gradient::after {
   background:
-    radial-gradient(ellipse 55% 45% at 78% 8%, color-mix(in oklab, var(--accent) 14%, transparent), transparent 70%),
-    radial-gradient(ellipse 45% 40% at 18% 96%, color-mix(in oklab, var(--accent) 8%, transparent), transparent 70%);
+    radial-gradient(ellipse 55% 45% at 78% 8%, color-mix(in oklab, var(--accent) 7%, transparent), transparent 70%),
+    radial-gradient(ellipse 45% 40% at 18% 96%, color-mix(in oklab, var(--accent) 4%, transparent), transparent 70%);
 }
-:root .bg-noise { opacity: .025; }
+:root .bg-noise { opacity: .014; }
 
 /* ── Shared ornament painting ────────────────────────────────────────────── */
 #sidebar::before,
@@ -140,7 +183,7 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 }
 
 /* Four carved corners on one layer; each asset already follows a rounded corner. */
-#app :is(.home-section, .page-header, .article-header, .home-hero-content)::before {
+#app :is(.page-header, .article-header, .home-hero-content)::before {
   content: ''; position: absolute; inset: 0; z-index: -1;
   width: auto; height: auto; border: 0; border-radius: inherit; transform: none; animation: none; filter: none;
   opacity: var(--hg-carve);
@@ -152,7 +195,7 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
   mask-size: var(--hg-corner) var(--hg-corner);
 }
 /* Slender carved spine centred on each side. */
-#app :is(.home-section, .page-header, .article-header, .home-hero-content)::after {
+#app :is(.page-header, .article-header, .home-hero-content)::after {
   content: ''; position: absolute; z-index: -1;
   inset: calc(var(--hg-corner) + 8px) 7px; width: auto; height: auto;
   border: 0; border-radius: 0; transform: none; animation: none; filter: none;
@@ -167,10 +210,10 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 /* ── Sidebar: floating glass, carved top-left and bottom-right ───────────── */
 #sidebar {
   border: 1px solid var(--raksara-edge-border);
-  background: var(--raksara-glass);
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  box-shadow: var(--card-shadow);
+  background: var(--hg-sheen), var(--hg-frost);
+  backdrop-filter: var(--hg-frost-blur);
+  -webkit-backdrop-filter: var(--hg-frost-blur);
+  box-shadow: var(--card-shadow), var(--hg-rim);
 }
 #sidebar::before {
   content: ''; position: absolute; inset: 0; z-index: 0; border-radius: inherit;
@@ -205,7 +248,12 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 #sidebar .nav-link.active :is(svg, .nav-icon) { color: var(--hg-accent-text); }
 #sidebar .nav-link:focus-visible { outline: 2px solid var(--hg-accent-text); outline-offset: 2px; }
 #sidebar .icon-btn { border-radius: 999px; border-color: var(--border-color); }
-.mobile-header { border-color: var(--raksara-edge-border); background: var(--raksara-glass-strong); }
+.mobile-header {
+  border-color: var(--raksara-edge-border);
+  background: var(--hg-sheen), var(--hg-frost-card);
+  backdrop-filter: var(--hg-frost-blur); -webkit-backdrop-filter: var(--hg-frost-blur);
+  box-shadow: var(--card-shadow), var(--hg-rim);
+}
 
 /* ── Typography ──────────────────────────────────────────────────────────── */
 #app :is(.home-hero-title, .page-title, .article-header h1, .home-section-header h2, .profile-info h1, .content-footer-title, .profile-hero-content h1) {
@@ -215,7 +263,7 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
   line-height: 1.05;
 }
 #app :is(.post-card-title, .portfolio-card-title, .home-info-card-title, .home-link-item-label) {
-  font-family: var(--hg-display); font-weight: 650; font-size: 1.32em; line-height: 1.2; letter-spacing: 0;
+  font-family: var(--font-sans); font-weight: 650; font-size: 1.16em; line-height: 1.38; letter-spacing: -.015em;
 }
 #app .home-hero-title { font-size: clamp(52px, 6.4vw, 92px); }
 #app .page-header .page-title { font-size: clamp(34px, 3.6vw, 46px); font-weight: 600; margin-bottom: 8px; }
@@ -234,7 +282,7 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 :root[data-theme='light'] #app :is(.home-hero-title .accent-gradient, .page-title) {
   background-image: linear-gradient(100deg, var(--hg-lo) 0%, color-mix(in oklab, var(--accent) 80%, #000) 60%, var(--hg-lo) 100%);
 }
-#app .home-hero-subtitle { font-family: var(--hg-display); font-style: italic; font-weight: 500; font-size: clamp(22px, 2.1vw, 28px); color: var(--text-primary); }
+#app .home-hero-subtitle { font-family: var(--hg-display); font-style: normal; font-weight: 500; font-size: clamp(22px, 2.1vw, 28px); color: var(--text-primary); }
 #app .home-hero-description { color: var(--text-secondary); font-size: 15.5px; line-height: 1.75; }
 #app .home-hero-eyebrow {
   background: none; border: 0; box-shadow: none; padding: 0 0 0 40px; position: relative;
@@ -250,10 +298,10 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
   position: relative;
   border: 1px solid var(--raksara-edge-border);
   border-radius: var(--hg-radius);
-  background: var(--raksara-glass);
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
-  box-shadow: var(--card-shadow);
+  background: var(--hg-sheen), var(--hg-frost);
+  backdrop-filter: var(--hg-frost-blur);
+  -webkit-backdrop-filter: var(--hg-frost-blur);
+  box-shadow: var(--card-shadow), var(--hg-rim);
   isolation: isolate;
 }
 #app .home-section { padding: clamp(28px, 3.4vw, 44px) clamp(28px, 4.4vw, 56px); margin-inline: clamp(0px, 1.2vw, 14px); }
@@ -262,11 +310,9 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 #app .home-section-header { position: relative; padding-bottom: 18px; margin-bottom: 20px; align-items: flex-end; }
 #app .home-section-header h2 { font-size: clamp(30px, 3vw, 38px); }
 #app .home-section-header::after {
-  content: ''; position: absolute; left: 0; bottom: 0; width: 132px; height: 16px;
-  opacity: .85;
-  -webkit-mask-image: var(--hg-divider); mask-image: var(--hg-divider);
-  -webkit-mask-size: contain; mask-size: contain;
-  -webkit-mask-position: left center; mask-position: left center;
+  content: ''; position: absolute; left: 0; bottom: 0; width: 116px; height: 1px;
+  opacity: .7; background: linear-gradient(90deg, var(--hg-accent-text), transparent);
+  -webkit-mask: none; mask: none;
 }
 #app .home-section-header > a {
   white-space: nowrap; flex-shrink: 0;
@@ -281,8 +327,10 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 #app :is(.post-card, .portfolio-card, .home-info-card, .home-link-item, .gallery-window, .gallery-card) {
   border: 1px solid var(--border-color);
   border-radius: var(--hg-radius-card);
-  background: var(--raksara-glass-strong);
-  box-shadow: var(--card-shadow);
+  background: var(--hg-sheen), var(--hg-frost-card);
+  backdrop-filter: var(--hg-frost-blur);
+  -webkit-backdrop-filter: var(--hg-frost-blur);
+  box-shadow: var(--card-shadow), var(--hg-rim);
   transition: border-color .25s var(--hg-ease), box-shadow .25s var(--hg-ease), transform .25s var(--hg-ease);
 }
 #app .home-link-item::after { display: none; }
@@ -294,7 +342,7 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
   -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
   transition: opacity .3s var(--hg-ease);
 }
-#app :is(.post-card, .portfolio-card, a.home-info-card-link, .home-link-item, .gallery-window):hover { border-color: var(--hg-line); box-shadow: var(--card-shadow-hover); }
+#app :is(.post-card, .portfolio-card, a.home-info-card-link, .home-link-item, .gallery-window):hover { border-color: var(--hg-line); box-shadow: var(--card-shadow-hover), var(--hg-rim); }
 #app :is(.post-card, .portfolio-card, .home-info-card, .gallery-window):hover::after { opacity: var(--hg-carve); }
 #app .post-card-thumb { border-radius: 14px; }
 #app .home-section .post-card { display: flex; flex-direction: column; padding: 10px; }
@@ -317,6 +365,10 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 #app .home-section-header h2 { min-width: 0; text-wrap: balance; }
 #app .home-section-header > a { flex-shrink: 0; position: static; }
 
+/* Keep carved corners for hero, page and article headers, not every card. */
+#app :is(.post-card, .portfolio-card, .home-info-card, .gallery-window)::after,
+#app .gallery-list .gallery-card::after { display: none; }
+
 /* Gallery list: the same quiet glass card as posts. Every photo fills an identical 4:3 well
    (the lightbox shows it uncropped), and no per-photo colour wash tints the card. */
 #app .gallery-list .gallery-card { grid-template-rows: auto 1fr; overflow: hidden; }
@@ -329,7 +381,7 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
   -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
   transition: opacity .3s var(--hg-ease);
 }
-#app .gallery-list .gallery-card:is(:hover, :focus-within) { border-color: var(--hg-line); box-shadow: var(--card-shadow-hover); }
+#app .gallery-list .gallery-card:is(:hover, :focus-within) { border-color: var(--hg-line); box-shadow: var(--card-shadow-hover), var(--hg-rim); }
 #app .gallery-list .gallery-card:is(:hover, :focus-within)::after { opacity: var(--hg-carve); }
 #app .gallery-list .gallery-card-img {
   margin: 10px 10px 0; width: auto; height: auto; min-height: 0; block-size: auto; aspect-ratio: 4 / 3;
@@ -356,11 +408,11 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
   border-radius: var(--hg-radius-card);
   background:
     radial-gradient(120% 80% at 0% 0%, var(--hg-tint), transparent 60%),
-    var(--raksara-glass-strong);
-  box-shadow: var(--card-shadow);
+    var(--hg-sheen), var(--hg-frost-card);
+  box-shadow: var(--card-shadow), var(--hg-rim);
   isolation: isolate;
 }
-#app .thought-card:hover { transform: none; border-color: var(--hg-line); box-shadow: var(--card-shadow-hover); }
+#app .thought-card:hover { transform: none; border-color: var(--hg-line); box-shadow: var(--card-shadow-hover), var(--hg-rim); }
 #app .thought-card::before {
   content: ''; position: absolute; inset: 0; z-index: -1; width: auto; height: auto; font-size: 0;
   border-radius: inherit; opacity: calc(var(--hg-carve) * .7);
@@ -538,7 +590,7 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 #app .mermaid-expand-btn { padding: 10px 16px; backdrop-filter: none; -webkit-backdrop-filter: none; }
 #app .mermaid-expand-btn:hover, .mermaid-viewer-controls button:hover { background: var(--hg-glass-fill-hover); }
 #app .mermaid-expand-btn:focus-visible, .mermaid-viewer-controls button:focus-visible { outline: 2px solid var(--hg-accent-text); outline-offset: 3px; }
-.mermaid-viewer-dialog { border-color: var(--hg-line); background: var(--hg-surface); }
+.mermaid-viewer-dialog { border-color: var(--hg-line); }
 .mermaid-viewer-title, .mermaid-viewer-scale { color: var(--text-primary); }
 @media (max-width: 600px) { .mermaid-viewer-toolbar { align-items: flex-start; flex-direction: column; } .mermaid-viewer-controls { justify-content: flex-start; } }
 
@@ -584,8 +636,8 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
   border: 1px solid var(--raksara-edge-border);
   border-radius: calc(var(--hg-radius) + 6px);
   /* No backdrop blur: the DotField portrait behind must stay crisp. */
-  background: linear-gradient(100deg, var(--raksara-glass-strong) 0%, color-mix(in oklab, var(--raksara-glass) 60%, transparent) 46%, transparent 72%);
-  box-shadow: var(--card-shadow);
+  background: linear-gradient(100deg, var(--raksara-glass-strong) 0%, var(--raksara-glass) 45%, transparent 76%);
+  box-shadow: var(--card-shadow), inset 0 1px 0 rgb(255 255 255 / .12);
   isolation: isolate;
 }
 /* Soft halo behind the portrait. */
@@ -684,11 +736,10 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 @keyframes hg-overlay-in { from { opacity: 0; } to { opacity: 1; } }
 @media (max-width: 768px) { #app #sidebar { transition: transform .3s var(--hg-ease); } }
 #app .content-footer::before {
-  content: ''; position: absolute; top: 4px; left: 50%; right: auto; transform: translateX(-50%);
-  width: min(360px, 80%); height: 28px; opacity: .85;
-  -webkit-mask-image: var(--hg-divider); mask-image: var(--hg-divider);
-  -webkit-mask-size: contain; mask-size: contain;
-  -webkit-mask-position: center; mask-position: center;
+  content: ''; position: absolute; top: 6px; left: 50%; right: auto; transform: translateX(-50%);
+  width: min(180px, 60%); height: 1px; opacity: .55;
+  background: linear-gradient(90deg, transparent, var(--hg-accent-text), transparent);
+  -webkit-mask: none; mask: none;
 }
 #app .content-footer :is(.content-footer-grid, .content-footer-glow) { display: none; }
 /* Profile card: theme glass over the cover, theme ink (the old white-on-image text
@@ -723,8 +774,76 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
   border: 1px solid var(--hg-line); background: var(--hg-tint); box-shadow: none;
 }
 #app .profile-links a:hover { border-color: var(--hg-accent-text); background: color-mix(in oklab, var(--accent) 18%, transparent); box-shadow: none; }
-#app .profile-avatar { border: 3px solid color-mix(in oklab, var(--accent) 45%, var(--bg-base)); box-shadow: 0 16px 40px -12px rgb(0 0 0 / .5), 0 0 0 6px var(--hg-tint); }
-#app .profile-avatar-wrap.loaded::before, #app .profile-avatar-wrap.loaded::after { border-color: var(--hg-line); }
+/* Profile portrait: a metal-rimmed medallion that breathes. One slow inhale/exhale
+   drives the aura, halo ring and portrait together; only transform/opacity animate,
+   so the glow and shadows are painted once and the loop stays on the compositor. */
+#app .profile-avatar-wrap {
+  --breath: 6.4s;
+  --breath-ease: cubic-bezier(.37, 0, .63, 1);
+  --avatar-aura: color-mix(in oklab, var(--accent) 44%, transparent);
+  --avatar-aura-soft: color-mix(in oklab, var(--accent) 16%, transparent);
+  --avatar-drop: 0 26px 46px -22px rgb(0 0 0 / .75), 0 10px 20px -12px rgb(0 0 0 / .55);
+  isolation: isolate;
+}
+:root[data-theme='light'] #app .profile-avatar-wrap {
+  --avatar-aura: color-mix(in oklab, var(--accent) 36%, transparent);
+  --avatar-aura-soft: color-mix(in oklab, var(--accent) 10%, transparent);
+  --avatar-drop: 0 24px 40px -22px rgb(70 45 15 / .5), 0 8px 16px -10px rgb(70 45 15 / .3);
+}
+#app .profile-avatar {
+  border: 3px solid transparent;
+  background:
+    linear-gradient(var(--bg-base), var(--bg-base)) padding-box,
+    linear-gradient(150deg, var(--hg-hi), var(--accent) 46%, var(--hg-lo) 78%, var(--hg-hi)) border-box;
+  box-shadow:
+    0 0 0 5px color-mix(in oklab, var(--bg-base) 62%, transparent),
+    0 0 0 6px var(--hg-line),
+    0 0 34px -4px color-mix(in oklab, var(--accent) 34%, transparent),
+    var(--avatar-drop);
+  transform-origin: 50% 55%;
+}
+#app .profile-avatar-wrap.loaded::before,
+#app .profile-avatar-wrap.loaded::after {
+  content: ''; position: absolute; border-radius: 50%; pointer-events: none;
+  filter: none; transform: scale(1);
+  animation-duration: var(--breath); animation-timing-function: var(--breath-ease);
+  animation-iteration-count: infinite; animation-delay: 0s;
+  will-change: transform, opacity;
+}
+/* Aura: soft accent light behind the rim, swelling on the inhale. */
+#app .profile-avatar-wrap.loaded::before {
+  inset: -30px; z-index: -1; border: 0;
+  background: radial-gradient(circle closest-side, var(--avatar-aura) 0 70%, color-mix(in oklab, var(--accent) 30%, transparent) 76%, var(--avatar-aura-soft) 88%, transparent 100%);
+  animation-name: hg-avatar-aura;
+}
+/* Halo: a hairline that drifts outward with the breath (replaces the sonar ripples). */
+#app .profile-avatar-wrap.loaded::after {
+  inset: -14px; z-index: 0; opacity: .4;
+  border: 1px solid var(--hg-line); background: none;
+  animation-name: hg-avatar-halo;
+}
+#app .profile-avatar-wrap.loaded .profile-avatar {
+  animation: hg-avatar-breathe var(--breath) var(--breath-ease) infinite;
+}
+/* Inhale (0-42%), brief hold, longer exhale, rest. */
+@keyframes hg-avatar-aura {
+  0%, 100% { transform: scale(.9); opacity: .38; }
+  42%, 50% { transform: scale(1.06); opacity: 1; }
+}
+@keyframes hg-avatar-halo {
+  0%, 100% { transform: scale(.985); opacity: .28; }
+  42%, 50% { transform: scale(1.05); opacity: .85; }
+}
+@keyframes hg-avatar-breathe {
+  0%, 100% { transform: scale(1); }
+  42%, 50% { transform: scale(1.022); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #app .profile-avatar-wrap.loaded::before,
+  #app .profile-avatar-wrap.loaded::after,
+  #app .profile-avatar-wrap.loaded .profile-avatar { animation: none !important; }
+  #app .profile-avatar-wrap.loaded::before { opacity: .75; }
+}
 
 /* Profile facts: one glass strip, label over value, hairline dividers; no nested pills. */
 #app .profile-metadata {
@@ -752,7 +871,7 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
   #app .profile-meta-chip:nth-child(even) { box-shadow: inset 1px 0 0 var(--hg-line-soft); }
   #app .profile-meta-chip:nth-child(even):nth-child(n + 3) { box-shadow: inset 1px 0 0 var(--hg-line-soft), inset 0 1px 0 var(--hg-line-soft); }
 }
-.search-overlay-content { border: 1px solid var(--raksara-edge-border); border-radius: var(--hg-radius); background: var(--bg-glass-heavy); }
+.search-overlay-content { border: 1px solid var(--raksara-edge-border); border-radius: var(--hg-radius); }
 ::selection { background: color-mix(in oklab, var(--accent) 40%, transparent); color: var(--text-primary); }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
@@ -770,7 +889,7 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
   #app .article-body .thought-bubble { padding: 28px 22px 22px; }
   #app .content-footer { flex-wrap: wrap; gap: 20px; padding-inline: 20px; }
   #app .content-footer-links { flex-wrap: wrap; }
-  #app :is(.home-section, .page-header, .article-header, .home-hero-content)::after { display: none; }
+  #app :is(.page-header, .article-header, .home-hero-content)::after { display: none; }
   #app .home-hero.dot-hero .home-hero-content { --hg-corner: 72px; width: calc(100% - 24px); min-height: 0; margin-top: 16px; padding: 20px 22px 30px; }
   #app .home-hero-title { font-size: clamp(46px, 13vw, 60px); }
   #app .home-btn { flex: 1 1 auto; justify-content: center; }
@@ -783,10 +902,10 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 .profile-hero-bg.hg-shader-host-ready::after { opacity: 0; }
 
 /* ── Reading navigation and content components ──────────────────────────── */
-#app :is(.post-card-title, .portfolio-card-title) { font-size: clamp(27px, 2.5vw, 33px); font-weight: 700; line-height: 1.14; letter-spacing: -.015em; color: var(--text-primary); text-wrap: pretty; padding-left: 14px; margin-block: 4px 16px; border-left: 3px solid var(--hg-accent-text); transition: color .2s ease; }
+#app :is(.post-card-title, .portfolio-card-title) { font-family: var(--font-sans); font-size: clamp(21px, 2vw, 25px); font-weight: 650; line-height: 1.4; letter-spacing: -.02em; color: var(--text-primary); text-wrap: pretty; padding-left: 14px; margin-block: 4px 16px; border-left: 2px solid var(--hg-accent-text); transition: color .2s ease; }
 #app :is(.post-card:hover, .post-card:focus-visible, .portfolio-card:hover, .portfolio-card:focus-within) :is(.post-card-title, .portfolio-card-title) { color: var(--hg-accent-text); }
-#app .post-card-title { font-size: clamp(23px, 2.2vw, 27px); }
-#app .home-section .post-card-title { min-height: 0; font-size: clamp(21px, 1.8vw, 24px); line-height: 1.22; padding-left: 11px; border-left-width: 2px; margin-block: 2px 12px; }
+#app .post-card-title { font-size: clamp(19px, 1.8vw, 23px); }
+#app .home-section .post-card-title { min-height: 0; font-size: clamp(18px, 1.55vw, 21px); line-height: 1.4; padding-left: 11px; border-left-width: 2px; margin-block: 2px 12px; }
 #app :is(.post-card-summary, .portfolio-card-summary) { color: var(--text-secondary); line-height: 1.7; }
 @media (prefers-reduced-motion: reduce) { #app :is(.post-card-title, .portfolio-card-title) { transition: none; } }
 #app .article-header { padding: clamp(26px, 3.4vw, 40px) clamp(24px, 4vw, 48px); }
@@ -809,7 +928,7 @@ body.reading-mode #app .article-header .article-meta { justify-content: center; 
 #app .post-nav-link:hover { background: var(--hg-glass-fill-hover); border-color: var(--hg-accent-text); }
 #app .post-nav-label { display: inline-flex; align-items: center; gap: 10px; color: var(--hg-accent-text); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
 #app .post-nav-icon { flex: 0 0 34px; width: 34px; height: 34px; padding: 8px; border: 1px solid var(--hg-line-strong); border-radius: 50%; background: var(--accent-subtle); }
-#app .post-nav-title { font: 650 24px/1.25 var(--hg-display); color: var(--text-primary); overflow-wrap: anywhere; }
+#app .post-nav-title { font: 650 19px/1.4 var(--font-sans); color: var(--text-primary); overflow-wrap: anywhere; }
 @media (max-width: 480px) { #app .post-nav-link.next { align-items: flex-start; } }
 #app .content-carousel { position: relative; margin: 28px 0; }
 #app .content-carousel-stage { padding: 8px 0; border-radius: 24px; mask-image: none; -webkit-mask-image: none; }
@@ -847,7 +966,7 @@ body.reading-mode #app .article-header .article-meta { justify-content: center; 
 #app .component-card:hover { border-color: var(--hg-accent-text); background: color-mix(in srgb, var(--accent-subtle) 30%, var(--hg-surface)); }
 #app .component-card-header { grid-column: 1; align-items: center; flex-wrap: wrap; gap: 10px; }
 #app .component-card-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px; background: var(--accent-subtle); }
-#app .component-card-title { font: 700 25px/1.2 var(--hg-display); color: var(--text-primary); }
+#app .component-card-title { font: 650 21px/1.35 var(--font-sans); color: var(--text-primary); }
 #app .component-card-desc { grid-column: 1; margin: 0; font-size: 15px; line-height: 1.7; color: var(--text-secondary); }
 #app .component-card-status { font-size: 12px; padding: 5px 8px; border-radius: 999px; color: var(--hg-accent-text); background: var(--accent-subtle); }
 #app .component-card-footer { display: flex; grid-column: 1; grid-row: auto; align-items: center; justify-content: space-between; gap: 12px; margin: 0; padding-top: 14px; border: 0; border-top: 1px solid var(--hg-line-soft); }
@@ -905,10 +1024,252 @@ body.reading-mode #app .article-header .article-meta { justify-content: center; 
 #app .content-carousel-date { margin-right: 44px; }
 #app .chapters-cell-date time { padding: 3px 6px; }
 
+/* ── Frosted glass: page header glint + overlays ─────────────────────────── */
+/* Page header: thinner frost, an accent light pool and a light-catching rim so the
+   fireflies drifting behind read through as diffused colour. */
+#app .page-header {
+  background:
+    radial-gradient(60% 140% at 92% 0%, color-mix(in oklab, var(--accent) 13%, transparent), transparent 70%),
+    radial-gradient(40% 90% at 4% 100%, color-mix(in oklab, var(--accent) 7%, transparent), transparent 70%),
+    var(--hg-sheen), var(--hg-frost);
+}
+#app .page-header::after {
+  display: block; content: ''; position: absolute; inset: -1px; z-index: 0; padding: 1px;
+  border-radius: inherit; opacity: 1; pointer-events: none;
+  background: linear-gradient(155deg, rgb(255 255 255 / .5), rgb(255 255 255 / .06) 26%, transparent 50%, color-mix(in oklab, var(--accent) 55%, transparent) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+:root[data-theme='light'] #app .page-header::after {
+  background: linear-gradient(155deg, #fff, rgb(255 255 255 / .4) 30%, transparent 55%, color-mix(in oklab, var(--accent) 45%, transparent) 100%);
+}
+
+/* Shared overlay scrim: the page stays visible as soft, tinted frosted glass. */
+:root :is(.search-overlay-backdrop, .mermaid-viewer-overlay) {
+  background: radial-gradient(circle at 50% 18%, color-mix(in oklab, var(--accent) 15%, transparent), transparent 36rem), var(--hg-scrim);
+  backdrop-filter: blur(12px) saturate(1.35);
+  -webkit-backdrop-filter: blur(12px) saturate(1.35);
+}
+:root .sidebar-overlay {
+  background: radial-gradient(circle at 16% 20%, color-mix(in oklab, var(--accent) 16%, transparent), transparent 22rem), var(--hg-scrim) !important;
+  backdrop-filter: blur(12px) saturate(1.35);
+  -webkit-backdrop-filter: blur(12px) saturate(1.35);
+}
+/* Modal panels: frosted plates with a lit rim and an accent bloom. */
+:root :is(.search-overlay-content, .mermaid-viewer-dialog) {
+  background: var(--hg-sheen), var(--hg-frost-modal);
+  backdrop-filter: blur(30px) saturate(1.7);
+  -webkit-backdrop-filter: blur(30px) saturate(1.7);
+  box-shadow: var(--hg-rim), 0 0 0 1px color-mix(in oklab, var(--accent) 8%, transparent), var(--hg-modal-shadow);
+}
+:root .search-overlay-header {
+  background: color-mix(in oklab, var(--hg-surface) 55%, transparent);
+  box-shadow: var(--hg-rim);
+}
+:root .search-overlay-content .search-kbd { background: color-mix(in oklab, var(--hg-surface) 60%, transparent); }
+:root .mermaid-viewer-toolbar { background: color-mix(in oklab, var(--hg-surface) 35%, transparent); border-bottom-color: var(--hg-line-soft); }
+
+/* Gallery lightbox: frosted scrim over the page, glass controls and caption plate. */
+.gallery-lightbox-overlay {
+  --glb-ink: var(--text-primary);
+  background: radial-gradient(ellipse 70% 60% at 50% 42%, color-mix(in oklab, var(--accent) 14%, transparent), transparent 72%), var(--hg-lightbox-scrim);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  color: var(--glb-ink);
+  animation: hg-overlay-in .24s ease both;
+}
+.gallery-lightbox-overlay .glb-image {
+  border-radius: 18px;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / .16), var(--hg-modal-shadow);
+}
+.gallery-lightbox-overlay :is(.glb-nav, .glb-close) {
+  display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
+  border: 1px solid var(--raksara-edge-border); color: var(--glb-ink);
+  background: var(--hg-sheen), var(--hg-frost-modal);
+  backdrop-filter: blur(16px) saturate(1.6); -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  box-shadow: var(--hg-rim), 0 10px 26px -12px rgb(0 0 0 / .45);
+  font-size: 24px; line-height: 1;
+  transition: transform .2s var(--hg-ease), border-color .2s ease;
+}
+.gallery-lightbox-overlay :is(.glb-nav, .glb-close):hover { border-color: var(--hg-line); transform: scale(1.06); }
+.gallery-lightbox-overlay :is(.glb-nav, .glb-close, .glb-dot, .glb-desc-toggle):focus-visible { outline: 2px solid var(--hg-accent-text); outline-offset: 3px; }
+.gallery-lightbox-overlay .glb-nav.prev { left: 12px; }
+.gallery-lightbox-overlay .glb-nav.next { right: 12px; }
+.gallery-lightbox-overlay .glb-dot { width: 6px; height: 6px; border-radius: 999px; background: color-mix(in oklab, var(--glb-ink) 35%, transparent); transition: width .25s var(--hg-ease), background .25s ease; }
+.gallery-lightbox-overlay .glb-dot.active { width: 20px; background: var(--hg-accent-text); }
+.gallery-lightbox-overlay .glb-count { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+/* Caption: no plate. Text sits on the frosted scrim under a short accent hairline. */
+.gallery-lightbox-overlay .glb-caption {
+  --glb-halo: 0 1px 14px rgb(0 0 0 / .55);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  margin-top: 18px; padding: 0 12px; max-width: 64ch; border: 0; background: none; box-shadow: none;
+}
+:root[data-theme='light'] .gallery-lightbox-overlay .glb-caption { --glb-halo: 0 1px 12px rgb(255 255 255 / .9); }
+.gallery-lightbox-overlay .glb-caption::before {
+  content: ''; width: 36px; height: 2px; margin-bottom: 6px; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--hg-accent-text), transparent);
+}
+.gallery-lightbox-overlay .glb-caption p { margin: 0; color: var(--text-primary); font-size: 16px; font-weight: 600; letter-spacing: .01em; line-height: 1.5; text-shadow: var(--glb-halo); }
+.gallery-lightbox-overlay .glb-caption .glb-desc { color: var(--text-secondary); font-size: 14px; font-weight: 400; text-shadow: var(--glb-halo); }
+.gallery-lightbox-overlay .glb-desc-toggle { margin: 0; color: var(--hg-accent-text); font-weight: 600; text-underline-offset: .25em; text-shadow: var(--glb-halo); }
+.gallery-lightbox-overlay :is(.glb-nav, .glb-close) { background: var(--hg-gloss), var(--hg-frost-modal); box-shadow: var(--hg-gloss-rim), 0 10px 26px -12px rgb(0 0 0 / .45); }
+
+/* ── Glossy counters: tags, folders, chapters, gallery ───────────────────── */
+#app :is(.blog-dir-count, .chapters-dir-badge, .tag-count), .gallery-lightbox-overlay .glb-count {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  min-width: 30px; height: 24px; min-height: 0; padding: 0 9px; border-radius: 999px;
+  border: 1px solid var(--hg-count-edge); color: var(--hg-count-ink);
+  background: var(--hg-gloss), var(--hg-count-fill);
+  box-shadow: var(--hg-gloss-rim), var(--hg-count-glow);
+  font: 700 12.5px/1 var(--font-sans); font-variant-numeric: tabular-nums; letter-spacing: .02em; opacity: 1;
+  transition: transform .2s var(--hg-ease), box-shadow .2s ease;
+}
+#app .blog-dir-chip:hover .blog-dir-count {
+  color: var(--hg-count-ink); background: var(--hg-gloss), var(--hg-count-fill); transform: translateY(-1px);
+  box-shadow: var(--hg-gloss-rim), 0 0 0 3px color-mix(in oklab, var(--accent) 16%, transparent), 0 6px 14px -6px color-mix(in oklab, var(--accent) 80%, transparent);
+}
+.gallery-lightbox-overlay .glb-count { height: 22px; margin-left: 10px; font-size: 11.5px; }
+/* Over photos the counter is always smoked glass, whatever the theme. */
+#app .gallery-image-count {
+  border: 1px solid rgb(255 255 255 / .24); color: #fff;
+  background: linear-gradient(180deg, rgb(255 255 255 / .2), rgb(255 255 255 / .04) 50%, transparent 52%), rgb(10 12 16 / .5);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .3), 0 6px 18px -6px rgb(0 0 0 / .5);
+  font-family: var(--font-sans); font-variant-numeric: tabular-nums;
+}
+
+/* ── Raksara components: heritage glass ─────────────────────────────────────
+   Painted glass (gradient fill, sheen, lit rim) instead of backdrop blur: the article
+   surface beneath is already frosted, and long posts can embed dozens of these. */
+#app .article-body :is(.custom-container, .file-attachment, .toc-block, .component-card, .content-card, .thought-bubble) {
+  border: 1px solid var(--raksara-edge-border);
+  background: var(--hg-sheen), var(--hg-comp-fill);
+  box-shadow: var(--hg-rim), var(--card-shadow);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+/* Article image defaults (margin, radius) must not leak into card thumbnails. */
+#app .article-body .content-card-img img { margin: 0; border-radius: 0; box-shadow: none; }
+#app .article-body .thought-bubble { background: radial-gradient(120% 80% at 0 0, color-mix(in oklab, var(--accent) 12%, transparent), transparent 60%), var(--hg-sheen), var(--hg-comp-fill); }
+#app .article-body :is(.file-attachment, .component-card, .content-card) { transition: transform .25s var(--hg-ease), border-color .2s ease, box-shadow .25s ease; }
+#app .article-body :is(.file-attachment, .component-card, .content-card):hover {
+  transform: translateY(-2px); border-color: var(--hg-line-strong);
+  background: radial-gradient(90% 120% at 0 0, color-mix(in oklab, var(--accent) 10%, transparent), transparent 65%), var(--hg-sheen), var(--hg-comp-fill);
+  box-shadow: var(--hg-rim), var(--card-shadow-hover), 0 18px 40px -26px color-mix(in oklab, var(--accent) 70%, transparent);
+}
+
+/* Panels: tinted glass, a lit leading edge in the panel ink and a glossy icon well. */
+#app .article-body .panel {
+  border: 1px solid color-mix(in oklab, var(--panel-ink) 32%, transparent);
+  background:
+    radial-gradient(120% 160% at 0 0, color-mix(in oklab, var(--panel-ink) 20%, transparent), transparent 62%),
+    var(--hg-sheen),
+    linear-gradient(color-mix(in oklab, var(--panel-ink) 7%, transparent), color-mix(in oklab, var(--panel-ink) 7%, transparent)),
+    var(--hg-comp-fill);
+  box-shadow: inset 3px 0 0 var(--panel-ink), var(--hg-rim), 0 18px 36px -26px color-mix(in oklab, var(--panel-ink) 60%, transparent);
+}
+#app .panel .panel-icon {
+  border: 1px solid color-mix(in oklab, var(--panel-ink) 50%, transparent);
+  background: var(--hg-gloss), color-mix(in oklab, var(--panel-ink) 16%, var(--hg-surface));
+  box-shadow: var(--hg-gloss-rim), 0 0 18px -6px color-mix(in oklab, var(--panel-ink) 70%, transparent);
+}
+
+/* Chips: glossy glass pills that sit on the text line. */
+#app .article-body .chip {
+  vertical-align: middle; margin: 2px 0; padding: 5px 12px 5px 10px;
+  border: 1px solid var(--raksara-edge-border);
+  background: var(--hg-gloss), var(--hg-comp-fill);
+  box-shadow: var(--hg-gloss-rim), 0 4px 12px -8px rgb(0 0 0 / .4);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+#app .article-body .chip-icon { color: var(--hg-accent-text); }
+#app .article-body .chip-label + .chip-text { border-left-color: var(--hg-line); }
+
+/* Progress: recessed glass track, glossy candy fill. */
+#app .rk-progress-track {
+  height: 12px; border: 1px solid var(--raksara-edge-border);
+  background: linear-gradient(180deg, rgb(0 0 0 / .28), rgb(255 255 255 / .04));
+  box-shadow: inset 0 1px 3px rgb(0 0 0 / .35);
+}
+:root[data-theme='light'] #app .rk-progress-track { background: linear-gradient(180deg, rgb(110 80 40 / .12), rgb(255 255 255 / .7)); box-shadow: inset 0 1px 2px rgb(110 80 40 / .18); }
+#app .rk-progress-fill {
+  background: linear-gradient(180deg, rgb(255 255 255 / .42), rgb(255 255 255 / .1) 50%, rgb(255 255 255 / 0) 54%), var(--rk-prog-color, var(--accent));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .35), 0 0 12px -2px color-mix(in oklab, var(--rk-prog-color, var(--accent)) 70%, transparent);
+}
+#app .rk-progress-label { font-variant-numeric: tabular-nums; }
+#app .rk-progress-current { color: var(--hg-accent-text); font-weight: 700; }
+#app .rk-bar-tooltip {
+  border: 1px solid var(--raksara-edge-border); border-radius: 10px; color: var(--text-primary);
+  background: var(--hg-sheen), var(--hg-frost-modal);
+  backdrop-filter: blur(14px) saturate(1.5); -webkit-backdrop-filter: blur(14px) saturate(1.5);
+  box-shadow: var(--hg-rim), 0 10px 24px -12px rgb(0 0 0 / .5);
+}
+
+/* File attachment: glossy icon well, extension badge and download button. */
+#app .article-body .file-attachment-icon { border: 1px solid var(--hg-line); background: var(--hg-gloss), color-mix(in oklab, var(--accent) 10%, var(--hg-surface)); box-shadow: var(--hg-gloss-rim); }
+#app .article-body .file-attachment-badge { border: 1px solid var(--hg-count-edge); color: var(--hg-count-ink); background: var(--hg-gloss), var(--hg-count-fill); box-shadow: var(--hg-gloss-rim); }
+#app .article-body :is(.file-attachment-dl, .component-card-link) {
+  border: 1px solid var(--hg-glass-edge); color: var(--text-primary);
+  background: var(--hg-gloss), var(--hg-glass-fill); box-shadow: var(--hg-glass-shadow);
+}
+#app .article-body :is(.file-attachment:hover .file-attachment-dl, .component-card:hover .component-card-link) { background: var(--hg-gloss), var(--hg-glass-fill-hover); }
+#app .article-body .component-card-icon { border: 1px solid var(--hg-line); background: var(--hg-gloss), color-mix(in oklab, var(--accent) 10%, var(--hg-surface)); box-shadow: var(--hg-gloss-rim); }
+#app .article-body .component-card-status { border: 1px solid var(--hg-count-edge); color: var(--hg-count-ink); background: var(--hg-gloss), var(--hg-count-fill); box-shadow: var(--hg-gloss-rim); font-weight: 700; }
+
+/* TOC: a lit leading edge replaces the heavy left border. */
+#app .article-body .toc-block { border-left-width: 1px; box-shadow: inset 3px 0 0 var(--hg-accent-text), var(--hg-rim), var(--card-shadow); }
+#app .toc-toggle-btn { border: 1px solid var(--hg-line); background: var(--hg-gloss), var(--hg-comp-fill); box-shadow: var(--hg-gloss-rim); }
+
+/* Tables and code: glass header bands instead of the brown accent wash. */
+#app .article-body table { background: var(--hg-comp-fill); box-shadow: var(--hg-rim), var(--card-shadow); }
+#app .article-body th { background: var(--hg-head-fill); box-shadow: inset 0 -1px 0 var(--hg-line); }
+#app .article-body tbody tr:nth-child(even) > td { background: color-mix(in oklab, var(--accent) 4%, transparent); }
+#app .article-body tbody tr:hover > td { background: color-mix(in oklab, var(--accent) 10%, transparent); }
+#app .code-block-wrap { border-color: var(--raksara-edge-border); box-shadow: var(--hg-rim), var(--card-shadow); }
+#app .code-block-wrap::before { background: var(--hg-head-fill); border-bottom-color: var(--hg-line-soft); }
+#app .code-copy-btn { border: 1px solid var(--hg-line); background: var(--hg-gloss), var(--hg-comp-fill); box-shadow: var(--hg-gloss-rim); }
+
+/* Blockquote: a sliver of tinted glass with a glowing leading edge. */
+#app .article-body blockquote {
+  border: 1px solid var(--hg-line-soft); border-radius: 16px;
+  background: linear-gradient(90deg, color-mix(in oklab, var(--accent) 12%, transparent), transparent 70%), var(--hg-sheen), var(--hg-comp-fill);
+  box-shadow: inset 3px 0 0 var(--hg-accent-text), var(--hg-rim);
+}
+
+/* Video: lit rim and a glossy glass play button. */
+#app .article-body .video-player { border-color: var(--raksara-edge-border); box-shadow: var(--hg-rim), var(--card-shadow); }
+#app .video-player-play {
+  border: 1px solid rgb(255 255 255 / .55);
+  background: linear-gradient(180deg, rgb(255 255 255 / .32), rgb(255 255 255 / .08) 50%, rgb(255 255 255 / .02) 52%), rgb(12 14 18 / .38);
+  backdrop-filter: blur(10px) saturate(1.5); -webkit-backdrop-filter: blur(10px) saturate(1.5);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .5), 0 10px 30px -8px rgb(0 0 0 / .6);
+  transition: transform .25s var(--hg-ease);
+}
+#app .video-player:hover .video-player-play { transform: scale(1.08); }
+
+/* Carousel: glossy glass arrows. */
+#app .content-carousel-btn { border: 1px solid var(--raksara-edge-border); background: var(--hg-gloss), var(--hg-frost-modal); box-shadow: var(--hg-gloss-rim), 0 10px 24px -12px rgb(0 0 0 / .5); }
+#app .content-carousel-btn:hover { border-color: var(--hg-line-strong); }
+
+@media (max-width: 768px) {
+  :root[data-theme] { --hg-frost-blur: blur(16px) saturate(1.5); }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root :is(.search-overlay-content, .mermaid-viewer-dialog), .gallery-lightbox-overlay .glb-caption {
+    background: var(--bg-glass-heavy); backdrop-filter: none; -webkit-backdrop-filter: none;
+  }
+  .gallery-lightbox-overlay { background: var(--bg-glass-heavy); }
+  #app .page-header { background: var(--bg-glass-heavy); }
+}
 @media (prefers-reduced-transparency: reduce) {
   #sidebar, .mobile-header, #app :is(.home-section, .page-header, .article-header, .home-hero-content, .post-card, .portfolio-card, .home-info-card, .thought-card, .content-carousel-slide) {
     background: var(--bg-glass-heavy); backdrop-filter: none; -webkit-backdrop-filter: none;
   }
+}
+@media (forced-colors: active) {
+  #app :is(.blog-dir-count, .chapters-dir-badge, .tag-count, .file-attachment-badge, .component-card-status), .gallery-lightbox-overlay .glb-count { border-color: CanvasText; }
+  #app .article-body :is(.panel, .toc-block, blockquote) { border-left: 4px solid CanvasText; }
+  .gallery-lightbox-overlay .glb-caption::before { background: CanvasText; }
 }
 @media (forced-colors: active) {
   #sidebar::before, .content-footer::before, :root .bg-gradient::before,

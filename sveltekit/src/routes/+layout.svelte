@@ -7,7 +7,6 @@
 	import { goto } from '$app/navigation';
 	import type { LayoutData } from './$types';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
-	import AgenticTools from '$lib/components/AgenticTools.svelte';
 	import AdcashAutoTag from '$lib/components/AdcashAutoTag.svelte';
 	import { getAdsenseId, getGiscusConfig } from '$lib/seo';
 	import { assetUrl } from '$lib/utils';
@@ -16,28 +15,36 @@
 	let { children, data }: { children: import('svelte').Snippet; data: LayoutData } = $props();
 
 	const config = $derived(data.config);
+	let AgenticTools: typeof import('$lib/components/AgenticTools.svelte').default | null = $state(null);
 	let Fireflies: typeof import('$lib/components/Fireflies.svelte').default | null = $state(null);
 
-	// Enhancement is imported only after page assets load and the browser is idle.
+	// WebMCP and the ambient fireflies are enhancements, not prerequisites for painting
+	// the UI. Keep their module parsing and setup out of initial hydration.
 	onMount(() => {
-		const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
-		if (connection?.saveData || matchMedia('(prefers-reduced-motion: reduce)').matches || matchMedia('(prefers-reduced-transparency: reduce)').matches || matchMedia('(forced-colors: active)').matches) return;
 		let disposed = false;
 		let cancelIdle = () => {};
-		const start = async () => {
+		const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+		const ambient = !connection?.saveData
+			&& !matchMedia('(prefers-reduced-transparency: reduce), (forced-colors: active)').matches;
+		const load = async () => {
+			if (ambient) {
+				import('$lib/components/Fireflies.svelte')
+					.then((module) => { if (!disposed) Fireflies = module.default; })
+					.catch((error) => console.warn('[fireflies] Enhancement unavailable; keeping the static background.', error));
+			}
 			try {
-				const component = await import('$lib/components/Fireflies.svelte');
-				if (!disposed) Fireflies = component.default;
+				const module = await import('$lib/components/AgenticTools.svelte');
+				if (!disposed) AgenticTools = module.default;
 			} catch (error) {
-				console.warn('[fireflies] Enhancement unavailable; keeping the static background.', error);
+				console.warn('[agentic] Enhancement unavailable.', error);
 			}
 		};
 		const defer = () => {
 			if ('requestIdleCallback' in window) {
-				const id = window.requestIdleCallback(() => void start(), { timeout: 1200 });
+				const id = window.requestIdleCallback(() => void load(), { timeout: 2500 });
 				cancelIdle = () => window.cancelIdleCallback(id);
 			} else {
-				const id = setTimeout(() => void start(), 400);
+				const id = setTimeout(() => void load(), 1000);
 				cancelIdle = () => clearTimeout(id);
 			}
 		};
@@ -452,7 +459,7 @@
 	{/if}
 </svelte:head>
 
-<!-- Fixed background gradient -->
+<!-- Static dot grid and accent lighting; fireflies are compositor-only CSS animation. -->
 <div class="bg-gradient" aria-hidden="true">
 	{#if Fireflies}<Fireflies />{/if}
 </div>
@@ -557,7 +564,7 @@
 	</main>
 </div>
 
-<AgenticTools />
+{#if AgenticTools}<AgenticTools />{/if}
 <AdcashAutoTag />
 
 {#if SearchOverlay}
