@@ -16,21 +16,21 @@
 
 	const config = $derived(data.config);
 	let AgenticTools: typeof import('$lib/components/AgenticTools.svelte').default | null = $state(null);
-	let Fireflies: typeof import('$lib/components/Fireflies.svelte').default | null = $state(null);
 
-	// WebMCP and the ambient fireflies are enhancements, not prerequisites for painting
-	// the UI. Keep their module parsing and setup out of initial hydration.
+	// Enhancements load after the page; neither is required for first paint.
 	onMount(() => {
 		let disposed = false;
 		let cancelIdle = () => {};
 		const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
-		const ambient = !connection?.saveData
-			&& !matchMedia('(prefers-reduced-transparency: reduce), (forced-colors: active)').matches;
 		const load = async () => {
-			if (ambient) {
-				import('$lib/components/Fireflies.svelte')
-					.then((module) => { if (!disposed) Fireflies = module.default; })
-					.catch((error) => console.warn('[fireflies] Enhancement unavailable; keeping the static background.', error));
+			// Carved ukiran dividers swap in for the 1px fallback line only once the
+			// (compressed) mask is decoded, so it never competes with first paint.
+			if (!connection?.saveData) {
+				const divider = new Image();
+				divider.src = '/heritage/ukiran-divider.webp';
+				divider.decode()
+					.then(() => { if (!disposed) document.documentElement.classList.add('hg-divider-ready'); })
+					.catch((error) => console.warn('[ukiran] Divider unavailable; keeping the hairline.', error));
 			}
 			try {
 				const module = await import('$lib/components/AgenticTools.svelte');
@@ -459,10 +459,8 @@
 	{/if}
 </svelte:head>
 
-<!-- Static dot grid and accent lighting; fireflies are compositor-only CSS animation. -->
-<div class="bg-gradient" aria-hidden="true">
-	{#if Fireflies}<Fireflies />{/if}
-</div>
+<!-- Static accent texture avoids perpetual ambient compositing. -->
+<div class="bg-gradient" aria-hidden="true"></div>
 
 <!-- Mobile overlay -->
 {#if sidebarOpen}

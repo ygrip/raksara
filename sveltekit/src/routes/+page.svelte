@@ -314,7 +314,7 @@
 		<!-- link list -->
 		{:else if section.type === 'links'}
 			{#if section.items?.length}
-				<div class="home-section">
+				<div class="home-section home-section-links">
 					<div class="home-section-header">
 						<h2>{section.title ?? 'Links'}</h2>
 					</div>
