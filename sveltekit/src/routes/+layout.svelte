@@ -16,12 +16,15 @@
 
 	const config = $derived(data.config);
 	let AgenticTools: typeof import('$lib/components/AgenticTools.svelte').default | null = $state(null);
+	let Fireflies: typeof import('$lib/components/Fireflies.svelte').default | null = $state(null);
 
-	// Enhancements load after the page; neither is required for first paint.
+	// Enhancements load after the page; none is required for first paint.
 	onMount(() => {
 		let disposed = false;
 		let cancelIdle = () => {};
 		const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+		const ambient = !connection?.saveData
+			&& !matchMedia('(prefers-reduced-transparency: reduce), (forced-colors: active)').matches;
 		const load = async () => {
 			// Carved ukiran dividers swap in for the 1px fallback line only once the
 			// (compressed) mask is decoded, so it never competes with first paint.
@@ -31,6 +34,11 @@
 				divider.decode()
 					.then(() => { if (!disposed) document.documentElement.classList.add('hg-divider-ready'); })
 					.catch((error) => console.warn('[ukiran] Divider unavailable; keeping the hairline.', error));
+			}
+			if (ambient) {
+				import('$lib/components/Fireflies.svelte')
+					.then((module) => { if (!disposed) Fireflies = module.default; })
+					.catch((error) => console.warn('[fireflies] Enhancement unavailable; keeping the static background.', error));
 			}
 			try {
 				const module = await import('$lib/components/AgenticTools.svelte');
@@ -459,8 +467,10 @@
 	{/if}
 </svelte:head>
 
-<!-- Static accent texture avoids perpetual ambient compositing. -->
-<div class="bg-gradient" aria-hidden="true"></div>
+<!-- Static dot grid and accent lighting; fireflies are deferred, compositor-only CSS animation. -->
+<div class="bg-gradient" aria-hidden="true">
+	{#if Fireflies}<Fireflies />{/if}
+</div>
 
 <!-- Mobile overlay -->
 {#if sidebarOpen}
