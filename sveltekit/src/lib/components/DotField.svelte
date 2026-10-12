@@ -1,5 +1,6 @@
 <script lang="ts">
   import { globeTone, imageTonePixels, morphFrame, morphPairs } from '$lib/dot-field';
+  import { mixRgb, parseCssColor, rgba } from '$lib/css-color';
   /**
    * Full-bleed halftone dot field. Every dot sits on one shared grid that spans
    * the host; dots inside the `anchor` element's box are sized from the portrait
@@ -22,9 +23,8 @@
   let canvas: HTMLCanvasElement | undefined;
   let ready = $state(false);
 
-  const FRAME_MS = 1000 / 12;
-  /** Frame budget while the pointer is engaged or a ripple is running. */
-  const FRAME_MS_ACTIVE = 1000 / 24;
+  /** Animate at the display rate, capped near 60 fps on high-refresh screens. */
+  const MIN_FRAME_MS = 1000 / 60 - 2;
   const RIPPLE_SPEED = 520; // px/s
   const RIPPLE_WIDTH = 34; // px, gaussian half-width of the ring
   const RIPPLE_LIFE = 1.3; // s
@@ -34,8 +34,6 @@
   const TONE_FLOOR = 0.3;
   /** Share of a morph spent staggering departures; each particle flies the rest. */
   const MORPH_STAGGER = 0.45;
-  /** Seconds until every dot has finished its reveal (max delay 1.28 + 0.7). */
-  const REVEAL_END = 2;
   /** Resting ambient alpha, as a multiple of --dot-field-ambient. */
   const AMBIENT_BASE = 0.8;
   /** Theme switch: the halftone inverts in a wave from the focal centre. */
@@ -506,6 +504,15 @@
     let invertStart = -Infinity;
     const invertProgress = (now: number) => (now - invertStart) / INVERT_MS;
     let color = '#22c55e';
+    /** Fill per alpha level: saturated body tone ramping to the highlight. */
+    let palette: string[] = [];
+    /** Region painted by the previous animated frame; null forces a full repaint. */
+    let prevBox: [number, number, number, number] | null = null;
+    /** Subject cells touched by the running inversion, per tone frame. */
+    let invertCells: Int32Array[] = [];
+    const invertLit = (index: number) => invertCells[index] ?? litBase;
+    /** Images settled (or none configured): only then fade the field in. */
+    let settled = sources.length === 0;
     let ambient = 0.1;
     let strength = 1;
     let frame = 0;
@@ -627,42 +634,95 @@
 
     const drawAmbientLayer = () => {
       if (!field || !ambientCtx) return;
-      const { width, height, spacing, count, x, y } = field;
+      const { width, height, spacing, originX, originY } = field;
       ambientLayer.width = Math.round(width * dpr);
       ambientLayer.height = Math.round(height * dpr);
-      ambientCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ambientCtx.clearRect(0, 0, width, height);
-      ambientCtx.fillStyle = color;
-      ambientCtx.globalAlpha = Math.min(1, ambient * AMBIENT_BASE);
-      const r = spacing * 0.1 + 0.45;
-      ambientCtx.beginPath();
-      for (let i = 0; i < count; i += 1) {
-        ambientCtx.moveTo(x[i] + r, y[i]);
-        ambientCtx.arc(x[i], y[i], r, 0, Math.PI * 2);
+      // The resting grid is uniform: rasterise a 2×2-cell tile once at device
+      // resolution and fill the layer with it, instead of tracing every dot.
+      const tilePx = Math.max(1, Math.round(spacing * 2 * dpr));
+      const tile = document.createElement('canvas');
+      tile.width = tile.height = tilePx;
+      const tileCtx = tile.getContext('2d');
+      ambientCtx.setTransform(1, 0, 0, 1, 0, 0);
+      ambientCtx.clearRect(0, 0, ambientLayer.width, ambientLayer.height);
+      if (!tileCtx) return;
+      const cell = tilePx / 2;
+      const r = (spacing * 0.1 + 0.45) * dpr;
+      tileCtx.fillStyle = palette[1] ?? color;
+      tileCtx.beginPath();
+      for (const [cx, cy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+        const px = cell * (cx + 0.5);
+        const py = cell * (cy + 0.5);
+        tileCtx.moveTo(px + r, py);
+        tileCtx.arc(px, py, r, 0, Math.PI * 2);
       }
-      ambientCtx.fill();
+      tileCtx.fill();
+      const pattern = ambientCtx.createPattern(tile, 'repeat');
+      if (!pattern) return;
+      // Align tile cell centres with grid points (originX + col × spacing).
+      const scale = (spacing * 2 * dpr) / tilePx;
+      pattern.setTransform(new DOMMatrix()
+        .translate((originX - spacing / 2) * dpr, (originY - spacing / 2) * dpr)
+        .scale(scale));
+      ambientCtx.globalAlpha = Math.min(1, ambient * AMBIENT_BASE);
+      ambientCtx.fillStyle = pattern;
+      ambientCtx.fillRect(0, 0, ambientLayer.width, ambientLayer.height);
+      prevBox = null;
     };
 
     const readTheme = () => {
       if (!host) return;
-      // `--dot-field-color` (via the host's `color`) lets the theme pick a more
-      // luminous tint than the raw accent; canvas ignores colours it can't parse,
-      // so fall back to the accent rather than painting black.
+      // `--dot-field-color` (host `color`) is the saturated body tone and
+      // `--dot-field-hot` (host `outline-color`) the highlight; brighter dots
+      // shift toward the highlight so the portrait reads as lit, not flat.
+      // The host CSS normalises both to sRGB, so no canvas readback is needed.
       const style = getComputedStyle(host);
-      const accent = style.getPropertyValue('--accent').trim() || color;
-      ctx.fillStyle = accent;
-      ctx.fillStyle = style.color || accent;
-      color = String(ctx.fillStyle);
+      const base = parseCssColor(style.color, [34, 197, 94]);
+      const hot = parseCssColor(style.outlineColor, base);
+      color = rgba(base);
+      palette = Array.from({ length: ALPHA_LEVELS + 1 }, (_, level) => {
+        // Body stays saturated; only the brightest ~40% of dots warm toward the
+        // highlight (capped at 70%), so the portrait glows without washing out.
+        const f = 0.7 * Math.max(0, (level / ALPHA_LEVELS - 0.6) / 0.4) ** 1.5;
+        return rgba(mixRgb(base, hot, f));
+      });
       ambient = cssNumber(host, '--dot-field-ambient', 0.1);
       strength = cssNumber(host, '--dot-field-strength', 1);
     };
 
+    // Later images are sampled one per idle slot so the first frame never pays
+    // for every portrait at once; the morph loop starts when the second lands.
+    let fieldGeneration = 0;
+    let cancelExtraField = () => {};
+    const queueExtraFields = (generation: number, next: number) => {
+      if (disposed || generation !== fieldGeneration || next >= loaded.length) return;
+      const run = () => {
+        if (disposed || generation !== fieldGeneration) return;
+        const extra = buildField(loaded[next].image, loaded[next].analysis);
+        if (extra && field && extra.count === field.count) {
+          toneSets.push({ base: extra.tone, ink: extra.ink });
+          applyTarget();
+          schedule();
+        }
+        queueExtraFields(generation, next + 1);
+      };
+      if ('requestIdleCallback' in window) {
+        const id = window.requestIdleCallback(run, { timeout: 1200 });
+        cancelExtraField = () => window.cancelIdleCallback(id);
+      } else {
+        const id = setTimeout(run, 60);
+        cancelExtraField = () => clearTimeout(id);
+      }
+    };
+
     const resize = () => {
       if (!host || !canvas) return;
-      const fields = loaded.map(({ image, analysis }) => buildField(image, analysis));
-      field = fields[0] ?? buildField(null, null);
+      cancelExtraField();
+      fieldGeneration += 1;
+      const first = loaded[0];
+      field = first ? buildField(first.image, first.analysis) : buildField(null, null);
       if (!field) return;
-      toneSets = fields.flatMap((candidate) => candidate ? [{ base: candidate.tone, ink: candidate.ink }] : []);
+      toneSets = first ? [{ base: field.tone, ink: field.ink }] : [];
       // Arrays are resized; an in-flight inversion can't blend across layouts.
       invertStart = -Infinity;
       blendFrames = [];
@@ -680,17 +740,21 @@
       stamp = new Uint32Array(field.count);
       applyTarget();
       drawAmbientLayer();
+      queueExtraFields(fieldGeneration, 1);
     };
 
     const paint = (elapsed: number, animate: boolean, now = performance.now()) => {
       if (!field) return;
-      const { width, height, spacing, cols, rows, originX, originY, count, x, y, tone, ink, delay } = field;
-      ctx.clearRect(0, 0, width, height);
+      const { width, height, spacing, cols, rows, originX, originY, count, x, y, tone, ink } = field;
+      if (!animate) {
+        ctx.clearRect(0, 0, width, height);
+        prevBox = null;
+      }
       ctx.fillStyle = color;
 
-      const pointerRadius = Math.max(90, Math.min(150, width * 0.09));
+      const pointerRadius = Math.max(80, Math.min(110, width * 0.08));
       const pointerRadius2 = 2 * pointerRadius * pointerRadius;
-      const reach2 = pointerRadius2 * 4.5; // skip the exp() for far dots
+      const reach2 = pointerRadius2 * 2.5; // lift < 8% beyond; skip those dots
       const push = spacing * 1.6;
       const baseRadius = spacing * 0.1;
       const morph = morphFrame(animate ? elapsed : 0, toneFrames.length);
@@ -702,13 +766,13 @@
       if (inverting) blendInversion(inversion);
       const shownFrames = inverting ? blendFrames : toneFrames;
       const gridTone = flight ? null : (shownFrames[morph.from] ?? (inkTarget ? ink : tone));
-      const gridLit = flight || inverting ? null : (litFrames[morph.from] ?? litBase);
-      // During the reveal (and the static reduced-motion frame) every dot is
-      // individually shaded. Afterwards resting ambient dots come from the
-      // cached layer and only lit, near-pointer or rippled dots and
-      // particles are shaded: a few thousand dots instead of the whole grid.
-      // The inversion wave touches lit and unlit cells alike, so shade them all briefly.
-      const full = !animate || elapsed < REVEAL_END || inverting;
+      // An inversion only changes subject cells: shade the union of old and new.
+      const gridLit = flight ? null : inverting ? invertLit(morph.from) : (litFrames[morph.from] ?? litBase);
+      // Only the static (reduced-motion) frame shades the whole grid. Animated
+      // frames reuse the cached ambient layer and shade lit, near-pointer,
+      // rippled and flying dots: a few thousand instead of every cell. The
+      // entrance is a one-shot CSS reveal, not per-dot JS frames.
+      const full = !animate;
       const pointerOn = pointerLift > 0.002;
       const reach = Math.sqrt(reach2);
 
@@ -719,9 +783,7 @@
 
       let total = 0;
       /** Shade one dot drawn at (bx, by); `energy` (0..1) marks a dot in flight. */
-      const shade = (bx: number, by: number, t: number, dotDelay: number, energy: number) => {
-        const reveal = animate ? smoothstep(0, 1, (elapsed - dotDelay) / 0.7) : 1;
-        if (reveal <= 0) return;
+      const shade = (bx: number, by: number, t: number, energy: number) => {
         const slot = total;
         total += 1;
         drawX[slot] = bx;
@@ -764,14 +826,14 @@
         const subjectRadius = spacing * (0.08 + 0.4 * t) * (1 + lift * 0.35 + ring * 0.45) * (1 - 0.18 * energy);
         const alpha = ambientAlpha + (subjectAlpha - ambientAlpha) * occupancy;
         const radius = ambientRadius + (subjectRadius - ambientRadius) * occupancy;
-        alphaOut[slot] = Math.min(1, alpha * reveal);
-        radiusOut[slot] = Math.min(spacing * 0.48, radius * (0.4 + 0.6 * reveal));
+        alphaOut[slot] = Math.min(1, alpha);
+        radiusOut[slot] = Math.min(spacing * 0.48, radius);
       };
       paintId += 1;
       const cell = (i: number) => {
         if (stamp[i] === paintId) return;
         stamp[i] = paintId;
-        shade(x[i], y[i], gridTone ? gridTone[i] : 0, delay[i], 0);
+        shade(x[i], y[i], gridTone ? gridTone[i] : 0, 0);
       };
       /** Shade every cell whose centre lies within `radius` of (px, py). */
       const cellsNear = (px: number, py: number, radius: number, inner = 0) => {
@@ -795,16 +857,7 @@
       if (full) {
         for (let i = 0; i < count; i += 1) cell(i);
       } else {
-        // Reuse the resting grid except for dots displaced by interaction.
-        ctx.save();
-        if (pointerOn) {
-          ctx.beginPath();
-          ctx.rect(0, 0, width, height);
-          ctx.arc(pointerX, pointerY, reach, 0, Math.PI * 2, true);
-          ctx.clip('evenodd');
-        }
-        ctx.drawImage(ambientLayer, 0, 0, width, height);
-        ctx.restore();
+        // Ambient grid + clearing happen after shading, limited to the dirty region.
         if (gridLit) for (let k = 0; k < gridLit.length; k += 1) cell(gridLit[k]);
         if (pointerOn) cellsNear(pointerX, pointerY, reach);
         for (let r = 0; r < ripples.length; r += 1) {
@@ -831,9 +884,56 @@
             x[s] + dx * p - dy * curl[k] * arc + bloomX[k] * arc,
             y[s] + dy * p + dx * curl[k] * arc + bloomY[k] * arc,
             fromTone[s] + (toTone[d] - fromTone[s]) * p,
-            delay[s] + (delay[d] - delay[s]) * p,
             arc
           );
+        }
+      }
+
+      if (!full) {
+        // Repaint only where dots are this frame or were last frame: during a
+        // morph that is the portrait area, not the full-bleed hero canvas.
+        let x0 = Infinity;
+        let y0 = Infinity;
+        let x1 = -Infinity;
+        let y1 = -Infinity;
+        for (let i = 0; i < total; i += 1) {
+          const r = radiusOut[i] + 1;
+          if (drawX[i] - r < x0) x0 = drawX[i] - r;
+          if (drawY[i] - r < y0) y0 = drawY[i] - r;
+          if (drawX[i] + r > x1) x1 = drawX[i] + r;
+          if (drawY[i] + r > y1) y1 = drawY[i] + r;
+        }
+        if (pointerOn) {
+          x0 = Math.min(x0, pointerX - reach);
+          y0 = Math.min(y0, pointerY - reach);
+          x1 = Math.max(x1, pointerX + reach);
+          y1 = Math.max(y1, pointerY + reach);
+        }
+        // x0..y1 stay ±Infinity when nothing was drawn: an empty box that unions cleanly.
+        const region = prevBox === null
+          ? [0, 0, width, height]
+          : [Math.min(x0, prevBox[0]), Math.min(y0, prevBox[1]), Math.max(x1, prevBox[2]), Math.max(y1, prevBox[3])];
+        // Snap outward to whole pixels so antialiased dot edges are fully cleared.
+        const rx = Math.max(0, Math.floor(region[0]) - 1);
+        const ry = Math.max(0, Math.floor(region[1]) - 1);
+        const rw = Math.min(width, Math.ceil(region[2]) + 1) - rx;
+        const rh = Math.min(height, Math.ceil(region[3]) + 1) - ry;
+        prevBox = [x0, y0, x1, y1];
+        if (rw > 0 && rh > 0) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(rx, ry, rw, rh);
+          ctx.clip();
+          ctx.clearRect(rx, ry, rw, rh);
+          if (pointerOn) {
+            // Dots inside the pointer disc are displaced and shaded live.
+            ctx.beginPath();
+            ctx.rect(rx, ry, rw, rh);
+            ctx.arc(pointerX, pointerY, reach, 0, Math.PI * 2, true);
+            ctx.clip('evenodd');
+          }
+          ctx.drawImage(ambientLayer, rx * dpr, ry * dpr, rw * dpr, rh * dpr, rx, ry, rw, rh);
+          ctx.restore();
         }
       }
 
@@ -858,6 +958,7 @@
         const end = levelCount[level];
         if (end === levelStart[level]) continue;
         ctx.globalAlpha = (level - 0.5) / ALPHA_LEVELS;
+        ctx.fillStyle = palette[level] ?? color;
         ctx.beginPath();
         for (let k = levelStart[level]; k < end; k += 1) {
           const i = order[k];
@@ -877,31 +978,35 @@
       const morph = morphFrame(elapsed, toneFrames.length);
       const pointerMoving = Math.abs((pointerActive ? 1 : 0) - pointerLift) > 0.002
         || (pointerActive && (Math.abs(targetX - pointerX) > 0.1 || Math.abs(targetY - pointerY) > 0.1));
-      const moving = elapsed < REVEAL_END || morph.progress > 0
-        || pointerMoving || ripples.length > 0 || invertProgress(now) < 1;
-      const budget = pointerMoving || ripples.length > 0 || invertProgress(now) < 1 ? FRAME_MS_ACTIVE : FRAME_MS;
-      if ((dirty || moving || wasMoving || paintedImage !== morph.from) && now - lastPaint >= budget - 2) {
+      const moving = morph.progress > 0 || pointerMoving || ripples.length > 0 || invertProgress(now) < 1;
+      const due = dirty || moving || wasMoving || paintedImage !== morph.from;
+      if (due && now - lastPaint >= MIN_FRAME_MS) {
+        // Frame-rate independent easing toward the pointer.
+        const k = Math.min(1, (now - lastPaint) / 16.7);
         lastPaint = now;
-        pointerLift += ((pointerActive ? 1 : 0) - pointerLift) * 0.14;
+        pointerLift += ((pointerActive ? 1 : 0) - pointerLift) * Math.min(1, 0.12 * k);
         if (pointerX < -1e3) {
           pointerX = targetX;
           pointerY = targetY;
         } else {
-          pointerX += (targetX - pointerX) * 0.3;
-          pointerY += (targetY - pointerY) * 0.3;
+          pointerX += (targetX - pointerX) * Math.min(1, 0.28 * k);
+          pointerY += (targetY - pointerY) * Math.min(1, 0.28 * k);
         }
         paint(elapsed, true, now);
         dirty = false;
         paintedImage = morph.from;
         wasMoving = moving;
       }
-      if (!moving && !dirty && !wasMoving && toneFrames.length < 2) return;
-      // Held images only check for their next morph; they do not repaint.
-      const wait = moving || dirty || wasMoving ? Math.max(0, lastPaint + budget - performance.now() - 6) : 250;
+      if (due) {
+        frame = requestAnimationFrame(tick);
+        return;
+      }
+      if (toneFrames.length < 2) return;
+      // Held images only poll for their next morph; they do not repaint.
       wakeTimer = setTimeout(() => {
         wakeTimer = 0;
         if (!disposed && visible && !frame) frame = requestAnimationFrame(tick);
-      }, wait);
+      }, 250);
     };
 
     const schedule = () => {
@@ -921,9 +1026,15 @@
     };
 
     const rebuild = () => {
+      // Sample the portrait once its images settle; no interim globe build.
+      if (!settled) return;
       readTheme();
       resize();
-      ready = Boolean(field);
+      ready = Boolean(field) && settled;
+      if (field && canvas) {
+        canvas.style.setProperty('--reveal-x', `${field.cx}px`);
+        canvas.style.setProperty('--reveal-y', `${field.cy}px`);
+      }
       schedule();
     };
 
@@ -948,7 +1059,11 @@
       };
       const timer = setTimeout(() => finish(null), 10000);
       loadTimers.push(timer);
-      image.onload = () => {
+      image.onload = async () => {
+        if (disposed) { finish(null); return; }
+        // Decode off the main thread first; otherwise the first drawImage below
+        // decodes the full photo synchronously inside a long task.
+        await image.decode().catch(() => undefined);
         if (disposed) { finish(null); return; }
         try {
           const crop = { sx: 0, sy: 0, sw: image.naturalWidth, sh: image.naturalHeight };
@@ -970,6 +1085,7 @@
       if (disposed) return;
       loaded.push(...results.filter((result): result is NonNullable<typeof result> => result !== null));
       start = performance.now();
+      settled = true;
       queueRebuild();
     });
     queueRebuild();
@@ -978,9 +1094,25 @@
     resizeObserver.observe(host);
     if (slot) resizeObserver.observe(slot);
 
+    // The theme switch transitions colours, so reading synchronously captures
+    // the outgoing theme (Chrome reports the interpolated value). Re-read the
+    // palette once the host's colour transitions have finished.
+    let themeFrame = 0;
+    let themeGeneration = 0;
     const themeObserver = new MutationObserver(() => {
-      readTheme();
-      drawAmbientLayer();
+      cancelAnimationFrame(themeFrame);
+      const generation = ++themeGeneration;
+      const syncPalette = () => {
+        if (disposed || generation !== themeGeneration) return;
+        readTheme();
+        drawAmbientLayer();
+        schedule();
+      };
+      themeFrame = requestAnimationFrame(() => {
+        const transitions = host?.getAnimations() ?? [];
+        if (!transitions.length) syncPalette();
+        else void Promise.allSettled(transitions.map((animation) => animation.finished)).then(syncPalette);
+      });
       const target = lightTheme();
       if (target !== inkTarget) {
         const now = performance.now();
@@ -989,6 +1121,12 @@
         invertFrom = midWave ? blendFrames.map((frame) => frame.slice()) : toneFrames;
         inkTarget = target;
         applyTarget();
+        invertCells = toneFrames.map((to, k) => {
+          const from = invertFrom[k];
+          const cells: number[] = [];
+          for (let i = 0; i < to.length; i += 1) if (to[i] > 0 || (from && from[i] > 0)) cells.push(i);
+          return Int32Array.from(cells);
+        });
         if (canAnimate() && field && toneFrames.length) {
           invertStart = now;
           // A ripple from the portrait carries the wavefront visually.
@@ -996,12 +1134,13 @@
           if (ripples.length > MAX_RIPPLES) ripples.shift();
         }
       }
-      if (!canAnimate() || lowPower.matches) paint(0, false);
       schedule();
     });
+    // Only theme/accent changes matter; unrelated root class toggles must not
+    // redraw the whole ambient grid.
     themeObserver.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['data-theme', 'style', 'class']
+      attributeFilter: ['data-theme', 'style']
     });
 
     const intersection = new IntersectionObserver(([entry]) => {
@@ -1097,6 +1236,8 @@
       cancelAnimationFrame(frame);
       if (wakeTimer) clearTimeout(wakeTimer);
       cancelAnimationFrame(resizeFrame);
+      cancelAnimationFrame(themeFrame);
+      cancelExtraField();
       resizeObserver.disconnect();
       themeObserver.disconnect();
       intersection.disconnect();
@@ -1133,7 +1274,9 @@
 
 <style>
   .dot-field {
-    color: var(--dot-field-color, var(--accent));
+    /* sRGB-normalised so the canvas can parse the computed colours directly. */
+    color: color-mix(in srgb, var(--dot-field-color, var(--accent)) 100%, transparent);
+    outline-color: color-mix(in srgb, var(--dot-field-hot, var(--dot-field-color, var(--accent))) 100%, transparent);
     position: absolute;
     inset: 0;
     overflow: hidden;
@@ -1143,10 +1286,19 @@
   canvas {
     display: block;
     opacity: 0;
-    transition: opacity 600ms ease;
   }
 
+  /* One-shot entrance from the focal point; no per-frame JS. */
   .ready canvas {
     opacity: 1;
+    animation: dot-field-reveal 1100ms cubic-bezier(.22, .61, .36, 1) both;
+  }
+  @keyframes dot-field-reveal {
+    from { opacity: 0; clip-path: circle(0 at var(--reveal-x, 70%) var(--reveal-y, 50%)); }
+    40% { opacity: 1; }
+    to { opacity: 1; clip-path: circle(150% at var(--reveal-x, 70%) var(--reveal-y, 50%)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ready canvas { animation: none; }
   }
 </style>

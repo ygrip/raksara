@@ -651,20 +651,29 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 
 /* ── Home hero: framed glass; the dot portrait is the focal point ────────── */
 #app .home-hero::before, #app :is(.home-hero-aurora, .hero-waves) { display: none; }
-/* The portrait is the focal point: a luminous, saturated accent instead of the raw
-   (often muddy) brand tone. Light mode prints it as deep, saturated ink. */
+/* The portrait is the focal point: a saturated accent body ramping to a near-white
+   hot highlight, so the halftone reads as lit metal rather than a flat tint.
+   Light mode prints it as saturated ink deepening in the shadows. */
 #app .home-hero.dot-hero {
-  --dot-field-ambient: .045; --dot-field-strength: 1.95;
-  --dot-field-color: color-mix(in oklab, var(--accent) 62%, #ffd27a);
+  --dot-field-ambient: .05; --dot-field-strength: 1.7;
+  --dot-field-color: color-mix(in oklab, var(--accent) 80%, #ffb347);
+  --dot-field-hot: color-mix(in oklab, var(--accent) 25%, #fff6d8);
   background: transparent;
 }
 :root[data-theme='light'] #app .home-hero.dot-hero {
-  --dot-field-ambient: .08; --dot-field-strength: 1.75;
-  --dot-field-color: color-mix(in oklab, var(--accent) 88%, #4a1d00);
+  --dot-field-ambient: .08; --dot-field-strength: 1.7;
+  --dot-field-color: color-mix(in oklab, var(--accent) 90%, #ff8a00);
+  --dot-field-hot: color-mix(in oklab, var(--accent) 70%, #3a1200);
 }
 @supports (color: oklch(from red l c h)) {
-  #app .home-hero.dot-hero { --dot-field-color: oklch(from var(--accent) .8 max(c, .17) h); }
-  :root[data-theme='light'] #app .home-hero.dot-hero { --dot-field-color: oklch(from var(--accent) .54 max(c, .17) h); }
+  #app .home-hero.dot-hero {
+    --dot-field-color: oklch(from var(--accent) .72 max(c, .19) h);
+    --dot-field-hot: oklch(from var(--accent) .9 min(max(c, .12), .15) h);
+  }
+  :root[data-theme='light'] #app .home-hero.dot-hero {
+    --dot-field-color: oklch(from var(--accent) .64 max(c, .21) h);
+    --dot-field-hot: oklch(from var(--accent) .42 max(c, .17) h);
+  }
 }
 /* Feather straight edges; keep the portrait rectangular rather than circular. */
 #app .home-hero.dot-hero .hero-dot-field {
@@ -902,7 +911,12 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 860px) {
-  #app .home-hero.dot-hero .home-hero-content { grid-template-columns: 1fr; }
+  /* Stacked: the portrait sits above the copy, so the glass fades in from below
+     instead of the desktop left-to-right sweep that washed the portrait out. */
+  #app .home-hero.dot-hero .home-hero-content {
+    grid-template-columns: 1fr;
+    background: linear-gradient(180deg, transparent 0%, transparent 34%, var(--raksara-glass) 50%, var(--raksara-glass-strong) 100%);
+  }
 }
 @media (max-width: 768px) {
   :root { --hg-corner: 52px; --hg-radius: 22px; }

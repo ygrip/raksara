@@ -4,9 +4,11 @@
   /**
    * Ambient accent fireflies behind the glass shell.
    *
-   * CSS-only: each firefly is a pre-rasterised radial gradient with ONE
-   * animation that moves `transform` and `opacity` together, so the compositor
-   * drives it with no JS frame loop, canvas upload or main-thread paint.
+   * Each firefly is a pre-rasterised radial gradient that twinkles with one
+   * opacity-only Web Animation. Opacity runs on the compositor with no main-
+   * thread work; transform drift does not: any IntersectionObserver on the page
+   * (lazy images, infinite scroll, the dot field) makes Chrome recompute
+   * intersections on the main thread every frame a transform animates.
    * Counts stay small (16 desktop, 6 mobile); positions use a jittered grid
    * so they spread evenly, with a column behind the floating sidebar.
    */
@@ -14,8 +16,6 @@
     x: string;
     y: string;
     size: number;
-    dx: number;
-    dy: number;
     duration: number;
     delay: number;
     peak: number;
@@ -38,10 +38,8 @@
           x: `calc(${left} + ${width} * ${u.toFixed(4)})`,
           y: `${(v * 100).toFixed(2)}%`,
           size: Math.round(glass ? between(72, 110) : between(30, 56)),
-          dx: Math.round(between(16, 40) * (Math.random() < 0.5 ? -1 : 1)),
-          dy: Math.round(between(18, 44) * (Math.random() < 0.5 ? -1 : 1)),
-          duration: Math.round(between(18, 30)),
-          delay: -Math.round(between(0, 30)),
+          duration: +between(5, 9).toFixed(2),
+          delay: -+between(0, 9).toFixed(2),
           peak: +(glass ? between(0.7, 1) : between(0.55, 0.9)).toFixed(2),
           glass
         });
@@ -58,6 +56,30 @@
       ...grid(1, 4, '28px', `(${sidebar} - 56px)`, true),
       ...grid(4, 3, sidebar, `(100% - ${sidebar})`, false)
     ];
+  }
+
+  /**
+   * Twinkle with concrete keyframe numbers. CSS keyframes built from custom
+   * properties are resolved on the main thread every frame; plain opacity
+   * values stay entirely on the compositor.
+   */
+  function twinkle(node: HTMLElement, fly: Fly) {
+    const { peak } = fly;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      node.style.opacity = String(peak * 0.6);
+      return {};
+    }
+    const animation = node.animate(
+      [
+        { offset: 0, opacity: peak * 0.12 },
+        { offset: 0.3, opacity: peak },
+        { offset: 0.45, opacity: peak * 0.35 },
+        { offset: 0.62, opacity: peak * 0.9 },
+        { offset: 1, opacity: peak * 0.18 }
+      ],
+      { duration: fly.duration * 1000, delay: fly.delay * 1000, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' }
+    );
+    return { destroy: () => animation.cancel() };
   }
 
   onMount(() => {
@@ -77,18 +99,14 @@
 </script>
 
 <div class="fireflies-layer" class:ready aria-hidden="true">
-  {#each flies as fly, index (index)}
+  {#each flies as fly (fly)}
     <span
       class="firefly"
       class:glass={fly.glass}
       style:left={fly.x}
       style:top={fly.y}
       style:--size="{fly.size}px"
-      style:--dx="{fly.dx}px"
-      style:--dy="{fly.dy}px"
-      style:--duration="{fly.duration}s"
-      style:--delay="{fly.delay}s"
-      style:--peak={fly.peak}
+      use:twinkle={fly}
     ></span>
   {/each}
 </div>
@@ -100,6 +118,7 @@
     --ff-mid: color-mix(in oklab, var(--accent) 80%, transparent);
     --ff-halo: color-mix(in oklab, var(--accent) 30%, transparent);
     --ff-glass-halo: color-mix(in oklab, var(--accent) 48%, transparent);
+    /* Theme strength scales the whole layer, so per-fly keyframes stay plain numbers. */
     --ff-strength: 1;
     position: absolute;
     inset: 0;
@@ -110,7 +129,7 @@
     opacity: 0;
     transition: opacity 1.6s ease;
   }
-  .fireflies-layer.ready { opacity: 1; }
+  .fireflies-layer.ready { opacity: var(--ff-strength); }
 
   /* Light: a white core vanishes on the paper canvas and a dimmed halo turns
      muddy, so use saturated accent "sunlit pollen" with a deeper core. */
@@ -138,31 +157,13 @@
     border-radius: 50%;
     background: radial-gradient(circle closest-side, var(--ff-core) 0 7%, var(--ff-mid) 18%, var(--ff-halo) 45%, transparent 100%);
     opacity: 0;
-    animation: firefly var(--duration) ease-in-out var(--delay) infinite alternate;
+    will-change: opacity;
   }
   /* Behind the sidebar: wider core so it still reads as soft bokeh. */
   .firefly.glass {
     background: radial-gradient(circle closest-side, var(--ff-core) 0 16%, var(--ff-mid) 34%, var(--ff-glass-halo) 58%, transparent 100%);
   }
 
-  /* Drift and glow share one timeline: one animation per firefly. */
-  @keyframes firefly {
-    0% { transform: translate3d(0, 0, 0); opacity: calc(var(--peak) * var(--ff-strength) * .14); }
-    25% { opacity: calc(var(--peak) * var(--ff-strength)); }
-    35% { transform: translate3d(var(--dx), calc(var(--dy) * -.6), 0); }
-    50% { opacity: calc(var(--peak) * var(--ff-strength) * .2); }
-    70% { transform: translate3d(calc(var(--dx) * -.4), var(--dy), 0); }
-    75% { opacity: calc(var(--peak) * var(--ff-strength) * .9); }
-    100% { transform: translate3d(calc(var(--dx) * .5), calc(var(--dy) * -1), 0); opacity: calc(var(--peak) * var(--ff-strength) * .25); }
-  }
-
-  /* Reduced motion keeps a still glow. */
-  @media (prefers-reduced-motion: reduce) {
-    .firefly {
-      animation: none;
-      opacity: calc(var(--peak) * var(--ff-strength) * .6);
-    }
-  }
   @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
     .fireflies-layer { display: none; }
   }
