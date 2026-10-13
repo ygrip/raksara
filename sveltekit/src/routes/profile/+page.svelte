@@ -5,6 +5,7 @@
 	import { initArticleFeatures } from '$lib/markdown';
 	import { assetUrl } from '$lib/utils';
 	import { shareContent } from '$lib/share';
+	import { attachScrollDepth, attachScrollReveals } from '$lib/actions/scroll-motion';
 
 	let { data }: { data: PageData } = $props();
 	const profile = $derived(data.profile);
@@ -13,6 +14,7 @@
 
 	let containerEl: HTMLElement | null = $state(null);
 	let shaderMounts: Array<{ host: HTMLElement; instance: Record<string, unknown> }> = [];
+	let detachMotion: () => void = () => {};
 
 	/** Shader accents for the prerendered hero: glints on the cover image. */
 	async function initProfileShaders() {
@@ -101,6 +103,21 @@
 		}
 	}
 
+	function initProfileMotion() {
+		detachMotion();
+		if (!containerEl) return;
+		const hero = containerEl.querySelector<HTMLElement>('.profile-hero');
+		const detachDepth = hero ? attachScrollDepth(hero, 360) : () => {};
+		const detachReveals = attachScrollReveals(
+			containerEl,
+			'.profile-metadata, .profile-skills-panel, .profile-body-shell .article-body > p, .profile-body-shell .article-body > h2, .profile-body-shell .article-body > h3'
+		);
+		detachMotion = () => {
+			detachDepth();
+			detachReveals();
+		};
+	}
+
 	function initProfileShare() {
 		const buttons = Array.from(
 			containerEl?.querySelectorAll<HTMLButtonElement>('.profile-hero-share .share-btn, .profile-card-share .share-btn') ?? []
@@ -143,6 +160,7 @@
 		await tick();
 		if (containerEl) {
 			initProfileMedia();
+			initProfileMotion();
 			initProfileShare();
 			initAvatarEasterEgg();
 			void initProfileShaders();
@@ -155,6 +173,7 @@
 		(async () => {
 			await tick();
 			initProfileMedia();
+			initProfileMotion();
 			initProfileShare();
 			initAvatarEasterEgg();
 			void initProfileShaders();
@@ -163,6 +182,7 @@
 	});
 
 	onDestroy(() => {
+		detachMotion();
 		destroyProfileShaders();
 		if (eggResetTimer) clearTimeout(eggResetTimer);
 		if (eggToastTimer) clearTimeout(eggToastTimer);
