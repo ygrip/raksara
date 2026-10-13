@@ -233,12 +233,12 @@
 		</nav>
 		<div class="article-actions">
 			{#if isComic}
-				<button onclick={toggleComicMode} class="reading-mode-btn">
+				<button onclick={toggleComicMode} class="reading-mode-btn comic-mode-btn">
 					<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 2v12" stroke="currentColor" stroke-width="1.3"/></svg>
 					{comicScrollMode === 'scroll' ? 'Page mode' : 'Scroll mode'}
 				</button>
 			{/if}
-			<button onclick={toggleReadingMode} class="reading-mode-btn" class:active={readingMode} aria-pressed={readingMode}>
+			<button onclick={toggleReadingMode} class="reading-mode-btn" class:active={readingMode} aria-pressed={readingMode} aria-label={readingMode ? 'Exit reading mode' : 'Enter reading mode'}>
 				<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 2.5h7.5A2.5 2.5 0 0113 5v8.5H5.5A2.5 2.5 0 003 11V2.5z" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 5.5h5M5.5 8h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
 				{readingMode ? 'Exit' : 'Read'}
 			</button>

@@ -35,42 +35,100 @@ html.is-reading .fireflies-layer {
     opacity: 0.35;
 }
 
-/* Read mode: the sticky breadcrumb pill condenses while reading. Breadcrumbs
-   fade out and the pill turns translucent; hover/focus restores it. Driven by
-   the same `is-reading` class so it works without scroll timelines too. */
-body.reading-mode .article-top-bar {
-    transition: opacity 450ms var(--rk-ease-out), scale 450ms var(--rk-ease-out), box-shadow 450ms ease;
-    transform-origin: 50% 0;
+/* In reading mode, the existing sticky bar becomes a compact action pill once
+   the title leaves the viewport. Hide the breadcrumb from keyboard and pointer
+   navigation as well as sight, rather than leaving an invisible focus target. */
+body.reading-mode #app .article-top-bar {
+    transition: padding 240ms var(--rk-ease-out),
+        background-color 240ms ease, border-color 240ms ease, box-shadow 240ms ease;
 }
 
-body.reading-mode .article-top-bar .post-breadcrumbs {
-    transition: opacity 350ms ease;
+body.reading-mode #app .article-top-bar .post-breadcrumbs {
+    max-height: 60px;
+    max-width: 100%;
+    transition: opacity 160ms ease, max-height 240ms var(--rk-ease-out),
+        max-width 240ms var(--rk-ease-out), translate 240ms var(--rk-ease-out);
 }
 
-html.is-reading body.reading-mode .article-top-bar {
-    opacity: 0.55;
+body.reading-mode #app .article-top-bar .article-actions {
+    transition: padding 240ms var(--rk-ease-out),
+        background-color 240ms ease, border-color 240ms ease, box-shadow 240ms ease;
+}
+
+body.reading-mode #app .article-top-bar .comic-mode-btn {
+    white-space: nowrap;
+    max-width: 180px;
+    transition: max-width 240ms var(--rk-ease-out), opacity 160ms ease,
+        padding 240ms var(--rk-ease-out), border-width 240ms ease;
+}
+
+html.is-reading body.reading-mode #app .article-top-bar {
+    justify-content: flex-end;
+    gap: 0;
+    padding: 0;
+    border-color: transparent;
+    background: transparent;
     box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
-html.is-reading body.reading-mode .article-top-bar .post-breadcrumbs {
+html.is-reading body.reading-mode #app .article-top-bar .post-breadcrumbs {
+    flex: 0 0 0;
+    max-width: 0;
+    max-height: 0;
+    min-height: 0;
+    margin: 0;
     opacity: 0;
+    visibility: hidden;
+    overflow: hidden;
+    pointer-events: none;
+    translate: 0 -6px;
 }
 
-html.is-reading body.reading-mode .article-top-bar:is(:hover, :focus-within) {
-    opacity: 1;
+html.is-reading body.reading-mode #app .article-top-bar .comic-mode-btn {
+    max-width: 0;
+    opacity: 0;
+    visibility: hidden;
+    overflow: hidden;
+    pointer-events: none;
+    padding-inline: 0;
+    border-width: 0;
 }
 
-html.is-reading body.reading-mode .article-top-bar:is(:hover, :focus-within) .post-breadcrumbs {
-    opacity: 1;
+html.is-reading body.reading-mode #app .article-top-bar .article-actions {
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    width: max-content;
+    max-width: 100%;
+    margin-left: auto;
+    gap: 6px;
+    padding: 5px;
+    border: 1px solid var(--hg-line);
+    border-radius: 999px;
+    background: var(--hg-glass-fill);
+    box-shadow: var(--hg-glass-shadow);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    html.is-reading body.reading-mode .article-top-bar {
-        scale: 0.92;
+@media (max-width: 600px) {
+    html.is-reading body.reading-mode #app .article-top-bar {
+        flex-direction: row;
+        align-items: center;
     }
 
-    html.is-reading body.reading-mode .article-top-bar:is(:hover, :focus-within) {
-        scale: 1;
+    html.is-reading body.reading-mode #app .article-top-bar .article-actions {
+        width: max-content;
+        padding: 5px;
+        border-top: 1px solid var(--hg-line);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.reading-mode #app .article-top-bar,
+    body.reading-mode #app .article-top-bar .post-breadcrumbs,
+    body.reading-mode #app .article-top-bar .article-actions,
+    body.reading-mode #app .article-top-bar .comic-mode-btn {
+        transition: none;
     }
 }
 
@@ -165,15 +223,15 @@ html.is-reading body.reading-mode .article-top-bar:is(:hover, :focus-within) .po
         }
 
         /* Blocks rise in as they reach the reader, then dim once read. */
-        .post-article:not(.comic-layout) .article-body > :is(p, h2, h3, h4, h5, ul, ol, blockquote, hr, dl),
+        .post-article:not(.comic-layout):not(.reading-mode) .article-body > :is(p, h2, h3, h4, h5, ul, ol, blockquote, hr, dl),
         .profile-body-shell .article-body > :is(p, h2, h3, h4, h5, ul, ol, blockquote, hr, dl) {
             animation: rk-rise var(--rk-ease-out) both, rk-dim linear both;
             animation-timeline: view(), view();
             animation-range: entry 0% entry 80%, exit 35% exit 100%;
         }
 
-        .post-article:not(.comic-layout) .article-body > :is(figure, img, .code-block-wrap, .table-scroll-wrap),
-        .post-article:not(.comic-layout) .article-body > p:has(> img:only-child),
+        .post-article:not(.comic-layout):not(.reading-mode) .article-body > :is(figure, img, .code-block-wrap, .table-scroll-wrap),
+        .post-article:not(.comic-layout):not(.reading-mode) .article-body > p:has(> img:only-child),
         .profile-body-shell .article-body > :is(figure, img, section, .code-block-wrap, .table-scroll-wrap) {
             transform-origin: 50% 100%;
             animation: rk-rise-media var(--rk-ease-out) both;
