@@ -167,17 +167,42 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
     to { scale: 1 1; }
 }
 
-@keyframes rk-hero-parallax {
-    to { opacity: 0; translate: 0 22vh; scale: 0.94; }
+/* Keep the homepage copy fixed and readable. Move only decorative paint layers;
+   DotField's measured host/anchor must never be translated. */
+@keyframes rk-home-halo-drift {
+    from { transform: translate3d(0, -8px, 0); opacity: 0.85; }
+    to { transform: translate3d(0, 28px, 0); opacity: 0.42; }
 }
 
-/* Opacity only: DotField measures its host and anchor boxes, so no translate. */
 @keyframes rk-hero-visual {
-    to { opacity: 0.15; }
+    to { opacity: 0.45; }
 }
 
-@keyframes rk-profile-parallax {
-    to { opacity: 0; translate: 0 140px; scale: 0.96; }
+/* The profile backdrop travels more slowly than the identity card. */
+@keyframes rk-profile-cover-drift {
+    from { translate: 0 -12px; }
+    to { translate: 0 var(--rk-profile-cover-travel, 40px); }
+}
+
+@keyframes rk-profile-identity-drift {
+    to { translate: 0 var(--rk-profile-card-travel, -16px); }
+}
+
+@keyframes rk-section-title-in {
+    from { opacity: 0.72; translate: 0 12px; }
+}
+
+@keyframes rk-card-in {
+    from { opacity: 0.72; translate: 0 16px; }
+}
+
+@keyframes rk-prose-in {
+    from { opacity: 0.85; translate: 0 10px; }
+}
+
+@keyframes rk-ukiran-float {
+    from { translate: 0 4px; }
+    to { translate: 0 -4px; }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -223,20 +248,31 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
         }
 
         /* Blocks rise in as they reach the reader, then dim once read. */
-        .post-article:not(.comic-layout):not(.reading-mode) .article-body > :is(p, h2, h3, h4, h5, ul, ol, blockquote, hr, dl),
-        .profile-body-shell .article-body > :is(p, h2, h3, h4, h5, ul, ol, blockquote, hr, dl) {
+        .post-article:not(.comic-layout):not(.reading-mode) .article-body > :is(p, h2, h3, h4, h5, ul, ol, blockquote, hr, dl) {
             animation: rk-rise var(--rk-ease-out) both, rk-dim linear both;
             animation-timeline: view(), view();
             animation-range: entry 0% entry 80%, exit 35% exit 100%;
         }
 
+        /* Profile copy settles once; don't fade paragraphs back out as they are read. */
+        .profile-body-shell .article-body > :is(p, h2, h3, h4, h5, ul, ol, blockquote, hr, dl) {
+            animation: rk-prose-in linear both;
+            animation-timeline: view();
+            animation-range: entry 0% cover 18%;
+        }
+
         .post-article:not(.comic-layout):not(.reading-mode) .article-body > :is(figure, img, .code-block-wrap, .table-scroll-wrap),
-        .post-article:not(.comic-layout):not(.reading-mode) .article-body > p:has(> img:only-child),
-        .profile-body-shell .article-body > :is(figure, img, section, .code-block-wrap, .table-scroll-wrap) {
+        .post-article:not(.comic-layout):not(.reading-mode) .article-body > p:has(> img:only-child) {
             transform-origin: 50% 100%;
             animation: rk-rise-media var(--rk-ease-out) both;
             animation-timeline: view();
             animation-range: entry 0% cover 30%;
+        }
+
+        .profile-body-shell .article-body > :is(figure, img, section, .code-block-wrap, .table-scroll-wrap) {
+            animation: rk-card-in linear both;
+            animation-timeline: view();
+            animation-range: entry 0% cover 24%;
         }
 
         .post-article .post-nav,
@@ -246,43 +282,92 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
             animation-range: entry 0% cover 25%;
         }
 
-        /* ── Home ──────────────────────────────────────────── */
+        /* ── Home: atmospheric depth without moving the portrait anchor ── */
 
-        /* Hero copy lags behind the scroll, shrinks and fades: depth on exit. */
-        .home-hero-copy {
-            transform-origin: 30% 0;
-            animation: rk-hero-parallax linear both;
+        /* The halo is a pseudo-element of the static visual slot, not DotField. */
+        #app .home-hero.dot-hero .home-hero-visual::before {
+            animation: rk-home-halo-drift linear both;
             animation-timeline: scroll(root block);
-            animation-range: 0 85vh;
+            animation-range: 0 90vh;
         }
 
-        .home-hero .hero-dot-field {
+        #app .home-hero.dot-hero .hero-dot-field {
             animation: rk-hero-visual linear both;
             animation-timeline: scroll(root block);
             animation-range: 0 100vh;
         }
 
         .home-section-header {
-            animation: rk-rise var(--rk-ease-out) both;
+            animation: rk-section-title-in linear both;
             animation-timeline: view();
-            animation-range: entry 0% cover 25%;
+            animation-range: entry 0% cover 24%;
         }
 
-        :is(.post-list .post-card, .portfolio-card, .home-info-card, .home-link-item, .thought-card, .gallery-window),
+        /* The existing accent-aware ukiran divider floats a few pixels only. */
+        :root.hg-divider-ready #app .home-section-header::after {
+            animation: rk-ukiran-float linear both;
+            animation-timeline: view();
+            animation-range: cover 0% cover 100%;
+        }
+
+        .home-section :is(.post-list .post-card, .portfolio-grid .portfolio-card,
+                          .home-info-card, .home-link-item, .thought-card, .gallery-window),
         .profile-metadata,
         .profile-skills-panel {
-            animation: rk-rise-media var(--rk-ease-out) both;
+            animation: rk-card-in linear both;
             animation-timeline: view();
-            animation-range: entry 0% cover 28%;
+            animation-range: entry 0% cover 26%;
         }
 
-        /* ── Profile ───────────────────────────────────────── */
+        /* Short, viewport-driven stagger; there are no timers or scroll handlers. */
+        .home-section :is(.post-list .post-card, .portfolio-grid .portfolio-card,
+                          .home-info-card, .home-link-item, .thought-card):nth-child(3n + 2) {
+            animation-range: entry 5% cover 31%;
+        }
 
-        .profile-hero-content {
-            transform-origin: 50% 100%;
-            animation: rk-profile-parallax linear both;
+        .home-section :is(.post-list .post-card, .portfolio-grid .portfolio-card,
+                          .home-info-card, .home-link-item, .thought-card):nth-child(3n) {
+            animation-range: entry 10% cover 36%;
+        }
+
+        /* ── Profile: two gentle planes, leaving the entrance animation intact ── */
+
+        #app .profile-hero {
+            --rk-profile-cover-travel: 40px;
+            --rk-profile-card-travel: -16px;
+        }
+
+        /* Overscan prevents exposing an edge when the image drifts behind glass. */
+        #app .profile-hero-bg {
+            inset: -56px 0;
+            transition: none;
+            animation: rk-profile-cover-drift linear both;
             animation-timeline: scroll(root block);
-            animation-range: 0 380px;
+            animation-range: 0 560px;
+        }
+
+        /* The parent retains its existing profileCardIn entrance animation. */
+        #app .profile-hero .profile-card {
+            animation: rk-profile-identity-drift linear both;
+            animation-timeline: scroll(root block);
+            animation-range: 0 560px;
+        }
+
+        @media (max-width: 768px) {
+            #app .profile-hero {
+                --rk-profile-cover-travel: 26px;
+                --rk-profile-card-travel: -10px;
+            }
+
+            #app .profile-hero-bg,
+            #app .profile-hero .profile-card {
+                animation-range: 0 360px;
+            }
+
+            .home-section :is(.post-list .post-card, .portfolio-grid .portfolio-card,
+                              .home-info-card, .home-link-item, .thought-card) {
+                animation-range: entry 0% cover 22%;
+            }
         }
     }
 }
