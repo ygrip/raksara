@@ -329,6 +329,30 @@ if (fs.existsSync(homepagePath)) {
   brokenHomepageLinks++;
 }
 
+// Tag/category archive URLs are intentionally excluded from the sitemap, but they
+// are still linked from navigation. Check the actual static output to catch 404s.
+for (const [kind, metadataName, routePrefix] of [
+  ['category', 'categories.json', '/category/'],
+  ['tag', 'tags.json', '/tag/'],
+]) {
+  const metadataPath = path.join(STATIC_DIR, 'metadata', metadataName);
+  if (!fs.existsSync(metadataPath)) {
+    error(`${kind} archive metadata missing: ${metadataName}`);
+    continue;
+  }
+  const entries = Object.keys(JSON.parse(readFile(metadataPath)));
+  let missing = 0;
+  for (const entry of entries) {
+    const route = `${routePrefix}${encodeURIComponent(entry)}`;
+    const candidates = buildDestinationCandidates(route);
+    if (!candidates.some((candidate) => fs.existsSync(candidate))) {
+      error(`${kind} archive ${route} has no prerendered HTML`);
+      missing++;
+    }
+  }
+  if (!missing) ok(`All ${entries.length} ${kind} archive routes have HTML`);
+}
+
 console.log(`\n${errors === 0 ? 'PASS' : 'FAIL'} SEO dist validation: ${errors} error(s), ${warnings} warning(s)`);
 console.log(`   Sitemap URLs: ${sitemapUrls.length}; checked HTML files: ${checked}\n`);
 
