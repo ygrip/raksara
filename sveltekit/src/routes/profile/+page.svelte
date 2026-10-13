@@ -12,7 +12,6 @@
 	const config   = $derived(data.config);
 
 	let containerEl: HTMLElement | null = $state(null);
-	let cleanupParallax: (() => void) | null = null;
 	let shaderMounts: Array<{ host: HTMLElement; instance: Record<string, unknown> }> = [];
 
 	/** Shader accents for the prerendered hero: glints on the cover image. */
@@ -102,57 +101,6 @@
 		}
 	}
 
-	function initProfileParallax() {
-		cleanupParallax?.();
-		cleanupParallax = null;
-
-		const heroBg = containerEl?.querySelector<HTMLElement>('#profile-hero-bg');
-		const hero = heroBg?.closest<HTMLElement>('.profile-hero');
-		if (!hero || !heroBg) return;
-
-		let heroTop = 0;
-		let heroHeight = 0;
-		let ticking = false;
-
-		const measure = () => {
-			const rect = hero.getBoundingClientRect();
-			heroTop = window.scrollY + rect.top;
-			heroHeight = rect.height;
-		};
-
-		const update = () => {
-			ticking = false;
-			const scrollY = window.scrollY;
-			if (scrollY > heroTop + heroHeight || scrollY + window.innerHeight < heroTop) return;
-			const delta = Math.max(scrollY - heroTop, 0);
-			heroBg.style.transform = `translate3d(0, ${-delta * 0.35}px, 0) scale(1.1)`;
-		};
-
-		const requestUpdate = () => {
-			if (ticking) return;
-			ticking = true;
-			requestAnimationFrame(update);
-		};
-
-		const resizeObserver = new ResizeObserver(() => {
-			measure();
-			requestUpdate();
-		});
-
-		measure();
-		requestUpdate();
-		resizeObserver.observe(hero);
-		window.addEventListener('scroll', requestUpdate, { passive: true });
-		window.addEventListener('resize', measure, { passive: true });
-
-		cleanupParallax = () => {
-			resizeObserver.disconnect();
-			window.removeEventListener('scroll', requestUpdate);
-			window.removeEventListener('resize', measure);
-			heroBg.style.transform = '';
-		};
-	}
-
 	function initProfileShare() {
 		const buttons = Array.from(
 			containerEl?.querySelectorAll<HTMLButtonElement>('.profile-hero-share .share-btn, .profile-card-share .share-btn') ?? []
@@ -195,7 +143,6 @@
 		await tick();
 		if (containerEl) {
 			initProfileMedia();
-			initProfileParallax();
 			initProfileShare();
 			initAvatarEasterEgg();
 			void initProfileShaders();
@@ -208,7 +155,6 @@
 		(async () => {
 			await tick();
 			initProfileMedia();
-			initProfileParallax();
 			initProfileShare();
 			initAvatarEasterEgg();
 			void initProfileShaders();
@@ -217,7 +163,6 @@
 	});
 
 	onDestroy(() => {
-		cleanupParallax?.();
 		destroyProfileShaders();
 		if (eggResetTimer) clearTimeout(eggResetTimer);
 		if (eggToastTimer) clearTimeout(eggToastTimer);
