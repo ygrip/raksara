@@ -957,13 +957,26 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 #app .article-meta-primary { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 #app .article-header :is(.article-date, .article-author) { min-height: 32px; padding: 0; border: 0; background: none; color: var(--text-secondary); font: 500 13px/1.5 var(--font-sans); }
 #app .article-header .article-date { display: inline-flex; align-items: center; gap: 8px; }
-#app .article-header-context .post-card-category { min-height: 36px; padding: 7px 12px; font-size: 12px; }
-#app .article-header-context .status-chip { min-height: 28px; display: inline-flex; align-items: center; padding: 4px 10px; }
+/* Post and portfolio detail chips use the existing status chip's 28px measure.
+   Scope to article headers; taxonomy buttons elsewhere retain their 44px target. */
+#app .article-header :is(.article-header-context .post-card-category, .article-header-context .status-chip, .article-tags .tag) {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
 #app .article-header .article-tags { display: flex; width: auto; max-width: 100%; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0; margin: 0; border: 0; }
 #app .article-header.poem-header :is(.article-header-context, .article-meta) { justify-content: center; }
 body.reading-mode #app .article-header .article-tags { display: none; }
 body.reading-mode #app .article-header .article-meta { justify-content: center; }
-#app .article-header .article-tags .tag { font-size: 12px; padding: 7px 12px; }
+
 #app .post-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 32px 0; padding: 0; border: 0; }
 #app .post-nav-link { display: flex; flex-direction: column; justify-content: center; gap: 14px; min-width: 0; min-height: 112px; padding: 20px 24px; border: 1px solid var(--hg-line-strong); border-left: 3px solid var(--hg-accent-text); border-radius: 20px; background: var(--hg-glass-fill); color: var(--text-primary); text-decoration: none; box-shadow: var(--hg-glass-shadow); }
 #app .post-nav-link.next { align-items: flex-end; border-left: 1px solid var(--hg-line-strong); border-right: 3px solid var(--hg-accent-text); }
