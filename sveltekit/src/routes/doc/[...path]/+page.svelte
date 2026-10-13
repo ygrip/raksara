@@ -20,12 +20,13 @@
 
 	$effect(() => {
 		const source = markdown;
+		const siteConfig = config;
 		if (!source) {
 			renderedHtml = '';
 			return;
 		}
 		(async () => {
-			renderedHtml = await renderMarkdown(source);
+			renderedHtml = await renderMarkdown(source, { config: siteConfig });
 			await tick();
 			if (articleEl) await initArticleFeatures(articleEl);
 			if (location.hash) {

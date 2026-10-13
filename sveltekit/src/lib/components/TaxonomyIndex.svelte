@@ -6,7 +6,8 @@
 	 */
 	import { onMount } from 'svelte';
 
-	import { resolveTaxonomyPageSize } from '$lib/taxonomy.js';
+	import { resolveTaxonomyPageSize, taxonomyHref } from '$lib/taxonomy.js';
+	import type { SiteConfig } from '$lib/types';
 	const SEARCH_DELAY_MS = 150;
 
 	type SortKey = 'popular' | 'az' | 'za' | 'least';
@@ -15,13 +16,12 @@
 	interface Props {
 		/** [term, count] pairs */
 		items: Array<[string, number]>;
-		/** Route prefix, e.g. "/tag/" or "/category/" */
-		hrefBase: string;
+		config?: SiteConfig;
 		pageSize?: number;
 		kind: 'tag' | 'category';
 	}
 
-	let { items, hrefBase, kind, pageSize }: Props = $props();
+	let { items, config, kind, pageSize }: Props = $props();
 	const effectivePageSize = $derived(resolveTaxonomyPageSize(pageSize));
 
 	let query = $state('');
@@ -154,7 +154,7 @@
 	<div class="blog-dir-folders" id="taxonomy-results">
 		{#each visible as { term, count } (term)}
 			{@const [before, match, after] = highlight(term)}
-			<a href="{hrefBase}{term}" class="blog-dir-chip">
+			<a href={taxonomyHref(kind, term, config)} class="blog-dir-chip">
 				{#if kind === 'tag'}
 					<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2 8.586V3a1 1 0 011-1h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 010 1.414l-5.586 5.586a1 1 0 01-1.414 0L2.293 9.293A1 1 0 012 8.586z" stroke="currentColor" stroke-width="1.2"/><circle cx="5.5" cy="5.5" r="1" fill="currentColor"/></svg>
 				{:else}

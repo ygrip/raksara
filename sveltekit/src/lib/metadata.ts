@@ -15,6 +15,9 @@ import type {
   ImageManifest,
   HomeBundle,
   HomePageConfig,
+  TaxonomyKind,
+  TaxonomyIndex,
+  TaxonomyArchivePage,
 } from './types';
 
 const BASE = '/metadata';
@@ -31,9 +34,9 @@ const _v = typeof __BUILD_TS__ !== 'undefined' ? __BUILD_TS__ : '';
  */
 export const buildVersion: string = _v;
 
-async function fetchJSON<T>(fetch: typeof globalThis.fetch, path: string): Promise<T> {
+async function fetchJSON<T>(fetch: typeof globalThis.fetch, path: string, signal?: AbortSignal): Promise<T> {
   const url = _v ? `${BASE}/${path}?v=${_v}` : `${BASE}/${path}`;
-  const res = await fetch(url);
+  const res = await fetch(url, signal ? { signal } : undefined);
   if (!res.ok) throw new Error(`Failed to load ${path}: ${res.status}`);
   return res.json() as Promise<T>;
 }
@@ -100,6 +103,41 @@ export async function loadCategories(
   fetch: typeof globalThis.fetch
 ): Promise<Record<string, number>> {
   return fetchJSON<Record<string, number>>(fetch, 'categories.json');
+}
+
+export async function loadTaxonomyIndex(fetch: typeof globalThis.fetch, signal?: AbortSignal): Promise<TaxonomyIndex> {
+  const index = await fetchJSON<TaxonomyIndex>(fetch, 'taxonomy/index.json', signal);
+  if (!index || index.version !== 1 || !Number.isSafeInteger(index.pageSize) || index.pageSize < 1
+    || !index.tags || typeof index.tags !== 'object' || Array.isArray(index.tags)
+    || !index.categories || typeof index.categories !== 'object' || Array.isArray(index.categories)) {
+    throw new Error('Invalid taxonomy registry; reload the page to update the site.');
+  }
+  return index;
+}
+
+export async function loadTaxonomyPage(
+  fetch: typeof globalThis.fetch,
+  kind: TaxonomyKind,
+  id: string,
+  page = 1,
+  signal?: AbortSignal
+): Promise<TaxonomyArchivePage> {
+  if (!['tag', 'category'].includes(kind) || !/^[a-f0-9]{32}$/.test(id) || !Number.isSafeInteger(page) || page < 1) {
+    throw new Error('Invalid taxonomy page request');
+  }
+  const result = await fetchJSON<TaxonomyArchivePage>(fetch, `taxonomy/${kind}/${id}/${page}.json`, signal);
+  if (!result || result.kind !== kind || result.page !== page || typeof result.term !== 'string'
+    || !Number.isSafeInteger(result.total) || result.total < 1
+    || !Number.isSafeInteger(result.pageSize) || result.pageSize < 1
+    || result.pages !== Math.ceil(result.total / result.pageSize) || page > result.pages
+    || !Array.isArray(result.posts) || !Array.isArray(result.portfolio)
+    || !Array.isArray(result.thoughts) || !Array.isArray(result.gallery)
+    || !result.imageManifest || typeof result.imageManifest !== 'object' || Array.isArray(result.imageManifest)
+    || result.posts.length + result.portfolio.length + result.thoughts.length + result.gallery.length
+      !== Math.min(result.pageSize, result.total - (page - 1) * result.pageSize)) {
+    throw new Error('Invalid taxonomy results; reload the page to update the site.');
+  }
+  return result;
 }
 
 export async function loadSearchIndex(

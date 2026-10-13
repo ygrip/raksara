@@ -308,6 +308,85 @@ if (prerenderRoutes) {
   if (dupes === 0) ok('No duplicate routes in prerender manifest');
 }
 
+// ── 7. Hybrid taxonomy policy and bounded result metadata ──
+const highlightedTags = config?.taxonomy?.highlighted_tags ?? [];
+if (!Array.isArray(highlightedTags) || highlightedTags.some((term) => typeof term !== 'string' || !term.trim())) {
+  error('taxonomy.highlighted_tags must be an array of non-empty exact tag names');
+} else {
+  const expectedTags = new Set(highlightedTags.map((term) => `/tag/${encodeURIComponent(term)}`));
+  if (expectedTags.size !== highlightedTags.length) error('taxonomy.highlighted_tags contains duplicate terms');
+  const manifestSet = new Set((prerenderRoutes ?? []).map(normalizeRoute));
+  const sitemapSet = new Set(sitemapUrls.map((url) => normalizeRoute(new URL(url).pathname)));
+  for (const shell of ['/tag', '/category']) {
+    if (!manifestSet.has(shell)) error(`Shared taxonomy shell ${shell}/ missing from prerender manifest`);
+    if (sitemapSet.has(shell)) error(`Shared taxonomy shell ${shell}/ must not be in sitemap`);
+  }
+  for (const [label, routes] of [['prerender manifest', manifestSet], ['sitemap', sitemapSet]]) {
+    for (const route of routes) {
+      if (route.startsWith('/tag/') && !expectedTags.has(route)) error(`Non-highlighted taxonomy route ${route} in ${label}`);
+      if (route.startsWith('/category/')) error(`Legacy category detail ${route} in ${label}`);
+    }
+    for (const route of expectedTags) {
+      if (!routes.has(route)) error(`Highlighted taxonomy route ${route} missing from ${label}`);
+    }
+  }
+}
+
+const taxonomyIndex = readJson(path.join(STATIC_META_DIR, 'taxonomy', 'index.json'));
+if (!taxonomyIndex || taxonomyIndex.version !== 1 || !Number.isSafeInteger(taxonomyIndex.pageSize) || taxonomyIndex.pageSize < 1) {
+  error('Missing or invalid taxonomy/index.json');
+} else {
+  let validatedTerms = 0;
+  for (const [kind, field] of [['tag', 'tags'], ['category', 'categories']]) {
+    const terms = taxonomyIndex[field];
+    const counts = readJson(path.join(STATIC_META_DIR, `${field}.json`));
+    if (!terms || typeof terms !== 'object' || Array.isArray(terms) || !counts) {
+      error(`Missing or invalid taxonomy ${field} registry/counts`);
+      continue;
+    }
+    if (Object.keys(terms).length !== Object.keys(counts).length) error(`${field}.json and taxonomy registry list different terms`);
+    for (const [term, descriptor] of Object.entries(terms)) {
+      if (!descriptor || !/^[a-f0-9]{32}$/.test(descriptor.id) || !Number.isSafeInteger(descriptor.total)
+        || descriptor.total < 1 || descriptor.pages !== Math.ceil(descriptor.total / taxonomyIndex.pageSize)) {
+        error(`Invalid taxonomy descriptor for ${kind} ${JSON.stringify(term)}`);
+        continue;
+      }
+      if (counts[term] !== descriptor.total) error(`Taxonomy count mismatch for ${kind} ${JSON.stringify(term)}`);
+      let actualTotal = 0;
+      for (let page = 1; page <= descriptor.pages; page++) {
+        const archive = readJson(path.join(STATIC_META_DIR, 'taxonomy', kind, descriptor.id, `${page}.json`));
+        if (!archive || archive.kind !== kind || archive.term !== term || archive.page !== page
+          || archive.total !== descriptor.total || archive.pages !== descriptor.pages || archive.pageSize !== taxonomyIndex.pageSize
+          || !archive.imageManifest || ['posts', 'portfolio', 'thoughts', 'gallery'].some((key) => !Array.isArray(archive[key]))) {
+          error(`Invalid taxonomy result page ${kind}/${descriptor.id}/${page}.json`);
+          continue;
+        }
+        const count = archive.posts.length + archive.portfolio.length + archive.thoughts.length + archive.gallery.length;
+        if (count !== Math.min(taxonomyIndex.pageSize, descriptor.total - (page - 1) * taxonomyIndex.pageSize)) {
+          error(`Unbounded or incomplete taxonomy result page ${kind}/${descriptor.id}/${page}.json`);
+        }
+        if (kind === 'category' && archive.thoughts.length) error('Category archive unexpectedly includes thoughts');
+        actualTotal += count;
+      }
+      if (actualTotal !== descriptor.total) error(`Incomplete taxonomy results for ${kind} ${JSON.stringify(term)}`);
+      validatedTerms++;
+    }
+  }
+  if (Array.isArray(highlightedTags)) {
+    for (const term of highlightedTags) {
+      if (!Object.hasOwn(taxonomyIndex.tags ?? {}, term)) error(`Highlighted tag ${JSON.stringify(term)} has no visible taxonomy content`);
+    }
+  }
+  ok(`Validated bounded taxonomy metadata for ${validatedTerms} term(s)`);
+}
+
+if (fs.existsSync(robotsPath)) {
+  const disallows = parseDefaultRobotsDisallows(fs.readFileSync(robotsPath, 'utf-8'));
+  for (const shell of ['/tag/', '/category/']) {
+    if (isBlockedByRobots(shell, disallows)) error(`robots.txt blocks ${shell}; crawlers cannot discover shell noindex`);
+  }
+}
+
 // ── Summary ──────────────────────────────────────────
 console.log(`\n${errors === 0 ? '✅' : '❌'} SEO validation: ${errors} error(s), ${warnings} warning(s)\n`);
 

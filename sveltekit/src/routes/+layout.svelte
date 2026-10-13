@@ -11,6 +11,7 @@
 	import { getAdsenseId, getGiscusConfig } from '$lib/seo';
 	import { assetUrl } from '$lib/utils';
 	import { themeTokens, earlyThemeScript } from '$lib/theme';
+	import { isTaxonomyPath, isIndexableTaxonomyPath } from '$lib/taxonomy.js';
 
 	let { children, data }: { children: import('svelte').Snippet; data: LayoutData } = $props();
 
@@ -92,7 +93,7 @@
 	const currentPath = $derived($page.url.pathname);
 	const routeUsesLocalFooter = $derived(LOCAL_FOOTER_ROUTES.has($page.route.id ?? ''));
 	const canonicalHref = $derived(buildCanonicalHref(currentPath));
-	const routeOwnsCanonical = $derived(currentPath.startsWith('/blog/post/'));
+	const routeOwnsCanonical = $derived(currentPath.startsWith('/blog/post/') || (isTaxonomyPath(currentPath) && !isIndexableTaxonomyPath(currentPath, config)));
 	const routeOwnsSocialMeta = $derived(routeHasOwnSocialMeta(currentPath));
 	const robotsContent = $derived(isIndexablePath(currentPath) ? 'index, follow' : shouldFollowPath(currentPath) ? 'noindex, follow' : 'noindex, nofollow');
 	// Used for absolute OG image URLs (WhatsApp / social platforms require https://)
@@ -137,17 +138,18 @@
 
 	function shouldFollowPath(pathname: string): boolean {
 		const path = normalizePath(pathname);
+		if (isTaxonomyPath(path)) return true;
 		if (['/', '/blog', '/portfolio', '/profile', '/about', '/thoughts', '/tags', '/categories', '/gallery'].includes(path)) return true;
 		return false;
 	}
 
 	function isIndexablePath(pathname: string): boolean {
 		const path = normalizePath(pathname);
+		if (isTaxonomyPath(path)) return isIndexableTaxonomyPath(path, config);
 		if (['/', '/blog', '/portfolio', '/profile', '/about', '/thoughts'].includes(path)) return true;
 		if (path.startsWith('/blog/post/')) return true;
 		if (path.startsWith('/blog/dir/')) return true;
 		if (path.startsWith('/portfolio/')) return true;
-		if (path.startsWith('/tag/')) return true;
 		if (/^\/[^/]+$/.test(path) && !['/gallery', '/tags', '/categories', '/admin'].includes(path)) return true;
 		return false;
 	}

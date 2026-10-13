@@ -6,20 +6,15 @@ const prerenderManifestUrl = new URL('./static/metadata/prerender-routes.json', 
 
 function loadPrerenderEntries() {
 	if (!existsSync(prerenderManifestUrl)) {
-		return ['*'];
+		throw new Error('Missing prerender manifest. Run npm run build:metadata before starting SvelteKit.');
 	}
 
-	try {
-		const routes = JSON.parse(readFileSync(prerenderManifestUrl, 'utf-8'));
-		if (Array.isArray(routes) && routes.every((route) => typeof route === 'string')) {
-			const entries = routes.length > 0 ? routes : ['/'];
-			return Array.from(new Set([...entries, '/admin']));
-		}
-	} catch (error) {
-		console.warn(`Failed to load prerender route manifest: ${error.message}`);
+	const routes = JSON.parse(readFileSync(prerenderManifestUrl, 'utf-8'));
+	if (!Array.isArray(routes) || routes.length === 0
+		|| !routes.every((route) => typeof route === 'string' && route.startsWith('/') && !route.includes('*'))) {
+		throw new Error('Invalid prerender manifest. Run npm run build:metadata; wildcard fallback is disabled.');
 	}
-
-	return ['*'];
+	return Array.from(new Set([...routes, '/admin']));
 }
 
 const prerenderEntries = [...loadPrerenderEntries(), '/giscus-theme/dark.css', '/giscus-theme/light.css'];

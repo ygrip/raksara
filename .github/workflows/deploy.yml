@@ -84,6 +84,9 @@ jobs:
           key: raksara-og-${{ hashFiles('content/**/*.md', 'content/assets/**', 'scripts/og-images.js') }}
           restore-keys: raksara-og-
 
+      - name: Test taxonomy policy and bounded data generation
+        run: npm run test:taxonomy:policy
+
       - name: Build metadata and static assets
         run: npm run build:metadata
 

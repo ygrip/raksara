@@ -9,6 +9,7 @@
 	import { assetUrl, formatDate, humanize } from '$lib/utils';
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
+	import { taxonomyHref } from '$lib/taxonomy.js';
 
 	type ChapterNav = { title: string; href: string };
 
@@ -255,7 +256,7 @@
 	<header class="article-header" class:poem-header={isPoem}>
 		{#if post?.category || post?.status}
 			<div class="article-header-context">
-				{#if post?.category}<a href="/category/{post.category}" class="post-card-category">{post.category}</a>{/if}
+				{#if post?.category}<a href={taxonomyHref('category', post.category, config)} class="post-card-category">{post.category}</a>{/if}
 				{#if post?.status}<span class="status-chip status-{post.status}">{post.status}</span>{/if}
 			</div>
 		{/if}
@@ -275,7 +276,7 @@
 			{#if post?.tags?.length}
 				<div class="article-tags">
 					{#each post.tags as tag}
-						<a href="/tag/{tag}" class="tag">{tag}</a>
+						<a href={taxonomyHref('tag', tag, config)} class="tag">{tag}</a>
 					{/each}
 				</div>
 			{/if}

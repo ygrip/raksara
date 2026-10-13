@@ -215,6 +215,8 @@ export interface SiteConfig {
   nav?: Array<{ label: string; href: string }>;
   /** Terms per page on /tags/ and /categories/. Positive integer; defaults to 30. */
   taxonomy_page_size?: number;
+  /** Explicit opt-in for prerendered, indexable tag archives. Omitted means none. */
+  taxonomy?: { highlighted_tags?: string[] };
   /** Optional per-tag topic-page presentation configured by the content repository. */
   topics?: Record<string, {
     title?: string;
@@ -246,6 +248,35 @@ export interface SiteConfig {
   block_ai_crawlers?: boolean | string[];
   /** Web manifest background_color (CSS hex). Defaults to #000000 if unset. */
   manifest_bg_color?: string;
+}
+
+export type TaxonomyKind = 'tag' | 'category';
+
+export interface TaxonomyTerm {
+  id: string;
+  total: number;
+  pages: number;
+}
+
+export interface TaxonomyIndex {
+  version: 1;
+  pageSize: number;
+  tags: Record<string, TaxonomyTerm>;
+  categories: Record<string, TaxonomyTerm>;
+}
+
+export interface TaxonomyArchivePage {
+  kind: TaxonomyKind;
+  term: string;
+  total: number;
+  page: number;
+  pageSize: number;
+  pages: number;
+  posts: Post[];
+  portfolio: PortfolioItem[];
+  thoughts: Thought[];
+  gallery: GalleryItem[];
+  imageManifest: ImageManifest;
 }
 
 export interface BlogDirEntry {

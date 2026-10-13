@@ -14,6 +14,8 @@ const { nodeResolve } = require("@rollup/plugin-node-resolve");
 const commonjs = require("@rollup/plugin-commonjs");
 const { imagesToIco } = require("png-to-ico");
 const { generateOgImages, generateProfileOgImage } = require('./og-images');
+const { buildTaxonomyData } = require('./taxonomy-data.cjs');
+let taxonomyPolicy;
 
 const REPO_ROOT = path.join(__dirname, "..");
 const LOCAL_CONTENT_LINK = path.join(REPO_ROOT, "content");
@@ -219,8 +221,8 @@ async function buildMetadata() {
   const galleryItems = [];
   const thoughts = [];
   const pages = [];
-  const tags = {};
-  const categories = {};
+  const tags = Object.create(null);
+  const categories = Object.create(null);
   const titleMap = {};
 
   for (const file of files) {
@@ -598,6 +600,23 @@ async function buildMetadata() {
   }
   // --- End OG Image generation ---
 
+  const taxonomy = buildTaxonomyData({ posts: enrichedPosts, portfolio: enrichedPortfolio,
+    thoughts: enrichedThoughts, gallery: enrichedGallery, imageManifest, config: siteConfig });
+  // Counts must describe the visible archive scope (not pages/docs or category thoughts).
+  for (const key of Object.keys(tags)) delete tags[key];
+  for (const key of Object.keys(categories)) delete categories[key];
+  Object.assign(tags, Object.fromEntries(Object.entries(taxonomy.index.tags).map(([term, info]) => [term, info.total])));
+  Object.assign(categories, Object.fromEntries(Object.entries(taxonomy.index.categories).map(([term, info]) => [term, info.total])));
+  for (const [name, data] of [['tags', tags], ['categories', categories]]) {
+    write(`${name}.json`, data);
+    fs.copyFileSync(path.join(METADATA_DIR, `${name}.json`), path.join(WEB_DIR, 'metadata', `${name}.json`));
+  }
+  const taxonomyDir = path.join(WEB_DIR, 'metadata', 'taxonomy');
+  fs.rmSync(taxonomyDir, { recursive: true, force: true });
+  writeWebFile('metadata/taxonomy/index.json', JSON.stringify(taxonomy.index));
+  for (const [file, data] of taxonomy.pages) writeWebFile(`metadata/taxonomy/${file}`, JSON.stringify(data));
+  console.log(`  ✓ Generated bounded taxonomy data (${taxonomy.pages.size} result pages)`);
+
   await prerender(enrichedPosts, enrichedThoughts, enrichedPortfolio, enrichedGallery, siteConfig, imageManifest, pages);
   await generateSeoArtifacts({
     posts: enrichedPosts,
@@ -768,8 +787,9 @@ async function generateSeoArtifacts({
     tags,
     categories,
     blogDirs,
+    siteConfig,
   });
-  const indexableRoutes = routes.filter((route) => isIndexableRoute(route));
+  const indexableRoutes = routes.filter((route) => isIndexableRoute(route, siteConfig));
 
   writeWebFile("metadata/prerender-routes.json", `${JSON.stringify(routes.map(toPrerenderRoute), null, 2)}\n`);
   writeWebFile("sitemap.xml", buildSitemapXml(siteUrl, indexableRoutes, { posts, portfolioItems }));
@@ -862,6 +882,7 @@ function collectRoutes({
   tags,
   categories,
   blogDirs,
+  siteConfig,
 }) {
   const routes = new Set([
     "/",
@@ -871,6 +892,8 @@ function collectRoutes({
     "/thoughts",
     "/tags",
     "/categories",
+    "/tag",
+    "/category",
     "/profile",
     "/about",
   ]);
@@ -884,11 +907,8 @@ function collectRoutes({
     routes.add(`/blog/dir/${d}`);
   }
 
-  for (const t of Object.keys(tags || {})) {
+  for (const t of siteConfig?.taxonomy?.highlighted_tags || []) {
     routes.add(`/tag/${encodeURIComponent(t)}`);
-  }
-  for (const c of Object.keys(categories || {})) {
-    routes.add(`/category/${encodeURIComponent(c)}`);
   }
 
   if (galleryItems.length > 0) {
@@ -1164,13 +1184,9 @@ function buildRobotsTxt(siteUrl, siteConfig) {
     "",
     "# --- Block low-value / internal pages ---",
     "Disallow: /content/",
-    "Disallow: /metadata/",
     "Disallow: /vendor/",
     "Disallow: /gallery",
     "Disallow: /404.html",
-    "Disallow: /tags",
-    "Disallow: /categories",
-    "Disallow: /category/",
     "Disallow: /admin",
     "Disallow: /admin/",
     "",
@@ -1184,21 +1200,22 @@ function buildRobotsTxt(siteUrl, siteConfig) {
 
 function shouldFollow(route) {
   if(!route) return false;
+  if (taxonomyPolicy.isTaxonomyPath(route)) return true;
   if (["/", "/blog", "/portfolio", "/profile", "/about", "/thoughts", "/tags", "/categories", "/gallery"].includes(route)) {
     return true;
   }
 }
 
 
-function isIndexableRoute(route) {
+function isIndexableRoute(route, siteConfig) {
   if (!route) return false;
+  if (taxonomyPolicy.isTaxonomyPath(route)) return taxonomyPolicy.isIndexableTaxonomyPath(route, siteConfig);
   if (["/", "/blog", "/portfolio", "/profile", "/about", "/thoughts"].includes(route)) {
     return true;
   }
   if (route.startsWith("/blog/post/")) return true;
   if (route.startsWith("/blog/dir/")) return true;
   if (route.startsWith("/portfolio/")) return true;
-  if (route.startsWith("/tag/")) return true;
   if (/^\/[^/]+$/.test(route) && !["/gallery", "/tags", "/categories", "/admin"].includes(route)) {
     return true;
   }
@@ -1458,7 +1475,7 @@ function getRouteMeta(route, context) {
     type: "website",
     author: (siteConfig && siteConfig.author) || "",
     keywords: [],
-    robots: isIndexableRoute(route) ? "index, follow" : shouldFollow(route) ? "noindex, follow" : "noindex, nofollow",
+    robots: isIndexableRoute(route, siteConfig) ? "index, follow" : shouldFollow(route) ? "noindex, follow" : "noindex, nofollow",
     url: routeUrl,
   };
 
@@ -1536,14 +1553,14 @@ function getRouteMeta(route, context) {
   }
   if (route.startsWith("/tag/")) {
     const tag = decodeURIComponent(route.replace("/tag/", ""));
-    return { ...meta, title: `Tag: ${tag} — ${siteName}`, description: `Tagged archive for ${tag}.`, robots: "noindex, nofollow", keywords: [tag] };
+    return { ...meta, title: `Tag: ${tag} — ${siteName}`, description: `Tagged archive for ${tag}.`, keywords: [tag] };
   }
   if (route === "/categories") {
     return { ...meta, title: `Categories — ${siteName}`, description: `${Object.keys(categories || {}).length} categories.`, robots: "noindex, nofollow" };
   }
   if (route.startsWith("/category/")) {
     const category = decodeURIComponent(route.replace("/category/", ""));
-    return { ...meta, title: `Category: ${category} — ${siteName}`, description: `Category archive for ${category}.`, robots: "noindex, nofollow", keywords: [category] };
+    return { ...meta, title: `Category: ${category} — ${siteName}`, description: `Category archive for ${category}.`, keywords: [category] };
   }
   if (page) {
     const description = page.summary || page.description || siteDescription;
@@ -1602,6 +1619,7 @@ function parseAdsenseConfig(siteConfig) {
 
 function writeWebFile(filename, content) {
   const filepath = path.join(WEB_DIR, filename);
+  fs.mkdirSync(path.dirname(filepath), { recursive: true });
   fs.writeFileSync(filepath, content);
 }
 
@@ -2313,7 +2331,7 @@ function preprocessCarouselForPrerender(md, portfolioItems, posts, imageManifest
 }
 
 async function renderCustomMarkdownForPrerender(md, context = {}) {
-  const { portfolioItems = [], posts = [], imageManifest = null } = context;
+  const { portfolioItems = [], posts = [], imageManifest = null, config } = context;
   // Apply preprocessors in the same order as the browser version
   let processed = md;
   processed = preprocessCarouselForPrerender(processed, portfolioItems, posts, imageManifest);
@@ -2325,14 +2343,17 @@ async function renderCustomMarkdownForPrerender(md, context = {}) {
   let parsed = marked.parse(processed);
   // Now inject grids with proper markdown parsing of inner content
   parsed = await injectGridPrerender(parsed, marked);
-  return parsed;
+  return parsed.replace(/href="(\/(?:tag|category)\/[^\"]+)"/g, (attribute, href) => {
+    const rewritten = taxonomyPolicy.rewriteTaxonomyHref(href.replace(/&amp;/g, '&'), config);
+    return rewritten === href ? attribute : `href="${escapeHtml(rewritten)}"`;
+  });
 }
 
-async function renderProfilePagePrerender(pages, imageManifest, portfolioItems = [], posts = []) {
+async function renderProfilePagePrerender(pages, imageManifest, portfolioItems = [], posts = [], config) {
   const profilePage = (pages || []).find((p) => p.slug === "profile");
   if (!profilePage || !profilePage.path) return null;
 
-  const profilePath = path.join(REPO_ROOT, profilePage.path);
+  const profilePath = path.join(CONTENT_DIR, profilePage.path.replace(/^content\//, ''));
   if (!fs.existsSync(profilePath)) return null;
 
   const raw = fs.readFileSync(profilePath, "utf-8");
@@ -2417,7 +2438,7 @@ async function renderProfilePagePrerender(pages, imageManifest, portfolioItems =
       )}></div>`
     : "";
 
-  let bodyHtml = await renderCustomMarkdownForPrerender(body || "", { portfolioItems, posts, imageManifest });
+  let bodyHtml = await renderCustomMarkdownForPrerender(body || "", { portfolioItems, posts, imageManifest, config });
   bodyHtml = bodyHtml.replace(
     /(<h2(?:\s+[^>]*)?>Skills<\/h2>[\s\S]*?)(?=<h2(?:\s|>)|$)/i,
     '<section class="profile-skills-panel">$1</section>',
@@ -2477,7 +2498,7 @@ async function prerender(posts, thoughts, portfolio, gallery, config, imageManif
   }
 
   try {
-    const profileMarkup = await renderProfilePagePrerender(pages, imageManifest, portfolio, posts);
+    const profileMarkup = await renderProfilePagePrerender(pages, imageManifest, portfolio, posts, config);
     if (profileMarkup) {
       const profileCacheFile = path.join(METADATA_DIR, "profile-prerender.json");
       fs.writeFileSync(profileCacheFile, JSON.stringify({ html: profileMarkup }), "utf-8");
@@ -2597,6 +2618,7 @@ async function bundleVendorJS() {
 async function runBuild() {
   const cleanupSymlink = setupLocalContentSymlink();
   CONTENT_DIR = resolveContentDir();
+  taxonomyPolicy = await import('../sveltekit/src/lib/taxonomy.js');
   console.log(`Using content dir: ${CONTENT_DIR}`);
   try {
     await buildMetadata();

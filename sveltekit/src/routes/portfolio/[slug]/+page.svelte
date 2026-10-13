@@ -8,6 +8,7 @@
 	import { assetUrl, formatDate } from '$lib/utils';
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
+	import { taxonomyHref } from '$lib/taxonomy.js';
 
 	let { data }: { data: PageData } = $props();
 	const item = $derived(data.item);
@@ -97,7 +98,7 @@
 	<header class="article-header">
 		{#if item?.category || item?.status}
 			<div class="article-header-context">
-				{#if item?.category}<a href="/category/{item.category}" class="post-card-category">{item.category}</a>{/if}
+				{#if item?.category}<a href={taxonomyHref('category', item.category, config)} class="post-card-category">{item.category}</a>{/if}
 				{#if item?.status}<span class="status-chip status-{item.status}">{item.status}</span>{/if}
 			</div>
 		{/if}
@@ -116,7 +117,7 @@
 			{#if item?.tags?.length}
 				<div class="article-tags">
 					{#each item.tags as tag}
-						<a href="/tag/{tag}" class="tag">{tag}</a>
+						<a href={taxonomyHref('tag', tag, config)} class="tag">{tag}</a>
 					{/each}
 				</div>
 			{/if}

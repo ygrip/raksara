@@ -38,7 +38,8 @@ function stripLeadingTitle(md: string, title?: string | null): string {
 
 export const prerender = true;
 
-export const load = (async ({ params, fetch }) => {
+export const load = (async ({ params, fetch, parent }) => {
+  const { config } = await parent();
   const slug = params.slug.replace(/\/+$/, '');
 
   const res = await fetch(`/content/blog/${slug}.md`);
@@ -68,6 +69,7 @@ export const load = (async ({ params, fetch }) => {
         blogDirs,
       },
       imageManifest: imageManifest ?? undefined,
+      config,
     },
   );
 

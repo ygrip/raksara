@@ -17,7 +17,8 @@ function routeFromNav(value: unknown): string | null {
 
 export const prerender = true;
 
-export const load: PageLoad = async ({ params, fetch }) => {
+export const load: PageLoad = async ({ params, fetch, parent }) => {
+  const { config } = await parent();
   const slug = params.page;
 
   // Guard: skip markdown fetch for file asset paths (e.g. /favicon.ico, /robots.txt)
@@ -55,6 +56,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
         components: componentEntries,
         context: { posts, portfolioItems },
         imageManifest: imageManifest ?? undefined,
+        config,
       })
     : '';
 

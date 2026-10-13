@@ -4,6 +4,7 @@
 	import { formatDate } from '$lib/utils';
 	import ShareCard from '$lib/components/ShareCard.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
+	import { taxonomyHref } from '$lib/taxonomy.js';
 
 	let { data }: { data: PageData } = $props();
 	const thoughts = $derived(data.thoughts);
@@ -104,7 +105,7 @@
 				{/if}
 				<time class="thought-date" datetime={thought.date}>{formatDate(thought.date)}</time>
 				{#each (thought.tags ?? []) as tag}
-					<a href="/tag/{tag}" class="tag">{tag}</a>
+					<a href={taxonomyHref('tag', tag, config)} class="tag">{tag}</a>
 				{/each}
 			</div>
 		</li>

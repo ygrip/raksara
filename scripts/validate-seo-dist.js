@@ -309,6 +309,67 @@ if (robotsBlocked === 0 && robotsText) ok('robots.txt does not block sitemap URL
 if (loadingFallbacks === 0) ok('No sitemap URL renders the Loading fallback as static content');
 if (missingArticleBody === 0) ok('Article detail pages include prerendered article bodies');
 
+// Shared taxonomy shells must convey noindex before JavaScript executes.
+for (const kind of ['tag', 'category']) {
+  const shellPath = path.join(BUILD_DIR, kind, 'index.html');
+  if (!fs.existsSync(shellPath)) {
+    error(`/${kind}/: shared taxonomy shell is missing built HTML`);
+    continue;
+  }
+  const shellHead = firstMatch(readFile(shellPath), /<head\b[^>]*>([\s\S]*?)<\/head>/i);
+  const robotsTags = [...shellHead.matchAll(/<meta\s+[^>]*name=["']robots["'][^>]*content=["']([^"']+)["'][^>]*>/gi)];
+  if (robotsTags.length !== 1 || !/^noindex\s*,\s*follow$/i.test(robotsTags[0][1].trim())) {
+    error(`/${kind}/: initial HTML must contain exactly one noindex, follow robots tag`);
+  }
+  if (/<link\s+[^>]*rel=["']canonical["']/i.test(shellHead)) error(`/${kind}/: noindexed query shell must not declare a pathname-only canonical`);
+  if (isBlockedByRobots(`/${kind}/`, disallows)) error(`/${kind}/: robots.txt prevents discovery of noindex`);
+}
+
+// Detect stale archive files as well as incorrectly advertised sitemap routes.
+const configPath = path.join(STATIC_DIR, 'metadata', 'config.json');
+if (!fs.existsSync(configPath)) {
+  error('Generated config.json is missing; cannot validate highlighted taxonomy output');
+} else {
+  const config = JSON.parse(readFile(configPath));
+  const highlighted = config?.taxonomy?.highlighted_tags ?? [];
+  if (!Array.isArray(highlighted) || highlighted.some((term) => typeof term !== 'string')) {
+    error('Invalid highlighted taxonomy configuration');
+  } else {
+    const expected = new Set(highlighted.map((term) => `/tag/${encodeURIComponent(term)}/`));
+    const advertised = new Set(sitemapUrls.map((url) => new URL(url).pathname));
+    for (const route of advertised) {
+      if ((route.startsWith('/tag/') && !expected.has(route)) || route.startsWith('/category/')) {
+        error(`Non-indexable taxonomy URL ${route} is advertised in sitemap`);
+      }
+    }
+    for (const route of expected) {
+      if (!advertised.has(route)) error(`Highlighted taxonomy URL ${route} is missing from sitemap`);
+      const file = htmlPathForUrl(new URL(route, sitemapUrls[0]).href);
+      if (fs.existsSync(file) && !/"@type"\s*:\s*"CollectionPage"/.test(readFile(file))) {
+        error(`${route}: curated topic is missing CollectionPage structured data`);
+      }
+    }
+    function archiveHtmlFiles(dir) {
+      if (!fs.existsSync(dir)) return [];
+      return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+        const file = path.join(dir, entry.name);
+        return entry.isDirectory() ? archiveHtmlFiles(file) : entry.name.endsWith('.html') ? [file] : [];
+      });
+    }
+    const expectedFiles = new Set([
+      path.join(BUILD_DIR, 'tag', 'index.html'),
+      path.join(BUILD_DIR, 'category', 'index.html'),
+      ...[...expected].map((route) => htmlPathForUrl(new URL(route, sitemapUrls[0]).href)),
+    ]);
+    for (const kind of ['tag', 'category']) {
+      for (const file of archiveHtmlFiles(path.join(BUILD_DIR, kind))) {
+        if (!expectedFiles.has(file)) error(`Stale or non-highlighted archive HTML: ${path.relative(BUILD_DIR, file)}`);
+      }
+    }
+    ok(`Checked physical taxonomy shells and ${expected.size} highlighted archive(s)`);
+  }
+}
+
 const homepagePath = path.join(BUILD_DIR, 'index.html');
 let brokenHomepageLinks = 0;
 if (fs.existsSync(homepagePath)) {

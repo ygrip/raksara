@@ -79,6 +79,9 @@ Useful commands:
 npm run build:metadata      # Generate metadata and static assets
 npm run validate:seo:build  # Validate sitemap, robots, prerender manifest, and SEO config
 npm run validate:seo:dist   # Validate built HTML after SvelteKit output exists
+npm run test:taxonomy:policy # Check taxonomy policy and URL encoding
+# Against a running dev/preview server (install Chromium with npx playwright install chromium):
+TAXONOMY_BASE_URL=http://localhost:5173 npm run test:taxonomy
 npm run dev                 # Build metadata, then run SvelteKit dev server
 npm run check:sveltekit     # Type/check SvelteKit
 npm run build               # Build metadata, validate SEO, then SvelteKit static output
@@ -97,9 +100,34 @@ The metadata build writes to:
 
 ## Static SEO Output
 
-Raksara is deployed to GitHub Pages, so indexable pages must exist as static HTML, not only as client-side routes. The metadata build computes the canonical route list once, filters it with the same `isIndexableRoute()` logic used for `sitemap.xml`, and writes `sveltekit/static/metadata/prerender-routes.json`.
+Raksara is deployed to GitHub Pages, so indexable pages must exist as static HTML, not only as client-side routes. The metadata build writes an explicit static-route manifest to `sveltekit/static/metadata/prerender-routes.json`; sitemap URLs are the indexable subset of those routes. Prerendered does not necessarily mean indexable: the manifest also includes shared taxonomy shells and other intentional static utility pages.
 
-During `npm run build:sveltekit`, SvelteKit reads that manifest and prerenders exactly those indexable routes. Non-indexable routes such as gallery popups, tag/category archives, and utility pages can still use the static adapter fallback as SPA routes, but sitemap URLs should always have matching HTML in `sveltekit/build`.
+During `npm run build:sveltekit`, SvelteKit reads that manifest with link crawling disabled. Every sitemap URL must have matching HTML in `sveltekit/build`.
+
+### Hybrid tag and category archives
+
+Opt selected tag archives into static rendering and indexing explicitly in the **content repository's** `raksara.yml`:
+
+```yaml
+taxonomy:
+  highlighted_tags: [java]
+
+topics:
+  java:
+    title: Java
+    intro: Java engineering articles, implementation patterns, and tooling.
+```
+
+Use exact, case-sensitive tag names that exist in visible content, with a `topics` title and intro (or description) for each highlighted tag. Highlighted names must be safe path slugs (letters, digits, hyphens and underscores, starting with a letter or digit); other terms, including Unicode and punctuation, are supported by query shells. The `topics` block supplies presentation only; it never implicitly highlights a tag. Omitting `taxonomy.highlighted_tags` means no highlighted tags. Deploy the configuration in the content branch used by the production workflow, not only a local generated `config.json`.
+
+- Highlighted tags retain `/tag/java/`: a crawler-readable initial result page, `index, follow`, self-canonical and collection structured data; included in the sitemap. Each result page contains at most 30 items; later pages load in the browser.
+- Other tags use `/tag/?name=cucumber`; categories use `/category/?name=Engineering`. Both routes have real static HTML shells containing `noindex, follow` before JavaScript. Their selected detail is loaded in the browser; they have no canonical or sitemap entries.
+- `/tags/` and `/categories/` remain searchable, bounded taxonomy directories. Generated chips resolve to the highlighted static route or the appropriate query shell with safely encoded names.
+- Detail data is generated under `/metadata/taxonomy/`: a compact term registry and paginated, per-term result files. A view fetches the selected page and relevant image metadata instead of the full post/project/gallery arrays. Counts reflect visible archive scope: tags include posts, projects, thoughts and gallery; categories include posts, projects and gallery. Page/document-only terms are excluded.
+
+Old non-highlighted `/tag/name/` and `/category/name/` paths have best-effort client navigation to the new query URL. **GitHub Pages still returns HTTP 404 on an initial request to a removed path**; a client redirect is not an HTTP 301. Configure and verify permanent redirects at a hosting/edge layer if preserving HTTP-level legacy navigation and backlinks is required. GitHub Pages does not process a `_redirects` file. Promotion/demotion of highlights changes this legacy policy, so review existing traffic and links before changing the allowlist.
+
+Build validators require exact highlighted sitemap/manifest membership, no stale long-tail archive HTML, both physical noindex shells, and bounded taxonomy metadata. Browser checks cover the directories, shell navigation, pagination, failure/retry and encoded terms. Test deployed HTTP statuses separately: a dev or preview server may hide Pages' fallback behavior.
 
 For Google Search Console HTML-tag verification, add
 `google_site_verification: <token>` to `raksara.yml`. Builds render

@@ -12,7 +12,8 @@
  *   5. Post-process: sortable tables, hljs, chart.js, mermaid
  */
 
-import type { ImageManifest, BlogDirs } from './types';
+import type { ImageManifest, BlogDirs, SiteConfig } from './types';
+import { rewriteTaxonomyHref } from './taxonomy.js';
 import { buildResponsiveAttrs, buildLqipStyle, responsiveAttrsToString } from './responsive-image';
 import { assetUrl, formatDate } from './utils';
 
@@ -36,7 +37,8 @@ function slugifyHeading(text: string): string {
     .replace(/\s+/g, '-');
 }
 
-export function resolveContentLink(href: string): string {
+export function resolveContentLink(href: string, config?: SiteConfig): string {
+  href = rewriteTaxonomyHref(href, config);
   if (
     !href ||
     href.startsWith('http://') ||
@@ -69,9 +71,9 @@ export function resolveContentLink(href: string): string {
 }
 
 /** Bare URLs become readable labels; authored labels and remote privacy stay intact. */
-export function readableLinkLabel(href: string, text: string, context?: RenderOptions['context']): string {
+export function readableLinkLabel(href: string, text: string, context?: RenderOptions['context'], config?: SiteConfig): string {
   if (text && text !== href && text !== escapeHtml(href)) return text;
-  const resolved = resolveContentLink(href);
+  const resolved = resolveContentLink(href, config);
   const path = resolved.split(/[?#]/)[0].replace(/\/$/, '');
   const post = context?.posts?.find(item => path === `/blog/post/${item.slug}`);
   const project = context?.portfolioItems?.find(item => path === `/portfolio/${item.slug}`);
@@ -718,6 +720,8 @@ function collectMermaidBlock(source: string): string {
 // ── Main renderMarkdown ───────────────────────────────
 
 export interface RenderOptions {
+  /** Explicit taxonomy policy for authored local tag/category links. */
+  config?: SiteConfig;
   /** Respect newlines as BR (poem mode) */
   breaks?: boolean;
   /** Base path for content assets */
@@ -782,10 +786,10 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
     const href = (typeof token === 'object' ? token.href : String(token)) ?? '';
     const title = typeof token === 'object' ? token.title ?? '' : '';
     const text = typeof token === 'object' ? token.text ?? '' : '';
-    const resolved = resolveContentLink(href);
+    const resolved = resolveContentLink(href, opts.config);
     const external = resolved.startsWith('http://') || resolved.startsWith('https://');
     if (resolved.startsWith('#')) return `<a href="${escapeHtml(resolved)}">${text || escapeHtml(resolved)}</a>`;
-    return `<a class="prose-link" href="${escapeHtml(resolved)}"${title ? ` title="${escapeHtml(title)}"` : ''}${external ? ' target="_blank" rel="noopener noreferrer"' : ''}>${linkSiteIcon(resolved)}${readableLinkLabel(href, text, opts.context)}${external ? '<span class="link-external" aria-hidden="true">↗</span><span class="link-new-tab"> (opens in a new tab)</span>' : ''}</a>`;
+    return `<a class="prose-link" href="${escapeHtml(resolved)}"${title ? ` title="${escapeHtml(title)}"` : ''}${external ? ' target="_blank" rel="noopener noreferrer"' : ''}>${linkSiteIcon(resolved)}${readableLinkLabel(href, text, opts.context, opts.config)}${external ? '<span class="link-external" aria-hidden="true">↗</span><span class="link-new-tab"> (opens in a new tab)</span>' : ''}</a>`;
   };
 
   // Code blocks: chart.js / mermaid / hljs-ready markup

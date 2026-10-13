@@ -1,29 +1,22 @@
-// src/routes/tag/[tag]/+page.ts
 import type { PageLoad } from './$types';
-import { loadGallery, loadImageManifest, loadPosts, loadPortfolio, loadThoughts } from '$lib/metadata';
+import { loadTaxonomyIndex, loadTaxonomyPage } from '$lib/metadata';
+import { isHighlightedTag } from '$lib/taxonomy.js';
 
-export const prerender = true;
+// The generated manifest contains only the explicit highlighted-tag allowlist.
+// Other legacy paths stay available to the client router, not the static build.
+export const prerender = 'auto';
 
-function newestFirst<T extends { date?: string }>(items: T[]): T[] {
-  return [...items].sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? '')));
-}
-
-export const load: PageLoad = async ({ params, fetch }) => {
+export const load: PageLoad = async ({ params, fetch, parent }) => {
+  const { config } = await parent();
   const tag = params.tag;
-  const [posts, portfolio, thoughts, gallery, imageManifest] = await Promise.all([
-    loadPosts(fetch).catch(() => [] as Awaited<ReturnType<typeof loadPosts>>),
-    loadPortfolio(fetch).catch(() => [] as Awaited<ReturnType<typeof loadPortfolio>>),
-    loadThoughts(fetch).catch(() => [] as Awaited<ReturnType<typeof loadThoughts>>),
-    loadGallery(fetch).catch(() => [] as Awaited<ReturnType<typeof loadGallery>>),
-    loadImageManifest(fetch).catch(() => null),
-  ]);
+  if (!isHighlightedTag(tag, config)) return { tag, archive: null, taxonomyIndex: null };
 
-  return {
-    tag,
-    posts: newestFirst(posts.filter((p) => p.tags?.includes(tag))),
-    portfolio: newestFirst(portfolio.filter((p) => p.tags?.includes(tag))),
-    thoughts: newestFirst(thoughts.filter((t) => t.tags?.includes(tag))),
-    gallery: newestFirst(gallery.filter((g) => g.tags?.includes(tag))),
-    imageManifest,
-  };
+  const taxonomyIndex = await loadTaxonomyIndex(fetch);
+  const entry = Object.hasOwn(taxonomyIndex.tags, tag) ? taxonomyIndex.tags[tag] : null;
+  if (!entry) throw new Error(`Highlighted tag "${tag}" is missing from the taxonomy registry`);
+  const archive = await loadTaxonomyPage(fetch, 'tag', entry.id);
+  if (archive.term !== tag || archive.total !== entry.total || archive.pages !== entry.pages || archive.pageSize !== taxonomyIndex.pageSize) {
+    throw new Error(`Highlighted tag "${tag}" has mismatched archive data`);
+  }
+  return { tag, archive, taxonomyIndex };
 };

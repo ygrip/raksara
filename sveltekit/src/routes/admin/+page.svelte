@@ -1302,6 +1302,7 @@
 			}
 			try {
 				const html = await renderMarkdown(processedBody, {
+					config: data.config,
 					context: { posts: data.posts, blogDirs: data.blogDirs },
 					// Pass all known content entries so ::component(path) directives resolve
 					components: [...data.posts, ...data.pages, ...data.docs, ...data.portfolio],
@@ -1348,6 +1349,7 @@
 		const timer = setTimeout(async () => {
 			try {
 				const html = await renderMarkdown(mdBody, {
+					config: data.config,
 					context: { posts: data.posts, blogDirs: data.blogDirs },
 					components: [...data.posts, ...data.pages, ...data.docs, ...data.portfolio]
 				});

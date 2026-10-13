@@ -12,7 +12,8 @@ function stripLeadingTitle(md: string, title?: string | null): string {
   return md.replace(new RegExp(`^\\s*#\\s+${escaped}\\s*\\n+`, 'i'), '');
 }
 
-export const load: PageLoad = async ({ params, fetch }) => {
+export const load: PageLoad = async ({ params, fetch, parent }) => {
+  const { config } = await parent();
   const [portfolio, imageManifest] = await Promise.all([
     loadPortfolio(fetch).catch(() => []),
     loadImageManifest(fetch).catch(() => null),
@@ -24,6 +25,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
   const renderedHtml = markdown
     ? await renderMarkdown(stripLeadingTitle(markdown, item?.title), {
         imageManifest: imageManifest ?? undefined,
+        config,
       })
     : '';
   return { item, markdown, renderedHtml, imageManifest };
