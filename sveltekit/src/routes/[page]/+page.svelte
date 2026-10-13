@@ -64,10 +64,32 @@
 </article>
 
 {#if slug === 'about'}
-	<section class="docs-section mx-auto max-w-3xl">
-		<h2>Documentation</h2>
-		<p>Raksara supports a set of custom components — panels, containers, chips, and sortable tables — available directly in Markdown with simple syntax extensions.</p>
-		<a href="/documentation" class="docs-section-link">View component documentation →</a>
+	<section class="docs-section mx-auto max-w-3xl" aria-labelledby="docs-section-title">
+		<div class="docs-frame">
+			<div class="docs-card">
+				<span class="docs-card-glow" aria-hidden="true"></span>
+				<div class="docs-card-head">
+					<span class="docs-card-icon" aria-hidden="true">
+						<svg width="20" height="20" viewBox="0 0 16 16" fill="none"><path d="M8 4.2C6.7 3.1 4.8 2.6 2.5 2.7v9.6c2.3-.1 4.2.4 5.5 1.5 1.3-1.1 3.2-1.6 5.5-1.5V2.7c-2.3-.1-4.2.4-5.5 1.5zM8 4.2v9.6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+					</span>
+					<div>
+						<span class="docs-card-eyebrow">Raksara · Docs{#if docs?.length} · {docs.length} pages{/if}</span>
+						<h2 id="docs-section-title">Documentation</h2>
+					</div>
+				</div>
+				<p>Raksara supports a set of custom components — panels, containers, chips, and sortable tables — available directly in Markdown with simple syntax extensions.</p>
+				<ul class="docs-card-chips" aria-label="Component highlights">
+					<li>Panels</li>
+					<li>Containers</li>
+					<li>Chips</li>
+					<li>Sortable tables</li>
+				</ul>
+				<a href="/documentation/" class="docs-section-link">
+					View component documentation
+					<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+				</a>
+			</div>
+		</div>
 	</section>
 {/if}
 

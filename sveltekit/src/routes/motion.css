@@ -1,0 +1,230 @@
+/* ── Motion: scroll-driven focus & parallax ─────────────────
+   Apple-style scroll choreography driven by CSS scroll timelines, so every
+   frame runs on the compositor with no scroll listeners. Keyframes animate the
+   individual `translate`/`scale` properties (not `transform`) so they compose
+   with existing hover transforms instead of overriding them. Browsers without
+   scroll timelines, and users who prefer reduced motion, get the static page. */
+
+:root {
+    --rk-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Reading focus: once the article header scrolls away, quiet the chrome so the
+   text owns the screen. Hover or keyboard focus brings it straight back. */
+@media (min-width: 1024px) {
+    #sidebar > * {
+        transition: opacity 600ms var(--rk-ease-out), filter 600ms var(--rk-ease-out);
+    }
+
+    html.is-reading #sidebar > * {
+        opacity: 0.38;
+        filter: saturate(0.6);
+    }
+
+    html.is-reading #sidebar:is(:hover, :focus-within) > * {
+        opacity: 1;
+        filter: none;
+    }
+}
+
+.fireflies-layer {
+    transition: opacity 800ms ease;
+}
+
+html.is-reading .fireflies-layer {
+    opacity: 0.35;
+}
+
+/* Read mode: the sticky breadcrumb pill condenses while reading. Breadcrumbs
+   fade out and the pill turns translucent; hover/focus restores it. Driven by
+   the same `is-reading` class so it works without scroll timelines too. */
+body.reading-mode .article-top-bar {
+    transition: opacity 450ms var(--rk-ease-out), scale 450ms var(--rk-ease-out), box-shadow 450ms ease;
+    transform-origin: 50% 0;
+}
+
+body.reading-mode .article-top-bar .post-breadcrumbs {
+    transition: opacity 350ms ease;
+}
+
+html.is-reading body.reading-mode .article-top-bar {
+    opacity: 0.55;
+    box-shadow: none;
+}
+
+html.is-reading body.reading-mode .article-top-bar .post-breadcrumbs {
+    opacity: 0;
+}
+
+html.is-reading body.reading-mode .article-top-bar:is(:hover, :focus-within) {
+    opacity: 1;
+}
+
+html.is-reading body.reading-mode .article-top-bar:is(:hover, :focus-within) .post-breadcrumbs {
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    html.is-reading body.reading-mode .article-top-bar {
+        scale: 0.92;
+    }
+
+    html.is-reading body.reading-mode .article-top-bar:is(:hover, :focus-within) {
+        scale: 1;
+    }
+}
+
+.reading-progress {
+    display: none;
+}
+
+@keyframes rk-rise {
+    from { opacity: 0; translate: 0 28px; }
+}
+
+@keyframes rk-rise-media {
+    from { opacity: 0; translate: 0 36px; scale: 0.96; }
+}
+
+/* Implicit `from` keeps whatever the entry animation produced underneath. */
+@keyframes rk-dim {
+    to { opacity: 0.32; }
+}
+
+@keyframes rk-recede {
+    to { opacity: 0; translate: 0 -6%; scale: 0.92; }
+}
+
+@keyframes rk-cover-recede {
+    to { opacity: 0.25; scale: 0.94; }
+}
+
+@keyframes rk-cover-drift {
+    from { scale: 1.06; translate: 0 -2%; }
+    to { scale: 1.06; translate: 0 2.5%; }
+}
+
+@keyframes rk-progress {
+    from { scale: 0 1; }
+    to { scale: 1 1; }
+}
+
+@keyframes rk-hero-parallax {
+    to { opacity: 0; translate: 0 22vh; scale: 0.94; }
+}
+
+/* Opacity only: DotField measures its host and anchor boxes, so no translate. */
+@keyframes rk-hero-visual {
+    to { opacity: 0.15; }
+}
+
+@keyframes rk-profile-parallax {
+    to { opacity: 0; translate: 0 140px; scale: 0.96; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+        /* ── Blog post ─────────────────────────────────────── */
+
+        .reading-progress {
+            display: block;
+            position: fixed;
+            inset: 0 0 auto;
+            z-index: 70;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent), var(--hg-accent-text, var(--accent-hover)));
+            box-shadow: 0 0 12px var(--accent-glow);
+            transform-origin: 0 50%;
+            pointer-events: none;
+            animation: rk-progress linear both;
+            animation-timeline: scroll(root block);
+        }
+
+        /* Title block (and, outside read mode, the breadcrumb bar above it)
+           shrinks back and fades as the reader moves into the text. */
+        body:not(.reading-mode) .post-article .article-top-bar,
+        .post-article .article-header {
+            transform-origin: 50% 0;
+            animation: rk-recede linear both;
+            animation-timeline: view();
+            animation-range: exit 0% exit 100%;
+        }
+
+        .post-article .article-cover {
+            transform-origin: 50% 0;
+            animation: rk-cover-recede linear both;
+            animation-timeline: view();
+            animation-range: exit 0% exit 100%;
+        }
+
+        /* Cover image drifts slower than the page inside its frame. */
+        .post-article .article-cover img {
+            animation: rk-cover-drift linear both;
+            animation-timeline: view();
+            animation-range: cover 0% cover 100%;
+        }
+
+        /* Blocks rise in as they reach the reader, then dim once read. */
+        .post-article:not(.comic-layout) .article-body > :is(p, h2, h3, h4, h5, ul, ol, blockquote, hr, dl),
+        .profile-body-shell .article-body > :is(p, h2, h3, h4, h5, ul, ol, blockquote, hr, dl) {
+            animation: rk-rise var(--rk-ease-out) both, rk-dim linear both;
+            animation-timeline: view(), view();
+            animation-range: entry 0% entry 80%, exit 35% exit 100%;
+        }
+
+        .post-article:not(.comic-layout) .article-body > :is(figure, img, .code-block-wrap, .table-scroll-wrap),
+        .post-article:not(.comic-layout) .article-body > p:has(> img:only-child),
+        .profile-body-shell .article-body > :is(figure, img, section, .code-block-wrap, .table-scroll-wrap) {
+            transform-origin: 50% 100%;
+            animation: rk-rise-media var(--rk-ease-out) both;
+            animation-timeline: view();
+            animation-range: entry 0% cover 30%;
+        }
+
+        .post-article .post-nav,
+        .post-article .giscus-container {
+            animation: rk-rise var(--rk-ease-out) both;
+            animation-timeline: view();
+            animation-range: entry 0% cover 25%;
+        }
+
+        /* ── Home ──────────────────────────────────────────── */
+
+        /* Hero copy lags behind the scroll, shrinks and fades: depth on exit. */
+        .home-hero-copy {
+            transform-origin: 30% 0;
+            animation: rk-hero-parallax linear both;
+            animation-timeline: scroll(root block);
+            animation-range: 0 85vh;
+        }
+
+        .home-hero .hero-dot-field {
+            animation: rk-hero-visual linear both;
+            animation-timeline: scroll(root block);
+            animation-range: 0 100vh;
+        }
+
+        .home-section-header {
+            animation: rk-rise var(--rk-ease-out) both;
+            animation-timeline: view();
+            animation-range: entry 0% cover 25%;
+        }
+
+        :is(.post-list .post-card, .portfolio-card, .home-info-card, .home-link-item, .thought-card, .gallery-window),
+        .profile-metadata,
+        .profile-skills-panel {
+            animation: rk-rise-media var(--rk-ease-out) both;
+            animation-timeline: view();
+            animation-range: entry 0% cover 28%;
+        }
+
+        /* ── Profile ───────────────────────────────────────── */
+
+        .profile-hero-content {
+            transform-origin: 50% 100%;
+            animation: rk-profile-parallax linear both;
+            animation-timeline: scroll(root block);
+            animation-range: 0 380px;
+        }
+    }
+}

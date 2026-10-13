@@ -373,11 +373,13 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 #app .post-card-body { display: flex; flex-direction: column; }
 #app .post-card-meta { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--hg-line); }
 #app .post-card-meta time { flex-shrink: 0; white-space: nowrap; }
-#app .post-card-meta .post-card-category { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; padding: 5px 8px; }
+/* Card chips share the status chip's 24px pill metrics so the meta row reads as one family. */
+#app :is(.post-card-meta .post-card-category, .post-card-tags .tag, .post-card-meta .status-chip) { box-sizing: border-box; display: inline-flex; align-items: center; height: 24px; min-height: 24px; padding: 0 9px; font-size: 11px; line-height: 1; }
+#app .post-card-meta .post-card-category { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 22px; }
 #app .post-card-meta .status-chip { flex-shrink: 0; }
 #app .post-card-tags { display: flex; flex-wrap: nowrap; gap: 6px; max-width: 100%; margin-top: 10px; padding-right: 20px; overflow: hidden; white-space: nowrap; mask-image: linear-gradient(to right, #000 85%, transparent); }
 #app .post-card-tags:not(:has(.tag)) { display: none; }
-#app .post-card-tags .tag { flex-shrink: 0; padding: 4px 9px; font-size: 12px; }
+#app .post-card-tags .tag { flex-shrink: 0; font-weight: 600; letter-spacing: .01em; }
 #app .post-card-tags:focus-within { overflow-x: auto; mask-image: none; }
 #app .home-section-header { gap: 16px; }
 #app .home-section-header h2 { min-width: 0; text-wrap: balance; }

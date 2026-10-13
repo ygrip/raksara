@@ -2,6 +2,7 @@
 	import './layout.css';
 	import './visual-polish.css';
 	import './heritage-glass.css';
+	import './motion.css';
 	import { onMount } from 'svelte';
 	import { navigating, page } from '$app/stores';
 	import { goto } from '$app/navigation';
@@ -86,7 +87,9 @@
 		'/blog/post/[...slug]',
 	]);
 
-	const nav = $derived(config?.nav ?? defaultNav);
+	// Documentation is reachable from the About page only; keep it out of site navigation.
+	const isDocsHref = (href: string) => /^\/(documentation|doc)(\/|$)/.test(href);
+	const nav = $derived((config?.nav ?? defaultNav).filter((link) => !isDocsHref(link.href)));
 	const adsenseId = $derived(config ? getAdsenseId(config) : '');
 	const giscusEnabled = $derived(config ? (getGiscusConfig(config)?.enabled ?? false) : false);
 	const googleVerificationTokens = $derived(config ? getGoogleVerificationTokens(config) : []);

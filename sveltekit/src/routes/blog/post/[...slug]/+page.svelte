@@ -10,6 +10,7 @@
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
 	import { taxonomyHref } from '$lib/taxonomy.js';
+	import { readingFocus } from '$lib/actions/reading-focus';
 
 	type ChapterNav = { title: string; href: string };
 
@@ -201,8 +202,10 @@
 	{/if}
 </svelte:head>
 
+<div class="reading-progress" aria-hidden="true"></div>
 <article
 	bind:this={articleEl}
+	class="post-article"
 	class:poem-layout={isPoem}
 	class:novel-layout={isNovel}
 	class:reading-mode={readingMode}
@@ -253,7 +256,7 @@
 		</div>
 	</div>
 
-	<header class="article-header" class:poem-header={isPoem}>
+	<header class="article-header" class:poem-header={isPoem} use:readingFocus>
 		{#if post?.category || post?.status}
 			<div class="article-header-context">
 				{#if post?.category}<a href={taxonomyHref('category', post.category, config)} class="post-card-category">{post.category}</a>{/if}

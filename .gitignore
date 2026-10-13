@@ -72,11 +72,3 @@ npm-debug.log*
 # Environment
 .env
 .env.*
-
-# Beads issue tracking stays local; sync separately via bd dolt push/pull
-.beads/
-
-# Beads / Dolt files (added by bd init)
-.dolt/
-*.db
-.beads-credential-key
