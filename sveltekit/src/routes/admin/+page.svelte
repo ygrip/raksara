@@ -4145,11 +4145,11 @@
 		backdrop-filter: blur(18px);
 		box-shadow: 0 18px 48px rgba(0, 0, 0, 0.26);
 		color: var(--text-primary);
-		animation: api-toast-in 180ms ease-out;
+		animation: api-toast-in var(--duration-medium) var(--ease-smooth-out);
 	}
 
 	.api-toast.is-closing {
-		animation: api-toast-out 220ms ease-in forwards;
+		animation: api-toast-out 220ms var(--ease-smooth-out) forwards;
 		pointer-events: none;
 	}
 
@@ -4926,11 +4926,11 @@
 		border-radius: 20px;
 		box-shadow: 0 32px 96px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.04);
 		overflow: clip;
-		animation: modal-pop-in 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+		animation: modal-pop-in var(--duration-fast) var(--ease-smooth-out);
 	}
 	@keyframes modal-pop-in {
-		from { transform: scale(0.94) translateY(12px); opacity: 0; }
-		to   { transform: scale(1) translateY(0); opacity: 1; }
+		from { transform: scale(var(--scale-large)); opacity: 0; }
+		to   { transform: scale(1); opacity: 1; }
 	}
 	/* Solid top bar — no glass, no blur, purely opaque */
 	.pr-modal-topbar {
@@ -5486,7 +5486,7 @@
 		border-radius: 18px;
 		box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
 		overflow: clip;
-		animation: modal-pop-in 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+		animation: modal-pop-in var(--duration-fast) var(--ease-smooth-out);
 	}
 	.nav-picker-header {
 		display: flex;
@@ -5856,7 +5856,7 @@
 		border-radius: 18px;
 		box-shadow: var(--shadow-glass), 0 24px 80px rgba(0, 0, 0, 0.45);
 		overflow: clip;
-		animation: modal-pop-in 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+		animation: modal-pop-in var(--duration-fast) var(--ease-smooth-out);
 	}
 
 	.comp-picker-group {
@@ -6034,7 +6034,7 @@
 		background: color-mix(in srgb, var(--bg) 70%, transparent);
 		backdrop-filter: blur(8px);
 		-webkit-backdrop-filter: blur(8px);
-		animation: pr-overlay-in 0.22s ease;
+		animation: pr-overlay-in var(--duration-fast) var(--ease-smooth-out);
 	}
 	@keyframes pr-overlay-in {
 		from { opacity: 0; }
@@ -6052,11 +6052,15 @@
 		max-width: 340px;
 		width: calc(100% - 32px);
 		box-shadow: 0 24px 64px rgba(0,0,0,0.35);
-		animation: pr-card-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+		animation: pr-card-in var(--duration-fast) var(--ease-smooth-out);
 	}
 	@keyframes pr-card-in {
-		from { transform: scale(0.88) translateY(16px); opacity: 0; }
-		to   { transform: scale(1) translateY(0); opacity: 1; }
+		from { transform: scale(var(--scale-large)); opacity: 0; }
+		to   { transform: scale(1); opacity: 1; }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.api-toast, .pr-modal, .nav-picker-modal, .comp-picker,
+		.pr-creation-overlay, .pr-creation-card { animation: none !important; }
 	}
 	.pr-creation-spinner {
 		width: 52px;

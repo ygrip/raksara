@@ -258,11 +258,14 @@
 		z-index: 9999;
 		white-space: nowrap;
 		backdrop-filter: blur(8px);
-		animation: egg-toast-in 0.18s ease;
+		animation: egg-toast-in var(--duration-medium) var(--ease-smooth-out);
 		letter-spacing: 0.02em;
 	}
+	@media (prefers-reduced-motion: reduce) {
+		.egg-toast { animation: none; }
+	}
 	@keyframes egg-toast-in {
-		from { opacity: 0; transform: translateX(-50%) translateY(6px); }
-		to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+		from { opacity: 0; transform: translateX(-50%) translateY(16px) scale(var(--scale-medium)); }
+		to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
 	}
 </style>

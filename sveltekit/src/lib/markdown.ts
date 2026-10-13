@@ -1601,7 +1601,7 @@ function initCarousels(container: HTMLElement): void {
       const gap = parseFloat(getComputedStyle(track!).gap || '0') || 0;
       const cw = carousel.querySelector<HTMLElement>('.content-carousel-viewport')?.clientWidth ?? stage!.clientWidth;
       const offset = -(current * (sw + gap)) + cw / 2 - sw / 2;
-      track!.style.transition = animated && !reducedMotion.matches ? 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)' : 'none';
+      track!.style.transition = animated && !reducedMotion.matches ? 'transform var(--duration-fast) var(--ease-smooth-out)' : 'none';
       track!.style.transform = `translateX(${offset}px)`;
       slides.forEach((s, i) => {
         s.classList.toggle('active', i === current);

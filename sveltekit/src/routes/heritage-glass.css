@@ -15,7 +15,7 @@
   --hg-radius: 28px;
   --hg-radius-card: 20px;
   --hg-corner: 72px;
-  --hg-ease: cubic-bezier(.22, .61, .36, 1);
+  --hg-ease: var(--ease-smooth-out);
   --hg-tl: url('/heritage/ukiran-corner-tl.webp');
   --hg-tr: url('/heritage/ukiran-corner-tr.webp');
   --hg-bl: url('/heritage/ukiran-corner-bl.webp');
@@ -792,9 +792,13 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 .sidebar-toggle.is-open span:first-child { transform: rotate(45deg); }
 .sidebar-toggle.is-open span:nth-child(2) { opacity: 0; transform: scaleX(.4); }
 .sidebar-toggle.is-open span:last-child { transform: rotate(-45deg); }
-.sidebar-overlay { animation: hg-overlay-in .22s ease both; }
+.sidebar-overlay { animation: hg-overlay-in var(--duration-fast) var(--ease-smooth-out) both; }
 @keyframes hg-overlay-in { from { opacity: 0; } to { opacity: 1; } }
-@media (max-width: 768px) { #app #sidebar { transition: transform .3s var(--hg-ease); } }
+/* Drawer: opens on the slower panel clock, closes on the quicker one. */
+@media (max-width: 768px) {
+  #app #sidebar { transition: transform var(--duration-medium) var(--ease-smooth-out); }
+  #app #sidebar.open { transition-duration: var(--duration-slow); }
+}
 #app .content-footer::before {
   content: ''; position: absolute; top: 6px; left: 50%; right: auto; transform: translateX(-50%);
   width: min(180px, 60%); height: 1px; opacity: .55;
@@ -1060,7 +1064,8 @@ body.reading-mode #app .article-header .article-meta { justify-content: center; 
 
 /* ── Accessibility & fallbacks ───────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  .sidebar-toggle span, #app #sidebar, .sidebar-overlay { transition: none !important; animation: none !important; }
+  .sidebar-toggle span, #app #sidebar, .sidebar-overlay,
+  .gallery-lightbox-overlay, .gallery-lightbox-overlay > figure { transition: none !important; animation: none !important; }
 }
 /* Dates remain readable metadata, not low-opacity decoration. */
 #app :is(time[datetime], .post-card-date, .content-card-date, .content-carousel-date, .gallery-card-date, .thought-date) {
@@ -1130,8 +1135,14 @@ body.reading-mode #app .article-header .article-meta { justify-content: center; 
   backdrop-filter: blur(22px) saturate(1.4);
   -webkit-backdrop-filter: blur(22px) saturate(1.4);
   color: var(--glb-ink);
-  animation: hg-overlay-in .24s ease both;
+  animation: hg-overlay-in var(--duration-fast) var(--ease-smooth-out) both;
 }
+/* Modal open: the stage scales up from --scale-large with the scrim. Fill only
+   backwards so no transform lingers to re-parent fixed descendants. */
+.gallery-lightbox-overlay > figure {
+  animation: hg-modal-in var(--duration-fast) var(--ease-smooth-out) backwards;
+}
+@keyframes hg-modal-in { from { opacity: 0; transform: scale(var(--scale-large)); } }
 .gallery-lightbox-overlay .glb-image {
   border-radius: 18px;
   box-shadow: 0 0 0 1px rgb(255 255 255 / .16), var(--hg-modal-shadow);
