@@ -105,6 +105,37 @@
 		}
 	});
 
+	// Modal open/close: stay mounted for the quicker close clock so the dialog
+	// can scale back down instead of vanishing (transitions.dev modal).
+	let rendered = $state(false);
+	let closing = $state(false);
+	let closeTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function closeDurationMs(): number {
+		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return 0;
+		const raw = getComputedStyle(document.documentElement).getPropertyValue('--duration-quick');
+		return parseFloat(raw) || 150;
+	}
+
+	$effect(() => {
+		if (open) {
+			if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+			closing = false;
+			rendered = true;
+		} else if (rendered && !closeTimer) {
+			closing = true;
+			closeTimer = setTimeout(() => {
+				closeTimer = null;
+				closing = false;
+				rendered = false;
+			}, closeDurationMs());
+		}
+	});
+
+	$effect(() => () => {
+		if (closeTimer) clearTimeout(closeTimer);
+	});
+
 	let debounce: ReturnType<typeof setTimeout> | null = null;
 	function handleInput() {
 		if (debounce) clearTimeout(debounce);
@@ -144,8 +175,8 @@
 </script>
 
 
-{#if open}
-	<div class="search-overlay" role="dialog" aria-modal="true" aria-label="Search" tabindex="0" onkeydown={handleKeydown}>
+{#if rendered}
+	<div class="search-overlay" class:is-closing={closing} role="dialog" aria-modal="true" aria-label="Search" tabindex="0" onkeydown={handleKeydown}>
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="search-overlay-backdrop" onclick={() => (open = false)}></div>

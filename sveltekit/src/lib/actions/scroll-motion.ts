@@ -83,7 +83,7 @@ export function attachScrollReveals(
   }, { threshold: 0.08, rootMargin: '0px 0px -12px 0px' });
 
   nodes.forEach((node, index) => {
-    node.style.setProperty('--rk-reveal-delay', `${(index % 3) * 50}ms`);
+    node.style.setProperty('--rk-reveal-index', String(index % 3));
     node.classList.add('rk-reveal');
     observer.observe(node);
   });
@@ -92,7 +92,7 @@ export function attachScrollReveals(
     observer.disconnect();
     for (const node of nodes) {
       node.classList.remove('rk-reveal', 'rk-revealed');
-      node.style.removeProperty('--rk-reveal-delay');
+      node.style.removeProperty('--rk-reveal-index');
     }
   };
 }

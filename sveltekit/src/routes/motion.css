@@ -6,7 +6,7 @@
    scroll timelines, and users who prefer reduced motion, get the static page. */
 
 :root {
-    --rk-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --rk-ease-out: var(--ease-smooth-out);
 }
 
 /* Reading focus: once the article header scrolls away, quiet the chrome so the
@@ -39,27 +39,35 @@ html.is-reading .fireflies-layer {
    the title leaves the viewport. Hide the breadcrumb from keyboard and pointer
    navigation as well as sight, rather than leaving an invisible focus target. */
 body.reading-mode #app .article-top-bar {
-    transition: padding 240ms var(--rk-ease-out),
-        background-color 240ms ease, border-color 240ms ease, box-shadow 240ms ease;
+    transition: padding var(--duration-fast) var(--rk-ease-out),
+        background-color var(--duration-fast) var(--rk-ease-out),
+        border-color var(--duration-fast) var(--rk-ease-out),
+        box-shadow var(--duration-fast) var(--rk-ease-out);
 }
 
 body.reading-mode #app .article-top-bar .post-breadcrumbs {
     max-height: 60px;
     max-width: 100%;
-    transition: opacity 160ms ease, max-height 240ms var(--rk-ease-out),
-        max-width 240ms var(--rk-ease-out), translate 240ms var(--rk-ease-out);
+    transition: opacity var(--duration-quick) var(--rk-ease-out),
+        max-height var(--duration-fast) var(--rk-ease-out),
+        max-width var(--duration-fast) var(--rk-ease-out),
+        translate var(--duration-fast) var(--rk-ease-out);
 }
 
 body.reading-mode #app .article-top-bar .article-actions {
-    transition: padding 240ms var(--rk-ease-out),
-        background-color 240ms ease, border-color 240ms ease, box-shadow 240ms ease;
+    transition: padding var(--duration-fast) var(--rk-ease-out),
+        background-color var(--duration-fast) var(--rk-ease-out),
+        border-color var(--duration-fast) var(--rk-ease-out),
+        box-shadow var(--duration-fast) var(--rk-ease-out);
 }
 
 body.reading-mode #app .article-top-bar .comic-mode-btn {
     white-space: nowrap;
     max-width: 180px;
-    transition: max-width 240ms var(--rk-ease-out), opacity 160ms ease,
-        padding 240ms var(--rk-ease-out), border-width 240ms ease;
+    transition: max-width var(--duration-fast) var(--rk-ease-out),
+        opacity var(--duration-quick) var(--rk-ease-out),
+        padding var(--duration-fast) var(--rk-ease-out),
+        border-width var(--duration-fast) var(--rk-ease-out);
 }
 
 html.is-reading body.reading-mode #app .article-top-bar {
@@ -83,7 +91,7 @@ html.is-reading body.reading-mode #app .article-top-bar .post-breadcrumbs {
     visibility: hidden;
     overflow: hidden;
     pointer-events: none;
-    translate: 0 -6px;
+    translate: 0 calc(var(--distance-small) * -1);
 }
 
 html.is-reading body.reading-mode #app .article-top-bar .comic-mode-btn {
@@ -136,12 +144,14 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
     display: none;
 }
 
+/* Scroll-scrubbed reveals travel the text-reveal distance; media gets twice
+   that plus the modal pre-scale. Long travel reads sluggish when scrubbed. */
 @keyframes rk-rise {
-    from { opacity: 0; translate: 0 28px; }
+    from { opacity: 0; translate: 0 var(--distance-medium); }
 }
 
 @keyframes rk-rise-media {
-    from { opacity: 0; translate: 0 36px; scale: 0.96; }
+    from { opacity: 0; translate: 0 calc(var(--distance-medium) * 2); scale: var(--scale-large); }
 }
 
 /* Implicit `from` keeps whatever the entry animation produced underneath. */
@@ -189,7 +199,7 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
 }
 
 @keyframes rk-section-title-in {
-    from { opacity: 0.72; translate: 0 12px; }
+    from { opacity: 0.72; translate: 0 var(--distance-medium); }
 }
 
 @keyframes rk-card-in {
@@ -197,7 +207,7 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
 }
 
 @keyframes rk-prose-in {
-    from { opacity: 0.85; translate: 0 10px; }
+    from { opacity: 0.85; translate: 0 var(--distance-medium); }
 }
 
 @keyframes rk-ukiran-float {
@@ -383,6 +393,7 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
         animation: none !important;
         transform: translate3d(0, var(--rk-home-halo-y, -8px), 0);
         opacity: var(--rk-home-halo-opacity, .84);
+        will-change: transform, opacity;
     }
 
     #app .home-hero.dot-hero.rk-js-depth .hero-dot-field {
@@ -395,6 +406,7 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
         animation: none !important;
         transition: none;
         translate: 0 var(--rk-profile-cover-y, -12px);
+        will-change: translate;
     }
 
     #app .profile-hero.rk-js-depth .profile-card {
@@ -402,18 +414,20 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
         translate: 0 var(--rk-profile-card-y, 0px);
     }
 
+    /* Text-reveal clock and distance; row siblings stagger by one token step. */
     .rk-reveal {
         animation: none !important;
         opacity: .6;
-        translate: 0 18px;
-        transition: opacity 520ms var(--rk-ease-out), translate 520ms var(--rk-ease-out);
+        translate: 0 var(--distance-medium);
+        transition: opacity var(--duration-very-slow) var(--rk-ease-out),
+            translate var(--duration-very-slow) var(--rk-ease-out);
         transition-delay: 0ms;
     }
 
     .rk-reveal.rk-revealed {
         opacity: 1;
         translate: 0 0;
-        transition-delay: var(--rk-reveal-delay, 0ms);
+        transition-delay: calc(var(--rk-reveal-index, 0) * var(--duration-stagger));
     }
 
     @media (max-width: 768px) {
