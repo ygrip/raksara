@@ -26,7 +26,15 @@ export function attachScrollDepth(hero: HTMLElement, range: number): () => void 
     const progress = Math.min(1, Math.max(0, (window.scrollY - heroTop) / range));
     if (Math.abs(progress - last) < 0.002) return;
     last = progress;
-    hero.style.setProperty('--rk-scroll-depth', progress.toFixed(3));
+    // Precalculate CSS lengths instead of multiplying mixed units in calc().
+    // Older mobile engines support custom properties but not CSS Values 4 math.
+    hero.style.setProperty('--rk-home-halo-y', `${-8 + progress * 44}px`);
+    hero.style.setProperty('--rk-home-halo-opacity', String(0.84 - progress * 0.42));
+    hero.style.setProperty('--rk-dot-opacity', String(1 - progress * 0.52));
+    hero.style.setProperty('--rk-profile-cover-y', `${-12 + progress * 46}px`);
+    hero.style.setProperty('--rk-profile-card-y', `${-16 * progress}px`);
+    hero.style.setProperty('--rk-mobile-profile-cover-y', `${-8 + progress * 34}px`);
+    hero.style.setProperty('--rk-mobile-profile-card-y', `${-11 * progress}px`);
   };
   const queue = () => {
     if (!frame) frame = window.requestAnimationFrame(update);
@@ -49,7 +57,11 @@ export function attachScrollDepth(hero: HTMLElement, range: number): () => void 
     window.removeEventListener('scroll', queue);
     window.removeEventListener('resize', measure);
     if (frame) window.cancelAnimationFrame(frame);
-    hero.style.removeProperty('--rk-scroll-depth');
+    for (const prop of [
+      '--rk-home-halo-y', '--rk-home-halo-opacity', '--rk-dot-opacity',
+      '--rk-profile-cover-y', '--rk-profile-card-y',
+      '--rk-mobile-profile-cover-y', '--rk-mobile-profile-card-y'
+    ]) hero.style.removeProperty(prop);
     hero.classList.remove('rk-js-depth');
   };
 }
