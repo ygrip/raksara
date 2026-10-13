@@ -290,17 +290,37 @@ body {
     background: var(--bg-hover);
 }
 
-.icon-sun,
-.icon-moon {
-    display: none;
+/* Theme toggle icon swap (transitions.dev 09-icon-swap). Both icons share one
+   grid cell, so the button keeps its size from first paint (no CLS); the
+   HTML data-theme attribute picks the visible one with no JS required. */
+#theme-toggle,
+.mobile-theme-toggle {
+    display: grid;
+    place-items: center;
 }
 
-/* Show the correct icon immediately based on the HTML data-theme attribute.
-   Both icons start hidden above; only one is revealed here — no JS required.
-   This eliminates CLS caused by the icon-btn growing from 0→16px on init. */
-[data-theme="dark"] .icon-moon,
-[data-theme="light"] .icon-sun {
+.icon-sun,
+.icon-moon {
     display: block;
+    grid-area: 1 / 1;
+    transition:
+        opacity var(--duration-fast) var(--ease-in-out),
+        filter var(--duration-fast) var(--ease-in-out),
+        transform var(--duration-fast) var(--ease-in-out);
+}
+
+[data-theme="dark"] .icon-sun,
+[data-theme="light"] .icon-moon {
+    opacity: 0;
+    filter: blur(var(--blur-small));
+    transform: scale(0.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .icon-sun,
+    .icon-moon {
+        transition: none !important;
+    }
 }
 
 .logo {
@@ -3920,6 +3940,90 @@ body {
     color: var(--green);
 }
 
+/* Icon swap (transitions.dev 09-icon-swap): both icons share one cell. */
+.t-icon-swap {
+    position: relative;
+    display: inline-grid;
+}
+
+.t-icon-swap .t-icon {
+    display: grid;
+    place-items: center;
+    grid-area: 1 / 1;
+    transition:
+        opacity var(--duration-fast) var(--ease-in-out),
+        filter var(--duration-fast) var(--ease-in-out),
+        transform var(--duration-fast) var(--ease-in-out);
+}
+
+.t-icon-swap[data-state="a"] .t-icon[data-icon="a"],
+.t-icon-swap[data-state="b"] .t-icon[data-icon="b"] {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+}
+
+.t-icon-swap[data-state="a"] .t-icon[data-icon="b"],
+.t-icon-swap[data-state="b"] .t-icon[data-icon="a"] {
+    opacity: 0;
+    filter: blur(var(--blur-small));
+    transform: scale(0.25);
+}
+
+/* Success check (transitions.dev 10-success-check), scaled to a 14px icon.
+   Dash length = getTotalLength() of "M3 8.5l3 3 7-7" (14.14) rounded up. */
+.t-success-check {
+    --check-rotate-from: 45deg;
+    --check-y-amount: var(--distance-micro);
+    --check-blur-from: var(--blur-small);
+    display: inline-block;
+    transform-origin: center;
+    opacity: 0;
+}
+
+.t-success-check svg {
+    display: block;
+    overflow: visible;
+}
+
+.t-success-check svg path {
+    stroke-dasharray: 15;
+    stroke-dashoffset: 15;
+}
+
+.t-success-check[data-state="in"] {
+    animation:
+        t-check-fade var(--duration-very-slow) var(--ease-smooth-out) forwards,
+        t-check-rotate var(--duration-very-slow) var(--ease-smooth-out) forwards,
+        t-check-blur var(--duration-very-slow) var(--ease-smooth-out) forwards,
+        t-check-bob var(--duration-very-slow) cubic-bezier(0.34, 1.35, 0.64, 1) forwards;
+}
+
+.t-success-check[data-state="in"] svg path {
+    animation: t-check-draw var(--duration-very-slow) var(--ease-smooth-out) var(--duration-micro) forwards;
+}
+
+@keyframes t-check-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes t-check-rotate {
+    from { transform: rotate(var(--check-rotate-from)); }
+    to { transform: rotate(0deg); }
+}
+@keyframes t-check-blur {
+    from { filter: blur(var(--check-blur-from)); }
+    to { filter: blur(0); }
+}
+@keyframes t-check-bob {
+    from { translate: 0 var(--check-y-amount); }
+    to { translate: 0 0; }
+}
+@keyframes t-check-draw { to { stroke-dashoffset: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+    .t-icon-swap .t-icon { transition: none !important; }
+    .t-success-check { animation: none !important; opacity: 1; }
+    .t-success-check svg path { animation: none !important; stroke-dashoffset: 0 !important; }
+}
+
 .code-toggle-btn {
     position: absolute;
     right: 12px;
@@ -5173,18 +5277,71 @@ body.reading-mode .reading-mode-btn {
     border-color: var(--border-color);
 }
 
+/* Accordion (transitions.dev 21-accordion): the chevron flips "v" <-> "^". */
 .toc-toggle-btn svg {
-    transition: transform 0.2s ease;
+    transform: scaleY(1);
+    transform-origin: center;
+    transition: transform var(--duration-fast) var(--ease-smooth-out);
 }
 
-.toc-toggle-btn[aria-expanded="false"] svg {
+.toc-toggle-btn svg path {
+    vector-effect: non-scaling-stroke;
+}
+
+.toc-block[data-open="true"] .toc-toggle-btn svg {
+    transform: scaleY(-1);
+}
+
+/* Legacy markup without the inner wrapper still collapses via [hidden]. */
+.toc-toggle-btn[aria-expanded="false"]:not(.toc-block[data-open] *) svg {
     transform: rotate(-90deg);
 }
 
-.toc-content {
+.toc-content:not(:has(> .toc-content-inner)) {
     margin-top: 12px;
     border-top: 1px solid var(--border-subtle);
     padding-top: 10px;
+}
+
+/* Height animates via grid rows; box styles live inside the clipping child
+   so the 0fr track collapses fully. */
+.toc-block[data-open] .toc-content {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows var(--duration-fast) var(--ease-smooth-out);
+}
+
+.toc-block[data-open="true"] .toc-content {
+    grid-template-rows: 1fr;
+}
+
+.toc-content-inner {
+    min-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    filter: blur(var(--blur-small));
+    transition:
+        opacity var(--duration-fast) var(--ease-smooth-out),
+        filter var(--duration-fast) var(--ease-smooth-out);
+}
+
+.toc-block[data-open="true"] .toc-content-inner {
+    opacity: 1;
+    filter: none;
+}
+
+.toc-content-inner > .toc-list {
+    margin-top: 12px;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .toc-toggle-btn svg,
+    .toc-block[data-open] .toc-content,
+    .toc-content-inner {
+        transition: none !important;
+    }
 }
 
 .toc-list {
@@ -5331,16 +5488,31 @@ body.reading-mode .reading-mode-btn {
 .chapters-chevron {
     display: inline-block;
     vertical-align: middle;
-    transition: transform 0.2s ease;
+    transition: transform var(--duration-fast) var(--ease-smooth-out);
 }
 
 .chapters-row-dir[data-expanded="true"] .chapters-chevron {
     transform: rotate(90deg);
 }
 
-/* Child rows (expanded under a dir) */
+/* Child rows (expanded under a dir) drop in with the folder chevron. Table
+   rows can't use the grid-rows accordion, so each row settles in instead;
+   the animation restarts whenever [hidden] is lifted. */
 .chapters-row-child {
     cursor: pointer;
+}
+
+.chapters-row-child:not([hidden]) {
+    animation: chapters-row-in var(--duration-fast) var(--ease-smooth-out) backwards;
+}
+
+@keyframes chapters-row-in {
+    from { opacity: 0; transform: translateY(calc(var(--distance-base) * -1)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chapters-row-child:not([hidden]) { animation: none; }
+    .chapters-chevron { transition: none; }
 }
 
 .chapters-row-child:hover {
