@@ -2,7 +2,8 @@
 import type { PageLoad } from './$types';
 import { loadGallery, loadImageManifest, loadPosts, loadPortfolio } from '$lib/metadata';
 
-export const prerender = false;
+// Every category in the generated prerender manifest needs an HTML page on static hosting.
+export const prerender = true;
 
 export const load: PageLoad = async ({ params, fetch }) => {
   const cat = params.cat;
