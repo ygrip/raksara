@@ -1073,38 +1073,6 @@ body {
     font-weight: 500;
 }
 
-.docs-section-link {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 9px 16px;
-    border-radius: 999px;
-    color: #fff;
-    background: var(--accent);
-    text-decoration: none;
-    font-size: 13.5px;
-    font-weight: 500;
-    transition: background var(--transition), transform var(--transition);
-}
-
-.docs-section-link svg {
-    transition: transform var(--transition);
-}
-
-.docs-section-link:hover {
-    background: var(--accent-hover);
-}
-
-.docs-section-link:hover svg {
-    transform: translateX(3px);
-}
-
-.docs-section-link:focus-visible {
-    outline: 2px solid var(--accent-border);
-    outline-offset: 3px;
-}
-
 @media (max-width: 640px) {
     .docs-card {
         padding: 20px;
