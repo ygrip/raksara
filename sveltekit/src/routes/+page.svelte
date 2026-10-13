@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { attachScrollDepth, attachScrollReveals } from '$lib/actions/scroll-motion';
+	import { tilt } from '$lib/actions/tilt';
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
 	import { dotFieldImages } from '$lib/dot-field';
@@ -241,7 +242,7 @@
 					{#if section.description}
 						<p class="home-section-desc">{section.description}</p>
 					{/if}
-					<div class="portfolio-grid">
+					<div class="portfolio-grid" use:tilt={{ selector: '.portfolio-card' }}>
 						{#each items as item}
 							<div class="portfolio-card">
 								<a
@@ -380,7 +381,7 @@
 			{#if gallery && gallery.length > 0}
 				{@const stackSources = galleryCover ? [galleryCover, galleryCover, galleryCover] : gallery.slice(0, 3).map((g) => g.image ?? g.images?.[0]?.src ?? '')}
 				{#if stackSources.length}
-					<div class="home-section">
+					<div class="home-section" use:tilt={{ selector: '.gallery-window', max: 6 }}>
 						{#if section.title}
 							<div class="home-section-header">
 								<h2>{section.title}</h2>
@@ -476,7 +477,7 @@
 				<h2>Projects</h2>
 				<a href="/portfolio" aria-label="All portfolio projects">All portfolio projects →</a>
 			</div>
-			<div class="portfolio-grid">
+			<div class="portfolio-grid" use:tilt={{ selector: '.portfolio-card' }}>
 				{#each bundle.portfolio.slice(0, 4) as item}
 					<div class="portfolio-card">
 						<div class="portfolio-card-title"><a href={portfolioHref(item.slug)}>{item.title}</a></div>
@@ -503,7 +504,7 @@
 	{#if gallery && gallery.length > 0}
 		{@const stackSources = galleryCover ? [galleryCover, galleryCover, galleryCover] : gallery.slice(0, 3).map((g) => g.image ?? g.images?.[0]?.src ?? '')}
 		{#if stackSources.length}
-			<div class="home-section">
+			<div class="home-section" use:tilt={{ selector: '.gallery-window', max: 6 }}>
 				<div class="gallery-window">
 					<a href="/gallery" class="gallery-window-link" aria-label="View gallery">
 						<div class="gallery-window-chrome">
