@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { attachScrollDepth, attachScrollReveals } from '$lib/actions/scroll-motion';
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
 	import { dotFieldImages } from '$lib/dot-field';
@@ -20,6 +21,7 @@
 	const heroSubtitle = $derived(hero?.subtitle ?? config?.hero_subtitle ?? config?.description ?? '');
 	const heroImages = $derived(dotFieldImages(hero?.images));
 	let heroVisual: HTMLDivElement | null = $state(null);
+	let homeHero: HTMLElement | null = null;
 	let DotField: any = $state(null);
 
 	// The dot portrait is decorative and expensive to parse/initialise on low-end
@@ -55,6 +57,20 @@
 			window.removeEventListener('load', scheduleLoad);
 			if (idleHandle !== undefined) idleApi.cancelIdleCallback?.(idleHandle);
 			if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
+		};
+	});
+
+	// Mobile and unsupported-browser fallback for the scroll-driven homepage.
+	onMount(() => {
+		if (!homeHero) return;
+		const detachDepth = attachScrollDepth(homeHero, 420);
+		const detachReveals = attachScrollReveals(
+			homeHero.parentElement ?? homeHero,
+			'.home-section-header, .home-section .post-card, .home-section .portfolio-card, .home-section .home-info-card, .home-section .home-link-item, .home-section .thought-card, .home-section .gallery-window'
+		);
+		return () => {
+			detachDepth();
+			detachReveals();
 		};
 	});
 
@@ -120,7 +136,7 @@
 </svelte:head>
 
 <!-- ── Hero ─────────────────────────────────────────── -->
-<section class="home-hero dot-hero" id="profile-hero">
+<section class="home-hero dot-hero" id="profile-hero" bind:this={homeHero}>
 	<div class="home-hero-aurora" aria-hidden="true"></div>
 	{#if DotField}
 		<DotField
