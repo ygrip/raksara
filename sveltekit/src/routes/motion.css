@@ -381,25 +381,25 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
     #app .home-hero.dot-hero.rk-js-depth .home-hero-visual::before {
         z-index: 0;
         animation: none !important;
-        transform: translate3d(0, calc(-8px + var(--rk-scroll-depth, 0) * 44px), 0);
-        opacity: calc(.84 - var(--rk-scroll-depth, 0) * .42);
+        transform: translate3d(0, var(--rk-home-halo-y, -8px), 0);
+        opacity: var(--rk-home-halo-opacity, .84);
     }
 
     #app .home-hero.dot-hero.rk-js-depth .hero-dot-field {
         animation: none !important;
-        opacity: calc(1 - var(--rk-scroll-depth, 0) * .52);
+        opacity: var(--rk-dot-opacity, 1);
     }
 
     #app .profile-hero.rk-js-depth .profile-hero-bg {
         inset: -56px 0;
         animation: none !important;
         transition: none;
-        translate: 0 calc(-12px + var(--rk-scroll-depth, 0) * 46px);
+        translate: 0 var(--rk-profile-cover-y, -12px);
     }
 
     #app .profile-hero.rk-js-depth .profile-card {
         animation: none !important;
-        translate: 0 calc(var(--rk-scroll-depth, 0) * -16px);
+        translate: 0 var(--rk-profile-card-y, 0px);
     }
 
     .rk-reveal {
@@ -418,10 +418,10 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
 
     @media (max-width: 768px) {
         #app .profile-hero.rk-js-depth .profile-hero-bg {
-            translate: 0 calc(-8px + var(--rk-scroll-depth, 0) * 34px);
+            translate: 0 var(--rk-mobile-profile-cover-y, -8px);
         }
         #app .profile-hero.rk-js-depth .profile-card {
-            translate: 0 calc(var(--rk-scroll-depth, 0) * -11px);
+            translate: 0 var(--rk-mobile-profile-card-y, 0px);
         }
     }
 }
