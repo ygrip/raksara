@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { cardDepth, attachScrollDepth, attachScrollReveals } from '$lib/actions/scroll-motion';
+	import { tilt } from '$lib/actions/tilt';
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
 	import { dotFieldImages } from '$lib/dot-field';
@@ -385,7 +386,7 @@
 			{#if gallery && gallery.length > 0}
 				{@const stackSources = galleryCover ? [galleryCover, galleryCover, galleryCover] : gallery.slice(0, 3).map((g) => g.image ?? g.images?.[0]?.src ?? '')}
 				{#if stackSources.length}
-					<div class="home-section">
+					<div class="home-section" use:tilt={{ selector: '.gallery-window', max: 6 }}>
 						{#if section.title}
 							<div class="home-section-header">
 								<h2>{section.title}</h2>
@@ -510,7 +511,7 @@
 	{#if gallery && gallery.length > 0}
 		{@const stackSources = galleryCover ? [galleryCover, galleryCover, galleryCover] : gallery.slice(0, 3).map((g) => g.image ?? g.images?.[0]?.src ?? '')}
 		{#if stackSources.length}
-			<div class="home-section">
+			<div class="home-section" use:tilt={{ selector: '.gallery-window', max: 6 }}>
 				<div class="gallery-window">
 					<a href="/gallery" class="gallery-window-link" aria-label="View gallery">
 						<div class="gallery-window-chrome">

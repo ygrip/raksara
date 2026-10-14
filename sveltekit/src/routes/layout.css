@@ -115,10 +115,47 @@
     --radius-md: 12px;
     --radius-lg: 16px;
     --radius-xl: 20px;
-    --transition: 200ms ease;
-    --bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
-    --smooth: cubic-bezier(0.4, 0, 0.2, 1);
     --accent-rgb: 99, 102, 241;
+
+    /* ── Motion tokens (transitions.dev scale) ─────────────────
+       Match a value to its usage, not the nearest number. */
+    --duration-stagger: 40ms;     /* per-item stagger offset */
+    --duration-micro: 80ms;       /* intent delay, large stagger */
+    --duration-quick: 150ms;      /* modal/dropdown close, text swap */
+    --duration-fast: 250ms;       /* hover, modal/dropdown open, page slide */
+    --duration-medium: 350ms;     /* panel close, toast open */
+    --duration-slow: 400ms;       /* panel open, content reveal */
+    --duration-very-slow: 500ms;  /* emphasis, text reveal */
+    --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-in-out: ease-in-out;
+    --ease-out: ease-out;
+    --ease-linear: linear;
+    --ease-bounce: cubic-bezier(0.34, 1.36, 0.64, 1);
+    --distance-micro: 4px;
+    --distance-small: 6px;
+    --distance-base: 8px;
+    --distance-medium: 12px;
+    --distance-large: 30px;
+    --scale-large: 0.96;
+    --scale-medium: 0.97;
+    --scale-small: 0.98;
+    --scale-tiny: 0.99;
+    --blur-small: 2px;
+    --blur-medium: 3px;
+
+    /* Legacy aliases, now on the shared scale. Overshoot is reserved for
+       entrances; hover states use the direct smooth ease-out. */
+    --transition: var(--duration-fast) var(--ease-smooth-out);
+    --bounce: var(--ease-bounce);
+    --smooth: var(--ease-smooth-out);
+    /* Interactive hover/focus feedback: explicit properties, never `all`. */
+    --transition-hover:
+        color var(--duration-fast) var(--ease-smooth-out),
+        background-color var(--duration-fast) var(--ease-smooth-out),
+        border-color var(--duration-fast) var(--ease-smooth-out),
+        box-shadow var(--duration-fast) var(--ease-smooth-out),
+        transform var(--duration-fast) var(--ease-smooth-out),
+        opacity var(--duration-fast) var(--ease-smooth-out);
 }
 
 /* ── Reset ───────────────────────────────────────────────── */
@@ -253,17 +290,37 @@ body {
     background: var(--bg-hover);
 }
 
-.icon-sun,
-.icon-moon {
-    display: none;
+/* Theme toggle icon swap (transitions.dev 09-icon-swap). Both icons share one
+   grid cell, so the button keeps its size from first paint (no CLS); the
+   HTML data-theme attribute picks the visible one with no JS required. */
+#theme-toggle,
+.mobile-theme-toggle {
+    display: grid;
+    place-items: center;
 }
 
-/* Show the correct icon immediately based on the HTML data-theme attribute.
-   Both icons start hidden above; only one is revealed here — no JS required.
-   This eliminates CLS caused by the icon-btn growing from 0→16px on init. */
-[data-theme="dark"] .icon-moon,
-[data-theme="light"] .icon-sun {
+.icon-sun,
+.icon-moon {
     display: block;
+    grid-area: 1 / 1;
+    transition:
+        opacity var(--duration-fast) var(--ease-in-out),
+        filter var(--duration-fast) var(--ease-in-out),
+        transform var(--duration-fast) var(--ease-in-out);
+}
+
+[data-theme="dark"] .icon-sun,
+[data-theme="light"] .icon-moon {
+    opacity: 0;
+    filter: blur(var(--blur-small));
+    transform: scale(0.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .icon-sun,
+    .icon-moon {
+        transition: none !important;
+    }
 }
 
 .logo {
@@ -312,7 +369,7 @@ body {
     font-size: 13px;
     font-family: var(--font-sans);
     cursor: pointer;
-    transition: all 0.25s var(--smooth);
+    transition: var(--transition-hover);
 }
 
 .search-trigger:hover {
@@ -540,17 +597,30 @@ body {
     align-items: flex-start;
     justify-content: center;
     padding-top: 12vh;
-    opacity: 1;
-    transition: opacity 0.2s ease;
+    animation: search-overlay-fade-in var(--duration-fast) var(--ease-smooth-out) both;
 }
 
-.search-overlay.hidden {
-    opacity: 0;
+/* Modal open/close: scale up on the open clock, dip back on the quicker
+   close clock. Only `backwards` fill on the panel so no transform lingers. */
+.search-overlay.is-closing {
     pointer-events: none;
+    animation: search-overlay-fade-out var(--duration-quick) var(--ease-smooth-out) both;
 }
 
-.search-overlay.hidden .search-overlay-content {
-    transform: translateY(-20px) scale(0.97);
+.search-overlay.is-closing .search-overlay-content {
+    animation: search-modal-out var(--duration-quick) var(--ease-smooth-out) both;
+}
+
+@keyframes search-overlay-fade-in { from { opacity: 0; } }
+@keyframes search-overlay-fade-out { to { opacity: 0; } }
+@keyframes search-modal-in { from { opacity: 0; transform: scale(var(--scale-large)); } }
+@keyframes search-modal-out { to { opacity: 0; transform: scale(var(--scale-large)); } }
+
+@media (prefers-reduced-motion: reduce) {
+    .search-overlay,
+    .search-overlay .search-overlay-content {
+        animation: none !important;
+    }
 }
 
 .search-overlay-backdrop {
@@ -574,8 +644,7 @@ body {
     box-shadow:
         0 24px 80px var(--shadow-heavy),
         0 0 0 1px var(--border-glass);
-    transform: translateY(0) scale(1);
-    transition: transform 0.3s var(--bounce);
+    animation: search-modal-in var(--duration-fast) var(--ease-smooth-out) backwards;
 }
 
 .search-overlay-header {
@@ -676,7 +745,7 @@ body {
     font-size: 13px;
     font-weight: 500;
     border-radius: var(--radius-sm);
-    transition: all 0.2s var(--smooth);
+    transition: var(--transition-hover);
 }
 
 .nav-link:hover {
@@ -988,7 +1057,7 @@ body {
     background: var(--bg-card);
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
-    transition: border-color var(--transition), transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition: border-color var(--transition), transform var(--duration-slow) var(--ease-smooth-out);
 }
 
 .docs-frame:hover .docs-card {
@@ -1397,7 +1466,10 @@ body {
     background: var(--bg-card);
     overflow: hidden;
     cursor: pointer;
-    transition: transform 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.45s, border-color 0.3s;
+    /* Synced with the JS track slide so the active card settles with it. */
+    transition: transform var(--duration-fast) var(--ease-smooth-out),
+        opacity var(--duration-fast) var(--ease-smooth-out),
+        border-color var(--duration-fast) var(--ease-smooth-out);
     transform: scale(0.92);
     opacity: 0.55;
     user-select: none;
@@ -1556,7 +1628,7 @@ body {
     font-size: 14px;
     font-weight: 600;
     text-decoration: none;
-    transition: all 0.3s var(--bounce);
+    transition: var(--transition-hover);
 }
 
 .blog-dir-chip:hover {
@@ -1606,7 +1678,7 @@ body {
     border: 1px solid var(--border-glass);
     border-radius: var(--radius-md);
     text-decoration: none;
-    transition: all 0.3s var(--bounce);
+    transition: var(--transition-hover);
 }
 
 .post-nav-link:hover {
@@ -1807,7 +1879,7 @@ body {
 }
 
 .accent-gradient.typed::after {
-    animation: underlineExpand 1s cubic-bezier(0.22, 1, 0.36, 1) 0.2s forwards;
+    animation: underlineExpand 1s var(--ease-smooth-out) 0.2s forwards;
 }
 
 .hero-cursor {
@@ -2259,7 +2331,7 @@ body {
     background: var(--bg-card);
     border: 1px solid var(--border-glass);
     border-radius: var(--radius-lg);
-    transition: all 0.3s var(--bounce);
+    transition: var(--transition-hover);
 }
 
 .post-card:hover {
@@ -2312,7 +2384,7 @@ body {
     border-radius: 999px;
     font-size: 11px;
     font-weight: 500;
-    transition: all var(--transition);
+    transition: var(--transition-hover);
 }
 
 .post-card-category:hover {
@@ -2518,7 +2590,7 @@ body {
     background: var(--bg-card);
     border: 1px solid var(--border-glass);
     border-radius: var(--radius-lg);
-    transition: all 0.3s var(--bounce);
+    transition: var(--transition-hover);
     cursor: pointer;
 }
 
@@ -2596,7 +2668,7 @@ body {
     font-weight: 500;
     text-decoration: none;
     border-radius: var(--radius-sm);
-    transition: all 0.25s var(--bounce);
+    transition: var(--transition-hover);
 }
 
 .btn-github,
@@ -2609,7 +2681,7 @@ body {
     font-weight: 500;
     text-decoration: none;
     border-radius: var(--radius-sm);
-    transition: all 0.25s var(--bounce);
+    transition: var(--transition-hover);
     cursor: pointer;
     white-space: nowrap;
 }
@@ -2741,7 +2813,7 @@ body {
     cursor: pointer;
     aspect-ratio: 4/3;
     border: 1px solid var(--border-glass);
-    transition: all 0.35s var(--bounce);
+    transition: var(--transition-hover);
     background: var(--bg-glass);
 }
 
@@ -3156,7 +3228,7 @@ body {
     border: 1px solid var(--border-glass);
     border-radius: var(--radius-lg);
     position: relative;
-    transition: all 0.3s var(--bounce);
+    transition: var(--transition-hover);
 }
 
 .thought-card:hover {
@@ -3477,7 +3549,7 @@ body {
     text-decoration: none;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
-    transition: all 0.25s var(--bounce);
+    transition: var(--transition-hover);
 }
 
 .profile-links a:hover {
@@ -3516,7 +3588,7 @@ body {
     font-weight: 500;
     text-decoration: none;
     box-shadow: 0 1px 4px var(--shadow-color);
-    transition: all 0.25s var(--bounce);
+    transition: var(--transition-hover);
 }
 
 .profile-meta-chip .meta-label {
@@ -3552,7 +3624,7 @@ body {
     font-size: 13px;
     font-weight: 500;
     text-decoration: none;
-    transition: all 0.25s var(--bounce);
+    transition: var(--transition-hover);
 }
 
 .tag:hover {
@@ -3594,7 +3666,7 @@ body {
     font-weight: 500;
     font-family: var(--font-sans);
     cursor: pointer;
-    transition: all 0.25s var(--bounce);
+    transition: var(--transition-hover);
 }
 
 .share-btn:hover {
@@ -3635,7 +3707,7 @@ body {
     font-size: 13px;
     font-weight: 500;
     text-decoration: none;
-    transition: all 0.25s var(--bounce);
+    transition: var(--transition-hover);
 }
 
 .article-meta .tag {
@@ -3868,6 +3940,90 @@ body {
     color: var(--green);
 }
 
+/* Icon swap (transitions.dev 09-icon-swap): both icons share one cell. */
+.t-icon-swap {
+    position: relative;
+    display: inline-grid;
+}
+
+.t-icon-swap .t-icon {
+    display: grid;
+    place-items: center;
+    grid-area: 1 / 1;
+    transition:
+        opacity var(--duration-fast) var(--ease-in-out),
+        filter var(--duration-fast) var(--ease-in-out),
+        transform var(--duration-fast) var(--ease-in-out);
+}
+
+.t-icon-swap[data-state="a"] .t-icon[data-icon="a"],
+.t-icon-swap[data-state="b"] .t-icon[data-icon="b"] {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+}
+
+.t-icon-swap[data-state="a"] .t-icon[data-icon="b"],
+.t-icon-swap[data-state="b"] .t-icon[data-icon="a"] {
+    opacity: 0;
+    filter: blur(var(--blur-small));
+    transform: scale(0.25);
+}
+
+/* Success check (transitions.dev 10-success-check), scaled to a 14px icon.
+   Dash length = getTotalLength() of "M3 8.5l3 3 7-7" (14.14) rounded up. */
+.t-success-check {
+    --check-rotate-from: 45deg;
+    --check-y-amount: var(--distance-micro);
+    --check-blur-from: var(--blur-small);
+    display: inline-block;
+    transform-origin: center;
+    opacity: 0;
+}
+
+.t-success-check svg {
+    display: block;
+    overflow: visible;
+}
+
+.t-success-check svg path {
+    stroke-dasharray: 15;
+    stroke-dashoffset: 15;
+}
+
+.t-success-check[data-state="in"] {
+    animation:
+        t-check-fade var(--duration-very-slow) var(--ease-smooth-out) forwards,
+        t-check-rotate var(--duration-very-slow) var(--ease-smooth-out) forwards,
+        t-check-blur var(--duration-very-slow) var(--ease-smooth-out) forwards,
+        t-check-bob var(--duration-very-slow) cubic-bezier(0.34, 1.35, 0.64, 1) forwards;
+}
+
+.t-success-check[data-state="in"] svg path {
+    animation: t-check-draw var(--duration-very-slow) var(--ease-smooth-out) var(--duration-micro) forwards;
+}
+
+@keyframes t-check-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes t-check-rotate {
+    from { transform: rotate(var(--check-rotate-from)); }
+    to { transform: rotate(0deg); }
+}
+@keyframes t-check-blur {
+    from { filter: blur(var(--check-blur-from)); }
+    to { filter: blur(0); }
+}
+@keyframes t-check-bob {
+    from { translate: 0 var(--check-y-amount); }
+    to { translate: 0 0; }
+}
+@keyframes t-check-draw { to { stroke-dashoffset: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+    .t-icon-swap .t-icon { transition: none !important; }
+    .t-success-check { animation: none !important; opacity: 1; }
+    .t-success-check svg path { animation: none !important; stroke-dashoffset: 0 !important; }
+}
+
 .code-toggle-btn {
     position: absolute;
     right: 12px;
@@ -3926,7 +4082,7 @@ body {
     left: 50%;
     bottom: 24px;
     z-index: 90;
-    transform: translate(-50%, 10px);
+    transform: translate(-50%, 16px) scale(var(--scale-medium));
     padding: 9px 14px;
     border-radius: 999px;
     border: 1px solid var(--border-glass);
@@ -3937,13 +4093,17 @@ body {
     font-weight: 600;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.18s ease, transform 0.18s ease;
+    /* Toast: resting state runs the quicker close clock... */
+    transition: opacity var(--duration-fast) var(--ease-smooth-out),
+        transform var(--duration-fast) var(--ease-smooth-out);
     backdrop-filter: blur(18px);
 }
 
 .code-toast.show {
     opacity: 1;
-    transform: translate(-50%, 0);
+    transform: translate(-50%, 0) scale(1);
+    /* ...and arriving uses the slower open clock. */
+    transition-duration: var(--duration-medium);
 }
 
 @media (max-width: 640px) {
@@ -4313,7 +4473,7 @@ body {
     font-weight: 500;
     font-family: var(--font-sans);
     cursor: pointer;
-    transition: all var(--transition);
+    transition: var(--transition-hover);
 }
 
 .reading-mode-btn:hover {
@@ -4406,7 +4566,7 @@ body.reading-mode .reading-mode-btn {
     font-weight: 500;
     border-radius: var(--radius-sm);
     text-decoration: none;
-    transition: all 0.25s var(--bounce);
+    transition: var(--transition-hover);
 }
 
 .pagination a {
@@ -4467,7 +4627,7 @@ body.reading-mode .reading-mode-btn {
     color: var(--text-tertiary);
     text-decoration: none;
     margin-bottom: 24px;
-    transition: all var(--transition);
+    transition: var(--transition-hover);
 }
 
 .back-link:hover {
@@ -4742,7 +4902,7 @@ body.reading-mode .reading-mode-btn {
     margin: 24px 0;
     border: 1px solid var(--border-glass);
     background: #000;
-    transition: all 0.35s var(--bounce);
+    transition: var(--transition-hover);
 }
 
 .video-player:hover {
@@ -4795,7 +4955,7 @@ body.reading-mode .reading-mode-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s var(--bounce);
+    transition: var(--transition-hover);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
@@ -4908,7 +5068,7 @@ body.reading-mode .reading-mode-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.25s var(--bounce);
+    transition: var(--transition-hover);
     z-index: 10;
 }
 
@@ -4940,7 +5100,7 @@ body.reading-mode .reading-mode-btn {
     border: none;
     cursor: pointer;
     padding: 0;
-    transition: all 0.25s var(--bounce);
+    transition: var(--transition-hover);
 }
 
 .lightbox-dot:hover {
@@ -5117,18 +5277,71 @@ body.reading-mode .reading-mode-btn {
     border-color: var(--border-color);
 }
 
+/* Accordion (transitions.dev 21-accordion): the chevron flips "v" <-> "^". */
 .toc-toggle-btn svg {
-    transition: transform 0.2s ease;
+    transform: scaleY(1);
+    transform-origin: center;
+    transition: transform var(--duration-fast) var(--ease-smooth-out);
 }
 
-.toc-toggle-btn[aria-expanded="false"] svg {
+.toc-toggle-btn svg path {
+    vector-effect: non-scaling-stroke;
+}
+
+.toc-block[data-open="true"] .toc-toggle-btn svg {
+    transform: scaleY(-1);
+}
+
+/* Legacy markup without the inner wrapper still collapses via [hidden]. */
+.toc-toggle-btn[aria-expanded="false"]:not(.toc-block[data-open] *) svg {
     transform: rotate(-90deg);
 }
 
-.toc-content {
+.toc-content:not(:has(> .toc-content-inner)) {
     margin-top: 12px;
     border-top: 1px solid var(--border-subtle);
     padding-top: 10px;
+}
+
+/* Height animates via grid rows; box styles live inside the clipping child
+   so the 0fr track collapses fully. */
+.toc-block[data-open] .toc-content {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows var(--duration-fast) var(--ease-smooth-out);
+}
+
+.toc-block[data-open="true"] .toc-content {
+    grid-template-rows: 1fr;
+}
+
+.toc-content-inner {
+    min-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    filter: blur(var(--blur-small));
+    transition:
+        opacity var(--duration-fast) var(--ease-smooth-out),
+        filter var(--duration-fast) var(--ease-smooth-out);
+}
+
+.toc-block[data-open="true"] .toc-content-inner {
+    opacity: 1;
+    filter: none;
+}
+
+.toc-content-inner > .toc-list {
+    margin-top: 12px;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .toc-toggle-btn svg,
+    .toc-block[data-open] .toc-content,
+    .toc-content-inner {
+        transition: none !important;
+    }
 }
 
 .toc-list {
@@ -5275,16 +5488,31 @@ body.reading-mode .reading-mode-btn {
 .chapters-chevron {
     display: inline-block;
     vertical-align: middle;
-    transition: transform 0.2s ease;
+    transition: transform var(--duration-fast) var(--ease-smooth-out);
 }
 
 .chapters-row-dir[data-expanded="true"] .chapters-chevron {
     transform: rotate(90deg);
 }
 
-/* Child rows (expanded under a dir) */
+/* Child rows (expanded under a dir) drop in with the folder chevron. Table
+   rows can't use the grid-rows accordion, so each row settles in instead;
+   the animation restarts whenever [hidden] is lifted. */
 .chapters-row-child {
     cursor: pointer;
+}
+
+.chapters-row-child:not([hidden]) {
+    animation: chapters-row-in var(--duration-fast) var(--ease-smooth-out) backwards;
+}
+
+@keyframes chapters-row-in {
+    from { opacity: 0; transform: translateY(calc(var(--distance-base) * -1)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chapters-row-child:not([hidden]) { animation: none; }
+    .chapters-chevron { transition: none; }
 }
 
 .chapters-row-child:hover {
@@ -5554,7 +5782,7 @@ a.gallery-window-link:visited {
         inset 0 1px 0 rgba(255, 255, 255, 0.07);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.28s ease, border-color 0.28s ease;
+    transition: var(--transition-hover);
 }
 
 .gallery-window:hover {
@@ -5633,7 +5861,9 @@ a.gallery-window-link:visited {
     box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
     background: var(--bg-card);
     transform-origin: center center;
-    transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease, box-shadow 0.3s ease;
+    transition: transform var(--duration-slow) var(--ease-smooth-out),
+        opacity var(--duration-slow) var(--ease-smooth-out),
+        box-shadow var(--duration-slow) var(--ease-smooth-out);
 }
 
 .gallery-stack-card img {
@@ -6143,7 +6373,7 @@ body.gallery-lightbox-open .gallery-lightbox-overlay {
     cursor: pointer;
     font-size: 12px;
     font-weight: 500;
-    transition: all 0.2s var(--smooth);
+    transition: var(--transition-hover);
 }
 
 .rk-chart-zoom-btn:hover:not(:disabled) {

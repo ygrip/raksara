@@ -475,7 +475,7 @@ function injectToc(html: string): string {
       })
       .join('');
     const contentId = `toc-content-${idx}`;
-    return `<nav class="toc-block" aria-label="Table of contents"><div class="toc-head"><div class="toc-title">Table of Contents</div><button type="button" class="toc-toggle-btn" data-toc-target="${contentId}" aria-expanded="true" aria-label="Collapse table of contents"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 6l5 5 5-5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><div class="toc-content" id="${contentId}"><${tag} class="toc-list">${items}</${tag}></div></nav>`;
+    return `<nav class="toc-block" data-open="true" aria-label="Table of contents"><div class="toc-head"><div class="toc-title">Table of Contents</div><button type="button" class="toc-toggle-btn" data-toc-target="${contentId}" aria-expanded="true" aria-label="Collapse table of contents"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 5.5l5 5 5-5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><div class="toc-content" id="${contentId}"><div class="toc-content-inner"><${tag} class="toc-list">${items}</${tag}></div></div></nav>`;
   });
 }
 
@@ -1555,7 +1555,15 @@ export function initTocBlocks(container: HTMLElement): void {
       if (!content) return;
       const expanded = btn.getAttribute('aria-expanded') !== 'false';
       btn.setAttribute('aria-expanded', expanded ? 'false' : 'true');
-      content.hidden = expanded;
+      btn.setAttribute('aria-label', expanded ? 'Expand table of contents' : 'Collapse table of contents');
+      const block = btn.closest<HTMLElement>('.toc-block');
+      if (block && content.querySelector(':scope > .toc-content-inner')) {
+        // Accordion: CSS animates the grid track; inert keeps collapsed links out of tab order.
+        block.dataset['open'] = expanded ? 'false' : 'true';
+        content.inert = expanded;
+      } else {
+        content.hidden = expanded;
+      }
     });
   });
 }
@@ -1649,7 +1657,7 @@ function initCarousels(container: HTMLElement): void {
       const gap = parseFloat(getComputedStyle(track!).gap || '0') || 0;
       const cw = carousel.querySelector<HTMLElement>('.content-carousel-viewport')?.clientWidth ?? stage!.clientWidth;
       const offset = -(current * (sw + gap)) + cw / 2 - sw / 2;
-      track!.style.transition = animated && !reducedMotion.matches ? 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)' : 'none';
+      track!.style.transition = animated && !reducedMotion.matches ? 'transform var(--duration-fast) var(--ease-smooth-out)' : 'none';
       track!.style.transform = `translateX(${offset}px)`;
       slides.forEach((s, i) => {
         s.classList.toggle('active', i === current);
@@ -1802,15 +1810,32 @@ function initCodeBlocks(container: HTMLElement): void {
     copy.title = 'Copy code';
     const copyIcon = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" stroke="currentColor" stroke-width="1.3"/></svg>';
     const copiedIcon = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3 3 7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    copy.innerHTML = copyIcon;
+    // Icon swap (copy \u2194 check) with the check drawing itself in on success.
+    copy.innerHTML = `<span class="t-icon-swap" data-state="a"><span class="t-icon" data-icon="a">${copyIcon}</span><span class="t-icon" data-icon="b"><span class="t-success-check" data-state="out">${copiedIcon}</span></span></span>`;
+    const swap = copy.querySelector<HTMLElement>('.t-icon-swap')!;
+    const check = copy.querySelector<HTMLElement>('.t-success-check')!;
+    let resetTimer: ReturnType<typeof setTimeout> | undefined;
     copy.addEventListener('click', async () => {
-      await navigator.clipboard.writeText(codeText).catch(() => {});
-      copy.classList.add('copied');
-      copy.innerHTML = copiedIcon;
-      showCodeToast('Code copied');
-      setTimeout(() => {
+      try {
+        await navigator.clipboard.writeText(codeText);
+      } catch (error) {
+        console.warn('[code] copy failed:', error);
+        clearTimeout(resetTimer);
         copy.classList.remove('copied');
-        copy.innerHTML = copyIcon;
+        swap.dataset['state'] = 'a';
+        showCodeToast('Could not copy code');
+        return;
+      }
+      copy.classList.add('copied');
+      swap.dataset['state'] = 'b';
+      check.dataset['state'] = 'out';
+      void check.offsetWidth; // reflow so the draw replays on repeat clicks
+      check.dataset['state'] = 'in';
+      showCodeToast('Code copied');
+      clearTimeout(resetTimer);
+      resetTimer = setTimeout(() => {
+        copy.classList.remove('copied');
+        swap.dataset['state'] = 'a';
       }, 2000);
     });
     wrap.appendChild(copy);

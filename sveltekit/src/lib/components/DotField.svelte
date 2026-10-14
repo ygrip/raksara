@@ -1284,7 +1284,7 @@
   /* One-shot entrance from the focal point; no per-frame JS. */
   .ready canvas {
     opacity: 1;
-    animation: dot-field-reveal 1100ms cubic-bezier(.22, .61, .36, 1) both;
+    animation: dot-field-reveal 1100ms var(--ease-smooth-out) both;
   }
   @keyframes dot-field-reveal {
     from { opacity: 0; clip-path: circle(0 at var(--reveal-x, 70%) var(--reveal-y, 50%)); }
