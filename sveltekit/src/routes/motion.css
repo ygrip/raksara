@@ -167,11 +167,11 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
     to { scale: 1 1; }
 }
 
-/* Keep the homepage copy fixed and readable. Move only decorative paint layers;
-   DotField's measured host/anchor must never be translated. */
+/* Scroll moves decorative paint only; pointer depth belongs to inner cards.
+   Hero copy and DotField's measured host/anchor stay stationary. */
 @keyframes rk-home-halo-drift {
-    from { transform: translate3d(0, -8px, 0); opacity: 0.85; }
-    to { transform: translate3d(0, 28px, 0); opacity: 0.42; }
+    from { transform: translate3d(0, -18px, 0); opacity: 0.95; }
+    to { transform: translate3d(0, 110px, 0); opacity: 0.35; }
 }
 
 @keyframes rk-hero-visual {
@@ -180,12 +180,12 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
 
 /* The profile backdrop travels more slowly than the identity card. */
 @keyframes rk-profile-cover-drift {
-    from { translate: 0 -12px; }
-    to { translate: 0 var(--rk-profile-cover-travel, 40px); }
+    from { translate: 0 -32px; }
+    to { translate: 0 var(--rk-profile-cover-travel, 120px); }
 }
 
 @keyframes rk-profile-identity-drift {
-    to { translate: 0 var(--rk-profile-card-travel, -16px); }
+    to { translate: 0 var(--rk-profile-card-travel, -64px); }
 }
 
 @keyframes rk-section-title-in {
@@ -288,13 +288,13 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
         #app .home-hero.dot-hero .home-hero-visual::before {
             animation: rk-home-halo-drift linear both;
             animation-timeline: scroll(root block);
-            animation-range: 0 90vh;
+            animation-range: 0 420px;
         }
 
         #app .home-hero.dot-hero .hero-dot-field {
             animation: rk-hero-visual linear both;
             animation-timeline: scroll(root block);
-            animation-range: 0 100vh;
+            animation-range: 0 420px;
         }
 
         .home-section-header {
@@ -330,33 +330,33 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
             animation-range: entry 10% cover 36%;
         }
 
-        /* ── Profile: two gentle planes, leaving the entrance animation intact ── */
+        /* ── Profile: opposing depth planes, leaving the entrance intact ── */
 
         #app .profile-hero {
-            --rk-profile-cover-travel: 40px;
-            --rk-profile-card-travel: -16px;
+            --rk-profile-cover-travel: 120px;
+            --rk-profile-card-travel: -64px;
         }
 
         /* Overscan prevents exposing an edge when the image drifts behind glass. */
         #app .profile-hero-bg {
-            inset: -56px 0;
+            inset: -160px 0;
             transition: none;
             animation: rk-profile-cover-drift linear both;
             animation-timeline: scroll(root block);
-            animation-range: 0 560px;
+            animation-range: 0 360px;
         }
 
         /* The parent retains its existing profileCardIn entrance animation. */
         #app .profile-hero .profile-card {
             animation: rk-profile-identity-drift linear both;
             animation-timeline: scroll(root block);
-            animation-range: 0 560px;
+            animation-range: 0 360px;
         }
 
         @media (max-width: 768px) {
             #app .profile-hero {
-                --rk-profile-cover-travel: 26px;
-                --rk-profile-card-travel: -10px;
+                --rk-profile-cover-travel: 72px;
+                --rk-profile-card-travel: -34px;
             }
 
             #app .profile-hero-bg,
@@ -381,8 +381,8 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
     #app .home-hero.dot-hero.rk-js-depth .home-hero-visual::before {
         z-index: 0;
         animation: none !important;
-        transform: translate3d(0, var(--rk-home-halo-y, -8px), 0);
-        opacity: var(--rk-home-halo-opacity, .84);
+        transform: translate3d(0, var(--rk-home-halo-y, -18px), 0);
+        opacity: var(--rk-home-halo-opacity, .95);
     }
 
     #app .home-hero.dot-hero.rk-js-depth .hero-dot-field {
@@ -391,10 +391,10 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
     }
 
     #app .profile-hero.rk-js-depth .profile-hero-bg {
-        inset: -56px 0;
+        inset: -160px 0;
         animation: none !important;
         transition: none;
-        translate: 0 var(--rk-profile-cover-y, -12px);
+        translate: 0 var(--rk-profile-cover-y, -32px);
     }
 
     #app .profile-hero.rk-js-depth .profile-card {
@@ -404,9 +404,10 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
 
     .rk-reveal {
         animation: none !important;
-        opacity: .6;
-        translate: 0 18px;
-        transition: opacity 520ms var(--rk-ease-out), translate 520ms var(--rk-ease-out);
+        /* Keep offscreen entrance text above its minimum contrast budget. */
+        opacity: .8;
+        translate: 0 12px;
+        transition: opacity 500ms var(--rk-depth-ease), translate 500ms var(--rk-depth-ease);
         transition-delay: 0ms;
     }
 
@@ -418,10 +419,164 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
 
     @media (max-width: 768px) {
         #app .profile-hero.rk-js-depth .profile-hero-bg {
-            translate: 0 var(--rk-mobile-profile-cover-y, -8px);
+            translate: 0 var(--rk-mobile-profile-cover-y, -18px);
         }
         #app .profile-hero.rk-js-depth .profile-card {
             translate: 0 var(--rk-mobile-profile-card-y, 0px);
         }
+    }
+}
+
+/* transitions.dev: smooth-out surface motion, slower hover return, bounded
+   stagger and no idle pointer loop. Reading copy stays on a stationary plane. */
+:root {
+    --rk-depth-return: 1000ms;
+    --rk-depth-follow: 400ms;
+    --rk-depth-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --rk-card-duration: 250ms;
+    --rk-meta-duration: 320ms;
+}
+
+#app .home-hero.dot-hero .home-hero-copy {
+    transform: none;
+}
+
+/* background-position/text raster animation is costly and can flash when a
+   transformed ancestor is promoted. Keep the editorial gradient, not its loop. */
+#app .home-hero-title .accent-gradient { animation: none; }
+
+@keyframes rk-meta-text-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes rk-profile-shimmer {
+    from { transform: translateX(-100%); opacity: 0; }
+    20%, 75% { opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    #app .profile-hero .profile-card {
+        transform-style: preserve-3d;
+        overflow: clip;
+    }
+
+    #app .profile-hero.rk-pointer-depth .profile-card {
+        transform: perspective(1100px) rotateX(var(--rk-tilt-x, 0deg)) rotateY(var(--rk-tilt-y, 0deg));
+        transition: transform var(--rk-depth-return) var(--rk-depth-ease);
+    }
+
+    #app .profile-hero.rk-pointer-depth .profile-avatar-wrap {
+        transform: translateZ(48px);
+    }
+
+    /* Keep text and chips on one flat plane inside the tilting card. */
+    #app .profile-hero.rk-pointer-depth .profile-info {
+        transform: none;
+        backface-visibility: hidden;
+    }
+
+    #app .profile-hero.rk-pointer-depth .profile-card::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: linear-gradient(105deg, transparent 38%, color-mix(in srgb, var(--text-primary) 8%, transparent) 50%, transparent 62%);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateX(-100%);
+    }
+
+    /* One compositor-only glint, not a persistent accent-colour wash. */
+    #app .profile-hero.rk-pointer-active .profile-card::after {
+        animation: rk-profile-shimmer var(--rk-depth-return) var(--rk-depth-ease) 1;
+    }
+
+    #app .profile-hero.rk-pointer-active .profile-card {
+        transition-duration: var(--rk-depth-follow);
+    }
+
+    /* Flat wrappers own hit testing; the inner cards carry the 3D transform. */
+    #app .home-card-depth > :is(.portfolio-card, .home-info-card) {
+        transition: transform var(--rk-card-duration) var(--rk-depth-ease),
+            border-color var(--rk-card-duration) var(--rk-depth-ease);
+    }
+    #app .home-card-depth:is(:hover, :focus-within) > :is(.portfolio-card, .home-info-card) {
+        transform: perspective(1000px) translateY(-10px) scale(1.06)
+            rotateX(calc(var(--rk-tilt-x, 0deg) * .8))
+            rotateY(calc(var(--rk-tilt-y, 0deg) * .8));
+        border-color: var(--hg-accent-text);
+    }
+    #app :is(.portfolio-grid, .home-info-cards):has(> .home-card-depth:is(:hover, :focus-within))
+        > .home-card-depth:not(:hover):not(:focus-within) > :is(.portfolio-card, .home-info-card) {
+        transform: scale(.94);
+    }
+    #app .home-card-depth:is(:hover, :focus-within) { position: relative; z-index: 2; }
+    #app .home-card-depth :is(.home-info-card-arrow, .portfolio-card-title) {
+        transition: transform var(--rk-card-duration) var(--rk-depth-ease);
+    }
+    #app .home-card-depth:is(:hover, :focus-within) .home-info-card-arrow { transform: translateX(4px); }
+    #app .home-card-depth:is(:hover, :focus-within) .portfolio-card-title { transform: translateX(3px); }
+
+    /* Avatar-group falloff, applied to labels inside stationary metadata tiles. */
+    #app .profile-meta-chip {
+        position: relative;
+        transform: none;
+    }
+    #app .profile-meta-chip .meta-value { display: block; }
+    #app .profile-meta-chip .meta-value:empty { display: none; }
+    /* Re-reveal the existing text, with no text replacement or tile movement. */
+    #app .profile-meta-chip:is(:hover, :focus-visible) .meta-label {
+        animation: rk-meta-text-in var(--rk-meta-duration) var(--rk-depth-ease) both;
+    }
+    #app .profile-meta-chip:is(:hover, :focus-visible) .meta-value {
+        animation: rk-meta-text-in var(--rk-meta-duration) var(--rk-depth-ease) 40ms both;
+    }
+    #app .profile-meta-chip::before {
+        content: '';
+        position: absolute;
+        inset: auto 16px 8px;
+        height: 1px;
+        background: var(--hg-accent-text);
+        opacity: 0;
+        transform: scaleX(.65);
+        transition: opacity var(--rk-card-duration) var(--rk-depth-ease),
+            transform var(--rk-card-duration) var(--rk-depth-ease);
+        pointer-events: none;
+    }
+    #app .profile-meta-chip:is(:hover, :focus-visible)::before { opacity: .6; transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #app .profile-hero-content,
+    #app .profile-hero .profile-avatar {
+        animation: none !important;
+    }
+
+    /* Cancel an in-flight pointer return immediately when the preference flips. */
+    #app .home-hero.dot-hero .home-hero-copy,
+    #app .profile-hero .profile-card,
+    #app .profile-hero .profile-avatar-wrap,
+    #app .profile-hero .profile-info,
+    #app .profile-meta-chip,
+    #app .profile-meta-chip :is(.meta-label, .meta-value),
+    #app .home-card-depth > :is(.portfolio-card, .home-info-card),
+    #app .home-card-depth :is(.home-info-card-arrow, .portfolio-card-title) {
+        transform: none !important;
+        transition: none !important;
+    }
+}
+
+@media (forced-colors: active), (prefers-reduced-transparency: reduce) {
+    #app .profile-hero .profile-card::after { display: none; }
+}
+
+.home-card-depth { min-width: 0; }
+.home-card-depth > :is(.portfolio-card, .home-info-card) { height: 100%; }
+
+@media (hover: none), (pointer: coarse) {
+    #app .home-card-depth > :is(.portfolio-card, .home-info-card) {
+        transform: none !important;
     }
 }

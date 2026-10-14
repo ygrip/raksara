@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
+	import { onMount } from 'svelte';
+	import { containDialog, popupMotion } from '$lib/popup-motion';
 	import { afterNavigate, goto } from '$app/navigation';
 	import type { PageData } from './$types';
 	import type { GalleryItem } from '$lib/types';
@@ -25,6 +26,7 @@
 
 	// --- Lightbox state ---
 	let activeItem = $state<GalleryItem | null>(null);
+	let lightboxOpen = $state(false);
 	let carouselIdx = $state(0);
 	let descExpanded = $state(false);
 
@@ -61,10 +63,10 @@
 
 	function openLightbox(item: GalleryItem, idx = 0, updateUrl = true) {
 		activeItem = item;
+		lightboxOpen = true;
 		carouselIdx = idx;
 		descExpanded = false;
-		document.body.style.overflow = 'hidden';
-		document.body.classList.add('gallery-lightbox-open');
+
 		if (updateUrl && item.slug) {
 			const params = location.search;
 			goto(`/gallery/${encodeURIComponent(item.slug)}${params}`, {
@@ -74,11 +76,9 @@
 		}
 	}
 
-	function closeLightbox() {
-		activeItem = null;
-		document.body.style.overflow = '';
-		document.body.classList.remove('gallery-lightbox-open');
-		if (location.pathname.startsWith('/gallery/')) {
+	function closeLightbox(updateUrl = true) {
+		lightboxOpen = false;
+		if (updateUrl && location.pathname.startsWith('/gallery/')) {
 			goto(`/gallery${location.search}`, { keepFocus: true, noScroll: true });
 		}
 	}
@@ -95,7 +95,7 @@
 
 	// BL-016 — keyboard navigation
 	function handleKey(e: KeyboardEvent) {
-		if (!activeItem) return;
+		if (!lightboxOpen) return;
 		if (e.key === 'ArrowLeft') prevImage();
 		if (e.key === 'ArrowRight') nextImage();
 		if (e.key === 'Escape') closeLightbox();
@@ -123,22 +123,25 @@
 		syncFiltersFromUrl(to.url);
 		const slug = activeSlugFromUrl(to.url);
 		if (!slug) {
-			if (activeItem) {
-				activeItem = null;
-				document.body.style.overflow = '';
-				document.body.classList.remove('gallery-lightbox-open');
-			}
+			closeLightbox(false);
 			return;
 		}
 		const item = gallery.find((g) => g.slug === slug);
-		if (item && item.slug !== activeItem?.slug) openLightbox(item, 0, false);
+		if (item && (!lightboxOpen || item.slug !== activeItem?.slug)) openLightbox(item, 0, false);
 	});
 
-	onDestroy(() => {
-		if (typeof document === 'undefined') return;
-		document.body.style.overflow = '';
-		document.body.classList.remove('gallery-lightbox-open');
-	});
+	function lightboxDialog(node: HTMLElement) {
+		document.body.classList.add('gallery-lightbox-open');
+		const focusOwner = containDialog(node);
+		return { destroy() {
+			focusOwner.destroy();
+			document.body.classList.remove('gallery-lightbox-open');
+		} };
+	}
+
+	function finishLightboxClose() {
+		if (!lightboxOpen) activeItem = null;
+	}
 
 	function clearFilter(kind?: 'tag' | 'category') {
 		const params = new URLSearchParams(location.search);
@@ -321,16 +324,18 @@
 />
 
 <!-- Lightbox + Carousel -->
-{#if activeItem}
+{#if lightboxOpen && activeItem}
 	<div
+		use:lightboxDialog
+		tabindex="-1"
 		class="gallery-lightbox-overlay fixed inset-0 flex items-center justify-center"
 		role="dialog"
 		aria-modal="true"
 		aria-label={activeItem.title}
 	>
-		<button class="absolute inset-0" onclick={closeLightbox} aria-label="Close lightbox" tabindex="-1"></button>
+		<button in:popupMotion|global={{ scrim: true }} out:popupMotion|global={{ scrim: true, closing: true }} class="absolute inset-0" onclick={() => closeLightbox()} aria-label="Close lightbox" tabindex="-1"></button>
 
-		<figure class="relative z-10 flex max-h-screen w-full max-w-5xl flex-col items-center px-4">
+		<figure in:popupMotion|global out:popupMotion|global={{ closing: true }} onoutroend={finishLightboxClose} class="relative z-10 flex max-h-screen w-full max-w-5xl flex-col items-center px-4">
 			<div class="relative flex w-full items-center justify-center">
 				{#if images.length > 1}
 					<button
@@ -391,7 +396,8 @@
 
 		<button
 			class="glb-close absolute right-4 top-4 z-20"
-			onclick={closeLightbox}
+			in:popupMotion|global out:popupMotion|global={{ closing: true }}
+			onclick={() => closeLightbox()}
 			aria-label="Close"
 		>
 			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

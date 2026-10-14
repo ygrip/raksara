@@ -1727,7 +1727,6 @@
 
 <svelte:head>
 	<title>Admin</title>
-	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
 <main class="admin-page" class:challenge-mode={!adminUnlocked}>

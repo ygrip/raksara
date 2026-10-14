@@ -22,6 +22,8 @@ function prefersQuietUi(): boolean {
 		media('(prefers-reduced-motion: reduce)') ||
 		media('(prefers-reduced-transparency: reduce)') ||
 		media('(forced-colors: active)') ||
+		media('(pointer: coarse)') ||
+		media('(max-width: 768px)') ||
 		connection?.saveData === true
 	);
 }
@@ -38,9 +40,10 @@ async function hasWebGpuAdapter(): Promise<boolean> {
 
 /** Resolves the lazily loaded shader component, or null when the visitor should get the CSS look. */
 export function loadHeritageShader(): Promise<HeritageShaderComponent | null> {
-	if (typeof window === 'undefined') return Promise.resolve(null);
+	if (typeof window === 'undefined' || prefersQuietUi()) return Promise.resolve(null);
 	pending ??= (async () => {
-		if (prefersQuietUi() || !(await hasWebGpuAdapter())) return null;
+		if (!(await hasWebGpuAdapter())) return null;
+		if (prefersQuietUi()) { pending = null; return null; }
 		const module = await import('$lib/components/HeritageShader.svelte');
 		return module.default as HeritageShaderComponent;
 	})().catch((error) => {

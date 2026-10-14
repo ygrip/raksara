@@ -608,6 +608,10 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 #app .article-body :is(a.prose-link, p > a:not([class]):not([href^='#']), li > a:not([class]):not([href^='#']), td > a:not([class]):not([href^='#'])):hover {
   color: var(--text-primary); text-decoration-thickness: 2px;
 }
+/* Links nested inside emphasis need the same readable accent as direct prose links. */
+#app .article-body :is(p, li, td) a:not([class]):not([href^='#']) {
+  color: var(--hg-accent-text); text-decoration: underline;
+}
 #app .article-body a:focus-visible { outline: 2px solid var(--hg-accent-text); outline-offset: 3px; }
 #app .prose-link .link-external { display: inline-block; margin-left: .2em; font-size: .85em; text-decoration: none; }
 #app .link-new-tab { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
@@ -833,12 +837,15 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 }
 #app .profile-links { margin-top: 18px; gap: 8px; }
 #app .profile-links a {
-  min-height: 34px; padding: 0 14px; border-radius: 999px;
+  min-height: 44px; padding: 0 14px; border-radius: 999px;
   color: var(--text-primary); text-shadow: none; font-size: 13px; font-weight: 600;
   border: 1px solid var(--hg-line); background: var(--hg-tint); box-shadow: none;
+  /* Nested backdrop filters and hover transforms flicker inside a 3D card. */
+  backdrop-filter: none; -webkit-backdrop-filter: none; backface-visibility: hidden;
+  transform: none; transition: border-color .25s var(--hg-ease);
 }
-#app .profile-links a:hover { border-color: var(--hg-accent-text); background: color-mix(in oklab, var(--accent) 18%, transparent); box-shadow: none; }
-/* The medallion is still at rest; its carved rim carries the identity. */
+#app .profile-links a:hover { border-color: var(--hg-accent-text); background: var(--hg-tint); box-shadow: none; transform: none; }
+/* The carved medallion keeps its original gentle pulse and ripple. */
 #app .profile-avatar-wrap {
   --avatar-aura: color-mix(in oklab, var(--accent) 44%, transparent);
   --avatar-aura-soft: color-mix(in oklab, var(--accent) 16%, transparent);
@@ -880,6 +887,11 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 }
 #app .profile-avatar-wrap.loaded .profile-avatar {
   animation: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  #app .profile-avatar-wrap.loaded::before { animation: avatarRipple 2.8s ease-out infinite; }
+  #app .profile-avatar-wrap.loaded::after { animation: avatarRipple 2.8s ease-out 1.4s infinite; }
+  #app .profile-avatar-wrap.loaded .profile-avatar { animation: avatarPulse 3s ease-in-out infinite; }
 }
 
 /* Profile facts: one glass strip, label over value, hairline dividers; no nested pills. */

@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { attachScrollDepth, attachScrollReveals } from '$lib/actions/scroll-motion';
+	import { cardDepth, attachScrollDepth, attachScrollReveals } from '$lib/actions/scroll-motion';
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
 	import { dotFieldImages } from '$lib/dot-field';
 	import { assetUrl, formatDate } from '$lib/utils';
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
+	import { rewriteTaxonomyHref } from '$lib/taxonomy.js';
 	import { buildWebSiteSchema, buildPersonSchema, serializeJsonLd } from '$lib/seo';
 
 	let { data }: { data: PageData } = $props();
@@ -243,6 +244,7 @@
 					{/if}
 					<div class="portfolio-grid">
 						{#each items as item}
+							<div class="home-card-depth" use:cardDepth>
 							<div class="portfolio-card">
 								<a
 									href={portfolioHref(item.slug)}
@@ -272,6 +274,7 @@
 									</div>
 								{/if}
 							</div>
+							</div>
 						{/each}
 					</div>
 				</div>
@@ -290,9 +293,10 @@
 					<div class="home-info-cards">
 						{#each section.items as item}
 							{#if item.href}
+								<div class="home-card-depth" use:cardDepth>
 								<div class="home-info-card home-info-card-link">
 									<a
-										href={item.href}
+										href={rewriteTaxonomyHref(item.href, config)}
 										class="home-info-card-surface"
 										aria-label={item.title ?? item.label ?? 'Open card'}
 									></a>
@@ -307,6 +311,7 @@
 										</div>
 									{/if}
 									<span class="home-info-card-arrow">→</span>
+								</div>
 								</div>
 							{:else}
 								<div class="home-info-card">
@@ -478,6 +483,7 @@
 			</div>
 			<div class="portfolio-grid">
 				{#each bundle.portfolio.slice(0, 4) as item}
+					<div class="home-card-depth" use:cardDepth>
 					<div class="portfolio-card">
 						<div class="portfolio-card-title"><a href={portfolioHref(item.slug)}>{item.title}</a></div>
 						{#if item.summary}<div class="portfolio-card-summary">{item.summary}</div>{/if}
@@ -494,6 +500,7 @@
 								{#if item.demo}<a href={item.demo} target="_blank" rel="noopener" class="btn-demo">Demo</a>{/if}
 							</div>
 						{/if}
+					</div>
 					</div>
 				{/each}
 			</div>

@@ -17,6 +17,11 @@
 		let disposed = false;
 		let initialized = false;
 		let intersecting = true;
+		let rendererReady = false;
+		const quietMedia = [
+			'(prefers-reduced-motion: reduce)', '(prefers-reduced-transparency: reduce)',
+			'(forced-colors: active)', '(pointer: coarse)', '(max-width: 768px)'
+		].map((query) => matchMedia(query));
 		const host = wrapper.parentElement;
 		const fail = (reason: unknown) => {
 			if (disposed) return;
@@ -25,16 +30,19 @@
 			host?.classList.remove('hg-shader-host-ready');
 			console.warn('[heritage] shader unavailable, using CSS fallback', reason);
 		};
-		renderer.setFrameRateCap(24);
+		renderer.setFrameRateCap(12);
 		renderer.setOnUnavailable(fail);
 		renderer.setOnReady(() => {
 			if (disposed) return;
-			ready = true;
-			host?.classList.add('hg-shader-host-ready');
+			rendererReady = true;
+			syncVisibility();
 		});
 		const syncVisibility = () => {
 			if (!initialized || disposed) return;
-			if (intersecting && document.visibilityState === 'visible') renderer.startAnimation();
+			const quiet = quietMedia.some((media) => media.matches);
+			ready = rendererReady && !quiet && !unavailable;
+			host?.classList.toggle('hg-shader-host-ready', ready);
+			if (intersecting && document.visibilityState === 'visible' && !quiet) renderer.startAnimation();
 			else renderer.stopAnimation();
 		};
 		const visibility = new IntersectionObserver(([entry]) => {
@@ -43,6 +51,7 @@
 		});
 		visibility.observe(wrapper);
 		document.addEventListener('visibilitychange', syncVisibility);
+		for (const media of quietMedia) media.addEventListener('change', syncVisibility);
 		const resize = new ResizeObserver(() => {
 			if (!initialized || disposed) return;
 			renderer.resize(wrapper.clientWidth, wrapper.clientHeight);
@@ -55,7 +64,7 @@
 				if (disposed) { renderer.cleanup(); return; }
 				if (renderer.getFailureReason()) return;
 				initialized = true;
-				renderer.setResolutionScale(0.75);
+				renderer.setResolutionScale(0.5);
 				renderer.resize(wrapper.clientWidth, wrapper.clientHeight);
 				renderer.registerNode('root', rootPassthrough.fragment, null, null, {}, rootPassthrough);
 				const effect = Sparkle;
@@ -76,6 +85,7 @@
 			visibility.disconnect();
 			resize.disconnect();
 			document.removeEventListener('visibilitychange', syncVisibility);
+			for (const media of quietMedia) media.removeEventListener('change', syncVisibility);
 			host?.classList.remove('hg-shader-host-ready');
 			renderer.cleanup();
 		};

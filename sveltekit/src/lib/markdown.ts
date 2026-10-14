@@ -16,6 +16,7 @@ import type { ImageManifest, BlogDirs, SiteConfig } from './types';
 import { rewriteTaxonomyHref } from './taxonomy.js';
 import { buildResponsiveAttrs, buildLqipStyle, responsiveAttrsToString } from './responsive-image';
 import { assetUrl, formatDate } from './utils';
+import { containDialog, popupDuration, popupEase } from './popup-motion';
 
 // ── Helpers ────────────────────────────────────────────
 
@@ -331,7 +332,7 @@ function injectCarousels(html: string, context: RenderOptions['context'], imageM
       const date = entry.date ? escapeHtml(formatDate(entry.date)) : '';
       const imgHtml = buildContentImageHtml(entry, imageManifest, imgSizes, 'content-carousel-img');
       const noImgClass = entry.cover ? '' : ' no-image';
-      return `<a class="content-carousel-slide${noImgClass}" href="${href}" aria-label="${title}">${imgHtml}<div class="content-carousel-body"><div class="content-carousel-title">${title}</div>${desc ? `<p class="content-carousel-desc">${desc}</p>` : ''}${date ? `<time class="content-carousel-date" datetime="${escapeHtml(entry.date || '')}">${date}</time>` : ''}</div></a>`;
+      return `<a class="content-carousel-slide${noImgClass}" href="${href}">${imgHtml}<div class="content-carousel-body"><div class="content-carousel-title">${title}</div>${desc ? `<p class="content-carousel-desc">${desc}</p>` : ''}${date ? `<time class="content-carousel-date" datetime="${escapeHtml(entry.date || '')}">${date}</time>` : ''}</div></a>`;
     }).join('');
     const sectionHref = escapeHtml(resolveSectionHref(pathArg));
     const moreHtml = showMore ? `<div class="content-carousel-more"><a href="${sectionHref}" class="content-cards-more-btn">Show more →</a></div>` : '';
@@ -1176,8 +1177,11 @@ export async function initCharts(container: HTMLElement): Promise<void> {
   }
 }
 
+let mermaidViewer: { block: HTMLElement; reopen: () => void } | null = null;
+
 /** Open a Mermaid SVG in a modal viewport with zoom and directional panning. */
 function openMermaidViewer(block: HTMLElement): void {
+  if (mermaidViewer?.block === block) { mermaidViewer.reopen(); return; }
   const renderedSvg = block.querySelector<SVGSVGElement>('svg');
   if (!renderedSvg || document.querySelector('.mermaid-viewer-overlay')) return;
   const svg = renderedSvg;
@@ -1193,6 +1197,7 @@ function openMermaidViewer(block: HTMLElement): void {
   const overlay = document.createElement('div');
   overlay.className = 'mermaid-viewer-overlay';
   overlay.innerHTML = `
+    <div class="mermaid-viewer-scrim" aria-hidden="true"></div>
     <section class="mermaid-viewer-dialog" role="dialog" aria-modal="true" aria-label="Diagram viewer">
       <div class="mermaid-viewer-toolbar">
         <div class="mermaid-viewer-title">Diagram viewer</div>
@@ -1277,7 +1282,37 @@ function openMermaidViewer(block: HTMLElement): void {
     });
   };
 
-  const opener = block.querySelector<HTMLButtonElement>('.mermaid-expand-btn');
+  const dialog = overlay.querySelector<HTMLElement>('.mermaid-viewer-dialog')!;
+  const scrim = overlay.querySelector<HTMLElement>('.mermaid-viewer-scrim')!;
+  const focusOwner = containDialog(dialog);
+  let closing = false;
+  let disposed = false;
+  let revision = 0;
+  let animations: Animation[] = [];
+  const animate = (out: boolean) => {
+    const from = [getComputedStyle(scrim).opacity, getComputedStyle(dialog).opacity, getComputedStyle(dialog).transform];
+    animations.forEach((animation) => animation.cancel());
+    animations = [
+      scrim.animate([{ opacity: from[0] }, { opacity: out ? 0 : 1 }], { duration: popupDuration(out), easing: popupEase, fill: 'forwards' }),
+      dialog.animate([{ opacity: from[1], transform: from[2] }, { opacity: out ? 0 : 1, transform: out ? 'scale(.96)' : 'scale(1)' }], { duration: popupDuration(out), easing: popupEase, fill: 'forwards' })
+    ];
+    return Promise.all(animations.map((animation) => animation.finished.catch((error: unknown) => {
+      if (!(error instanceof DOMException && error.name === 'AbortError')) throw error;
+    })));
+  };
+  scrim.style.opacity = '0';
+  dialog.style.opacity = '0';
+  dialog.style.transform = 'scale(.96)';
+  void animate(false);
+  const observer = new MutationObserver(() => { if (!anchor.isConnected) finishViewer(); });
+  observer.observe(document.body, { childList: true, subtree: true });
+  mermaidViewer = { block, reopen() {
+    if (!closing || disposed) return;
+    closing = false;
+    revision++;
+    void animate(false);
+    closeButton.focus();
+  } };
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape') {
@@ -1313,18 +1348,31 @@ function openMermaidViewer(block: HTMLElement): void {
     }
   };
 
-  function closeViewer() {
+  function finishViewer() {
+    if (disposed) return;
+    disposed = true;
+    revision++;
+    observer.disconnect();
+    animations.forEach((animation) => animation.cancel());
     document.removeEventListener('keydown', onKeyDown);
     if (originalStyle === null) svg.removeAttribute('style');
     else svg.setAttribute('style', originalStyle);
     anchor.replaceWith(svg);
     overlay.remove();
     document.body.classList.remove('mermaid-viewer-open');
-    opener?.focus();
+    mermaidViewer = null;
+    focusOwner.destroy();
+  }
+
+  function closeViewer() {
+    if (closing || disposed) return;
+    closing = true;
+    const current = ++revision;
+    void animate(true).then(() => { if (current === revision) finishViewer(); });
   }
 
   overlay.addEventListener('click', (event) => {
-    if (event.target === overlay) closeViewer();
+    if (event.target === overlay || event.target === scrim) closeViewer();
   });
   overlay.querySelector<HTMLButtonElement>('[data-action="zoom-in"]')?.addEventListener('click', () => setScale(scale * 1.2));
   overlay.querySelector<HTMLButtonElement>('[data-action="zoom-out"]')?.addEventListener('click', () => setScale(scale / 1.2));

@@ -342,16 +342,20 @@
 }
 
 .home-section .portfolio-card {
-    grid-column: span 5;
     min-height: 210px;
 }
 
-.home-section .portfolio-card:nth-child(4n + 1),
-.home-section .portfolio-card:nth-child(4n + 4) {
+/* The stationary tilt wrapper, when present, owns the grid placement. */
+.home-section .portfolio-grid > :is(.portfolio-card, .home-card-depth) {
+    grid-column: span 5;
+}
+
+.home-section .portfolio-grid > :is(.portfolio-card, .home-card-depth):nth-child(4n + 1),
+.home-section .portfolio-grid > :is(.portfolio-card, .home-card-depth):nth-child(4n + 4) {
     grid-column: span 7;
 }
 
-.home-section .portfolio-card:last-child:nth-child(odd) {
+.home-section .portfolio-grid > :is(.portfolio-card, .home-card-depth):last-child:nth-child(odd) {
     grid-column: span 12;
 }
 
@@ -446,10 +450,10 @@ a.home-info-card-link:hover,
 
 @media (max-width: 980px) {
     .home-section .post-card,
-    .home-section .portfolio-card,
-    .home-section .portfolio-card:nth-child(4n + 1),
-    .home-section .portfolio-card:nth-child(4n + 4),
-    .home-section .portfolio-card:last-child:nth-child(odd) {
+    .home-section .portfolio-grid > :is(.portfolio-card, .home-card-depth),
+    .home-section .portfolio-grid > :is(.portfolio-card, .home-card-depth):nth-child(4n + 1),
+    .home-section .portfolio-grid > :is(.portfolio-card, .home-card-depth):nth-child(4n + 4),
+    .home-section .portfolio-grid > :is(.portfolio-card, .home-card-depth):last-child:nth-child(odd) {
         grid-column: span 12;
     }
 

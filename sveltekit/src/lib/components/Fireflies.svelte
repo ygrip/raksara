@@ -90,8 +90,9 @@
     probe.remove();
     const light = document.documentElement.getAttribute('data-theme') === 'light';
     const cream: Rgb = [255, 248, 232];
+    const pollen = mixRgb(accent, [173, 101, 40], 0.28);
     return light
-      ? { core: rgba(mixRgb(accent, [255, 255, 255], 0.12)), mid: rgba(accent, 0.5), halo: rgba(accent, 0.2), glassHalo: rgba(accent, 0.36) }
+      ? { core: rgba(pollen), mid: rgba(pollen, 0.42), halo: rgba(pollen, 0.1), glassHalo: rgba(pollen, 0.2) }
       : { core: rgba(mixRgb(accent, cream, 0.7)), mid: rgba(accent, 0.8), halo: rgba(accent, 0.3), glassHalo: rgba(accent, 0.48) };
   }
 
@@ -100,12 +101,25 @@
    * properties are resolved on the main thread every frame; plain opacity
    * values stay entirely on the compositor.
    */
+  const twinkles = new Map<HTMLElement, { animation: Animation; peak: number }>();
+
+  function syncTwinkles() {
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const paused = document.visibilityState !== 'visible' || document.body.classList.contains('reading-mode');
+    for (const [node, { animation, peak }] of twinkles) {
+      if (still) {
+        animation.cancel();
+        node.style.opacity = String(peak * 0.6);
+      } else {
+        node.style.removeProperty('opacity');
+        if (paused) animation.pause();
+        else if (animation.playState !== 'running') animation.play();
+      }
+    }
+  }
+
   function twinkle(node: HTMLElement, fly: Spec) {
     const { peak } = fly;
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      node.style.opacity = String(peak * 0.6);
-      return {};
-    }
     const animation = node.animate(
       [
         { offset: 0, opacity: peak * 0.12 },
@@ -116,7 +130,9 @@
       ],
       { duration: fly.duration * 1000, delay: fly.delay * 1000, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' }
     );
-    return { destroy: () => animation.cancel() };
+    twinkles.set(node, { animation, peak });
+    syncTwinkles();
+    return { destroy: () => { animation.cancel(); twinkles.delete(node); } };
   }
 
   onMount(() => {
@@ -144,7 +160,14 @@
     let disposed = false;
     let cancelIdle = () => {};
     let handoffTimer: ReturnType<typeof setTimeout> | undefined;
-    const syncPause = () => post({ type: document.visibilityState === 'visible' && !document.body.classList.contains('reading-mode') ? 'resume' : 'pause' });
+    const syncPause = () => {
+      syncTwinkles();
+      post({ type: document.visibilityState === 'visible' && !document.body.classList.contains('reading-mode') ? 'resume' : 'pause' });
+    };
+    const syncMotion = () => {
+      post({ type: 'motion', still: reducedMotion.matches });
+      syncPause();
+    };
     const resizeObserver = new ResizeObserver(() => {
       measure();
       pushLayout();
@@ -152,6 +175,10 @@
     if (layer) resizeObserver.observe(layer);
     const themeObserver = new MutationObserver(() => post({ type: 'palette', palette: readPalette() }));
     const bodyObserver = new MutationObserver(syncPause);
+    bodyObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    document.addEventListener('visibilitychange', syncPause);
+    reducedMotion.addEventListener('change', syncMotion);
+    syncPause();
 
     const startDrift = () => {
       if (disposed || !canvas || !('transferControlToOffscreen' in canvas)) return;
@@ -166,8 +193,6 @@
         return;
       }
       themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'style'] });
-      bodyObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-      document.addEventListener('visibilitychange', syncPause);
       syncPause();
       moving = true;
       // Remove the DOM twinkles once the crossfade has finished.
@@ -192,6 +217,9 @@
       themeObserver.disconnect();
       bodyObserver.disconnect();
       document.removeEventListener('visibilitychange', syncPause);
+      reducedMotion.removeEventListener('change', syncMotion);
+      for (const { animation } of twinkles.values()) animation.cancel();
+      twinkles.clear();
       worker?.terminate();
     };
   });
@@ -235,22 +263,14 @@
   }
   .fireflies-layer.ready { opacity: var(--ff-strength); }
 
-  /* Light: a white core vanishes on the paper canvas and a dimmed halo turns
-     muddy, so use saturated accent "sunlit pollen" with a deeper core. */
+  /* Light: warm copper-gold pollen, with tighter, quieter halos on paper.
+     sRGB mixing matches the worker palette so the handoff never shifts colour. */
   :global(:root[data-theme='light']) .fireflies-layer {
-    --ff-core: color-mix(in oklab, var(--accent) 88%, #fff 12%);
-    --ff-mid: color-mix(in oklab, var(--accent) 52%, transparent);
-    --ff-halo: color-mix(in oklab, var(--accent) 16%, transparent);
-    --ff-glass-halo: color-mix(in oklab, var(--accent) 34%, transparent);
-    --ff-strength: .82;
-  }
-  @supports (color: oklch(from red l c h)) {
-    :global(:root[data-theme='light']) .fireflies-layer {
-      --ff-core: oklch(from var(--accent) clamp(.6, l, .74) max(c, .15) h);
-      --ff-mid: oklch(from var(--accent) clamp(.66, l, .8) max(c, .13) h / .5);
-      --ff-halo: oklch(from var(--accent) clamp(.74, l, .86) max(c, .1) h / .2);
-      --ff-glass-halo: oklch(from var(--accent) clamp(.7, l, .82) max(c, .12) h / .36);
-    }
+    --ff-core: color-mix(in srgb, var(--accent) 72%, #ad6528);
+    --ff-mid: color-mix(in srgb, var(--ff-core) 42%, transparent);
+    --ff-halo: color-mix(in srgb, var(--ff-core) 10%, transparent);
+    --ff-glass-halo: color-mix(in srgb, var(--ff-core) 20%, transparent);
+    --ff-strength: .72;
   }
 
   /* Worker canvas: CSS px = canvas px (soft glows need no device-pixel detail). */

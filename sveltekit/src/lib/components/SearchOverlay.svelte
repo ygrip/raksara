@@ -4,7 +4,9 @@
 	 * Mirrors the legacy 13-search.js behaviour.
 	 * Lazy-loads search-index.json and miniSearch on first open.
 	 */
-	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import { afterNavigate, goto } from '$app/navigation';
+	import { containDialog, popupMotion } from '$lib/popup-motion';
 	import { metadataUrl } from '$lib/metadata';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
@@ -50,6 +52,10 @@
 	}
 
 	function startPlaceholderAnimation() {
+		if (!open || query || document.hidden || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+			stopPlaceholderAnimation();
+			return;
+		}
 		if (phraseTimer) clearTimeout(phraseTimer);
 		phraseIdx = 0;
 		phraseCharIdx = 0;
@@ -90,20 +96,37 @@
 		return loadPromise;
 	}
 
+	onMount(() => {
+		const motion = matchMedia('(prefers-reduced-motion: reduce)');
+		const syncPlaceholder = () => { if (miniSearch) startPlaceholderAnimation(); };
+		motion.addEventListener('change', syncPlaceholder);
+		document.addEventListener('visibilitychange', syncPlaceholder);
+		return () => {
+			motion.removeEventListener('change', syncPlaceholder);
+			document.removeEventListener('visibilitychange', syncPlaceholder);
+			stopPlaceholderAnimation();
+		};
+	});
+
+	afterNavigate(() => { open = false; });
 	$effect(() => {
+		let cancelled = false;
 		if (open) {
 			ensureSearchReady().then(() => {
-				setTimeout(() => inputEl?.focus(), 50);
-				startPlaceholderAnimation();
+				if (!cancelled && open && miniSearch) startPlaceholderAnimation();
 			});
-			document.body.style.overflow = 'hidden';
 		} else {
-			document.body.style.overflow = '';
-			query = '';
-			results = [];
 			stopPlaceholderAnimation();
 		}
+		return () => {
+			cancelled = true;
+			stopPlaceholderAnimation();
+			if (debounce) clearTimeout(debounce);
+		};
 	});
+	function finishClose() {
+		if (!open) { query = ''; results = []; }
+	}
 
 	let debounce: ReturnType<typeof setTimeout> | null = null;
 	function handleInput() {
@@ -145,12 +168,12 @@
 
 
 {#if open}
-	<div class="search-overlay" role="dialog" aria-modal="true" aria-label="Search" tabindex="0" onkeydown={handleKeydown}>
+	<div use:containDialog class="search-overlay" role="dialog" aria-modal="true" aria-label="Search" tabindex="0" onkeydown={handleKeydown}>
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="search-overlay-backdrop" onclick={() => (open = false)}></div>
+		<div in:popupMotion|global={{ scrim: true }} out:popupMotion|global={{ scrim: true, closing: true }} class="search-overlay-backdrop" onclick={() => (open = false)}></div>
 
-		<div class="search-overlay-content glass-heavy">
+		<div in:popupMotion|global out:popupMotion|global={{ closing: true }} onoutroend={finishClose} class="search-overlay-content glass-heavy">
 			<div class="search-overlay-header">
 				<svg width="18" height="18" viewBox="0 0 16 16" fill="none" style="flex-shrink:0">
 					<circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.3"/>

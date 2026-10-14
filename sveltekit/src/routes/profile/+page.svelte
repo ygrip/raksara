@@ -5,7 +5,7 @@
 	import { initArticleFeatures } from '$lib/markdown';
 	import { assetUrl } from '$lib/utils';
 	import { shareContent } from '$lib/share';
-	import { attachScrollDepth, attachScrollReveals } from '$lib/actions/scroll-motion';
+	import { attachHeroTilt, attachScrollDepth, attachScrollReveals } from '$lib/actions/scroll-motion';
 
 	let { data }: { data: PageData } = $props();
 	const profile = $derived(data.profile);
@@ -108,12 +108,14 @@
 		if (!containerEl) return;
 		const hero = containerEl.querySelector<HTMLElement>('.profile-hero');
 		const detachDepth = hero ? attachScrollDepth(hero, 360) : () => {};
+		const detachTilt = hero ? attachHeroTilt(hero) : () => {};
 		const detachReveals = attachScrollReveals(
 			containerEl,
 			'.profile-metadata, .profile-skills-panel, .profile-body-shell .article-body > p, .profile-body-shell .article-body > h2, .profile-body-shell .article-body > h3'
 		);
 		detachMotion = () => {
 			detachDepth();
+			detachTilt();
 			detachReveals();
 		};
 	}

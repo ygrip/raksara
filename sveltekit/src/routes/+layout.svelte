@@ -3,6 +3,8 @@
 	import './visual-polish.css';
 	import './heritage-glass.css';
 	import './motion.css';
+	import './popup-motion.css';
+	import { popupMotion, sidebarDialog } from '$lib/popup-motion';
 	import { onMount } from 'svelte';
 	import { navigating, page } from '$app/stores';
 	import { goto } from '$app/navigation';
@@ -372,6 +374,7 @@
 		document.addEventListener('raksara-theme-change', onDiagramThemeChange);
 
 		const onGlobalSearchKey = (event: KeyboardEvent) => {
+			if (event.key === 'Escape') sidebarOpen = false;
 			if (event.key !== '/' || ['INPUT', 'TEXTAREA'].includes((event.target as Element)?.tagName ?? '')) return;
 			event.preventDefault();
 			searchOpen = true;
@@ -480,6 +483,7 @@
 <!-- Mobile overlay -->
 {#if sidebarOpen}
 	<div
+		in:popupMotion|global={{ scrim: true }} out:popupMotion|global={{ scrim: true, closing: true }}
 		class="sidebar-overlay fixed inset-0 z-30 lg:hidden"
 		role="button"
 		tabindex="-1"
@@ -513,7 +517,7 @@
 
 <div id="app">
 	<!-- Sidebar Nav -->
-	<nav id="sidebar" class:open={sidebarOpen} aria-label="Site navigation">
+	<nav id="sidebar" use:sidebarDialog={sidebarOpen} class:open={sidebarOpen} aria-label="Site navigation">
 		<div class="sidebar-header">
 			<a href="/" class="logo" onclick={(event) => navigateSidebar(event, '/')}>
 				<!-- BL-014: SVG logo placeholder; JS fills it if config.logo is set -->

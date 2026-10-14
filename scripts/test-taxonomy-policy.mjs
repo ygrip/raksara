@@ -54,6 +54,9 @@ for (const pathname of ['/tags/', '/categories/', '/tagged/', '/blog/post/java/'
 assert.equal(normalizeTaxonomyPath('/tag/java///'), '/tag/java');
 assert.equal(normalizeTaxonomyPath('/'), '/');
 assert.equal(rewriteTaxonomyHref('/tag/java/?page=2#articles', config), '/tag/java/?page=2#articles');
+for (const term of ['java', 'automation', 'programming']) {
+  assert.equal(rewriteTaxonomyHref(`/tag/${term}/`, {}), `/tag/?name=${term}`, 'authored homepage links must use generated shells unless explicitly highlighted');
+}
 assert.equal(rewriteTaxonomyHref('/tag/caf%C3%A9%20%26%20code/?page=2#articles', config), '/tag/?name=caf%C3%A9+%26+code&page=2#articles');
 assert.equal(rewriteTaxonomyHref('/category/a%2Fb/', config), '/category/?name=a%2Fb');
 assert.equal(rewriteTaxonomyHref('/tag/%252F/', config), '/tag/?name=%252F', 'decode only once');

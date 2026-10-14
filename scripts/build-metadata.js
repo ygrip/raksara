@@ -2319,7 +2319,7 @@ function preprocessCarouselForPrerender(md, portfolioItems, posts, imageManifest
         imgHtml = `<div class="content-carousel-img is-loading${lqipClass}"${styleAttr}><img ${imgAttrs} /></div>`;
       }
 
-      return `<a class="content-carousel-slide${noImgClass}" href="${escapeHtml(href)}" aria-label="${title}">${imgHtml}<div class="content-carousel-body"><div class="content-carousel-title">${title}</div>${desc ? `<p class="content-carousel-desc">${desc}</p>` : ''}${date ? `<time class="content-carousel-date" datetime="${escapeHtml(entry.date || '')}">${date}</time>` : ''}</div></a>`;
+      return `<a class="content-carousel-slide${noImgClass}" href="${escapeHtml(href)}">${imgHtml}<div class="content-carousel-body"><div class="content-carousel-title">${title}</div>${desc ? `<p class="content-carousel-desc">${desc}</p>` : ''}${date ? `<time class="content-carousel-date" datetime="${escapeHtml(entry.date || '')}">${date}</time>` : ''}</div></a>`;
     }).join('');
 
     const prevBtn = `<button class="content-carousel-btn content-carousel-prev" aria-label="Previous slide"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>`;
@@ -2414,14 +2414,14 @@ async function renderProfilePagePrerender(pages, imageManifest, portfolioItems =
       '<div class="profile-metadata">' +
       metaItems
         .map((m) => {
-          if (typeof m === "string") return `<span class="profile-meta-chip">${escapeHtml(m)}</span>`;
+          if (typeof m === "string") return `<span class="profile-meta-chip"><span class="meta-value">${escapeHtml(m)}</span></span>`;
           const label = m.label || "";
           const value = m.value || "";
           const url = m.url || "";
           const display = value || label;
           if (url)
-            return `<a href="${escapeHtml(url)}" class="profile-meta-chip has-link" target="_blank" rel="noopener">${label ? `<span class="meta-label">${escapeHtml(label)}</span>` : ""}${escapeHtml(display !== label ? display : "")}</a>`;
-          return `<span class="profile-meta-chip">${label ? `<span class="meta-label">${escapeHtml(label)}</span>` : ""}${escapeHtml(display !== label ? display : "")}</span>`;
+            return `<a href="${escapeHtml(url)}" class="profile-meta-chip has-link" target="_blank" rel="noopener">${label ? `<span class="meta-label">${escapeHtml(label)}</span>` : ""}<span class="meta-value">${escapeHtml(display !== label ? display : "")}</span></a>`;
+          return `<span class="profile-meta-chip">${label ? `<span class="meta-label">${escapeHtml(label)}</span>` : ""}<span class="meta-value">${escapeHtml(display !== label ? display : "")}</span></span>`;
         })
         .join("") +
       "</div>";

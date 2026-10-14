@@ -34,11 +34,12 @@ export type FireflyMessage =
 	| { type: 'init'; canvas: OffscreenCanvas; width: number; height: number; flies: WorkerFly[]; palette: FireflyPalette; still: boolean }
 	| { type: 'resize'; width: number; height: number; flies: WorkerFly[] }
 	| { type: 'palette'; palette: FireflyPalette }
+	| { type: 'motion'; still: boolean }
 	| { type: 'pause' }
 	| { type: 'resume' };
 
-/** Slow drift reads as smooth at 30 fps and halves raster work against 60. */
-const FRAME_MS = 1000 / 30;
+/** Slow, diffuse drift needs only 15 raster frames per second. */
+const FRAME_MS = 1000 / 15;
 
 let canvas: OffscreenCanvas | null = null;
 let ctx: OffscreenCanvasRenderingContext2D | null = null;
@@ -47,12 +48,10 @@ let palette: FireflyPalette | null = null;
 let sprites: OffscreenCanvas[] = [];
 let still = false;
 let running = false;
+let paused = false;
 let handle = 0;
-let last = 0;
 /** Rectangles painted by the previous frame; only these are cleared. */
 let painted: Array<[number, number, number, number]> = [];
-
-const hasRaf = typeof requestAnimationFrame === 'function';
 
 function sprite(size: number, glass: boolean): OffscreenCanvas {
 	const px = Math.max(2, Math.ceil(size));
@@ -111,29 +110,25 @@ function draw(now: number) {
 function loop(now: number) {
 	handle = 0;
 	if (!running) return;
-	if (now - last >= FRAME_MS - 2) {
-		last = now;
-		draw(now);
-	}
+	draw(now);
 	schedule();
 }
 
 function schedule() {
 	if (!running || handle) return;
-	handle = hasRaf
-		? requestAnimationFrame(loop)
-		: (setTimeout(() => loop(performance.now()), FRAME_MS) as unknown as number);
+	// A refresh-rate rAF still wakes the worker on frames that would be skipped.
+	handle = setTimeout(() => loop(performance.now()), FRAME_MS) as unknown as number;
 }
 
 function stop() {
 	running = false;
 	if (!handle) return;
-	if (hasRaf) cancelAnimationFrame(handle);
-	else clearTimeout(handle);
+	clearTimeout(handle);
 	handle = 0;
 }
 
 function start() {
+	if (paused) return;
 	if (still) {
 		draw(performance.now());
 		return;
@@ -162,17 +157,24 @@ self.onmessage = (event: MessageEvent<FireflyMessage>) => {
 			canvas.height = message.height;
 			flies = message.flies;
 			rebuildSprites();
-			if (still) draw(performance.now());
+			if (still && !paused) draw(performance.now());
 			break;
 		case 'palette':
 			palette = message.palette;
 			rebuildSprites();
-			if (still) draw(performance.now());
+			if (still && !paused) draw(performance.now());
+			break;
+		case 'motion':
+			stop();
+			still = message.still;
+			start();
 			break;
 		case 'pause':
+			paused = true;
 			stop();
 			break;
 		case 'resume':
+			paused = false;
 			start();
 			break;
 	}

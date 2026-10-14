@@ -23,8 +23,8 @@
   let canvas: HTMLCanvasElement | undefined;
   let ready = $state(false);
 
-  /** Animate at the display rate, capped near 60 fps on high-refresh screens. */
-  const MIN_FRAME_MS = 1000 / 60 - 2;
+  /** Slow portrait morphs need 30fps, not a repaint on every display refresh. */
+  const MIN_FRAME_MS = 1000 / 30 - 1;
   const RIPPLE_SPEED = 520; // px/s
   const RIPPLE_WIDTH = 34; // px, gaussian half-width of the ring
   const RIPPLE_LIFE = 1.3; // s
@@ -980,7 +980,7 @@
         || (pointerActive && (Math.abs(targetX - pointerX) > 0.1 || Math.abs(targetY - pointerY) > 0.1));
       const moving = morph.progress > 0 || pointerMoving || ripples.length > 0 || invertProgress(now) < 1;
       const due = dirty || moving || wasMoving || paintedImage !== morph.from;
-      if (due && now - lastPaint >= MIN_FRAME_MS) {
+      if (due && now - lastPaint >= (lowPower.matches ? 1000 / 20 - 1 : MIN_FRAME_MS)) {
         // Frame-rate independent easing toward the pointer.
         const k = Math.min(1, (now - lastPaint) / 16.7);
         lastPaint = now;
@@ -1168,9 +1168,8 @@
     };
     document.addEventListener('visibilitychange', onVisibility);
 
-    // Listen on the hero (host's parent) so the field reacts beneath the copy too.
-    // Mouse/pen use pointer events; touch also listens to passive touch events,
-    // because pointer events are cancelled as soon as the page starts scrolling.
+    // The portrait is decorative: text, links and buttons must not trigger
+    // canvas ripples or redraws. Coarse-pointer scrolling stays non-interactive.
     const pointerTarget = host.parentElement ?? host;
     const toLocal = (clientX: number, clientY: number) => {
       if (!host) return null;
@@ -1178,9 +1177,10 @@
       return { x: clientX - rect.left, y: clientY - rect.top };
     };
     const track = (clientX: number, clientY: number) => {
-      if (!canAnimate()) return;
+      if (!canAnimate() || lowPower.matches) return;
       const p = toLocal(clientX, clientY);
       if (!p) return;
+      if (pointerActive && Math.abs(p.x - targetX) < 1 && Math.abs(p.y - targetY) < 1) return;
       targetX = p.x;
       targetY = p.y;
       if (!pointerActive && pointerLift < 0.01) {
@@ -1191,42 +1191,38 @@
       schedule();
     };
     const release = () => {
+      if (!pointerActive) return;
       pointerActive = false;
       schedule();
     };
     const addRipple = (clientX: number, clientY: number) => {
-      if (!canAnimate()) return;
+      if (!canAnimate() || lowPower.matches) return;
       const p = toLocal(clientX, clientY);
       if (!p) return;
       ripples.push({ x: p.x, y: p.y, t: performance.now() });
       if (ripples.length > MAX_RIPPLES) ripples.shift();
       schedule();
     };
+    const onPortrait = (event: PointerEvent) => {
+      if (event.target instanceof Element && event.target.closest('.home-hero-copy, a, button, input, textarea, select, [role="button"]')) return false;
+      if (!slot) return true;
+      const rect = slot.getBoundingClientRect();
+      return event.clientX >= rect.left && event.clientX <= rect.right
+        && event.clientY >= rect.top && event.clientY <= rect.bottom;
+    };
     const onPointerMove = (event: PointerEvent) => {
-      if (event.pointerType === 'touch') return;
+      if (event.pointerType === 'touch' || lowPower.matches) return;
+      if (!onPortrait(event)) { release(); return; }
       track(event.clientX, event.clientY);
     };
     const onPointerDown = (event: PointerEvent) => {
-      if (event.pointerType === 'touch') return;
+      if (event.pointerType === 'touch' || !onPortrait(event)) return;
       addRipple(event.clientX, event.clientY);
-    };
-    const onTouchStart = (event: TouchEvent) => {
-      const touch = event.touches[0];
-      if (!touch) return;
-      track(touch.clientX, touch.clientY);
-      addRipple(touch.clientX, touch.clientY);
-    };
-    const onTouchMove = (event: TouchEvent) => {
-      const touch = event.touches[0];
-      if (touch) track(touch.clientX, touch.clientY);
     };
     pointerTarget.addEventListener('pointermove', onPointerMove, { passive: true });
     pointerTarget.addEventListener('pointerdown', onPointerDown, { passive: true });
     pointerTarget.addEventListener('pointerleave', release);
-    pointerTarget.addEventListener('touchstart', onTouchStart, { passive: true });
-    pointerTarget.addEventListener('touchmove', onTouchMove, { passive: true });
-    pointerTarget.addEventListener('touchend', release, { passive: true });
-    pointerTarget.addEventListener('touchcancel', release, { passive: true });
+    pointerTarget.addEventListener('pointercancel', release);
 
     reducedMotion.addEventListener('change', rebuild);
     lowPower.addEventListener('change', rebuild);
@@ -1247,10 +1243,7 @@
       pointerTarget.removeEventListener('pointermove', onPointerMove);
       pointerTarget.removeEventListener('pointerdown', onPointerDown);
       pointerTarget.removeEventListener('pointerleave', release);
-      pointerTarget.removeEventListener('touchstart', onTouchStart);
-      pointerTarget.removeEventListener('touchmove', onTouchMove);
-      pointerTarget.removeEventListener('touchend', release);
-      pointerTarget.removeEventListener('touchcancel', release);
+      pointerTarget.removeEventListener('pointercancel', release);
       for (const timer of loadTimers) clearTimeout(timer);
       for (const image of pendingImages) {
         image.onload = null;

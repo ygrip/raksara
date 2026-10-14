@@ -1,0 +1,18 @@
+/* Public popup motion: separate scrim fade, no blur or transition-all. */
+.search-overlay, .search-overlay-content, .gallery-lightbox-overlay,
+.gallery-lightbox-overlay figure, .mermaid-viewer-overlay, .mermaid-viewer-dialog {
+	animation: none !important;
+}
+.gallery-lightbox-overlay { background: transparent !important; backdrop-filter: none !important; }
+.gallery-lightbox-overlay > button:first-child { background: rgba(0, 0, 0, .8); }
+.search-overlay-backdrop { animation: none !important; }
+.mermaid-viewer-overlay { background: transparent !important; backdrop-filter: none !important; }
+.mermaid-viewer-scrim { position: absolute; inset: 0; background: rgba(0, 0, 0, .8); }
+.mermaid-viewer-dialog { position: relative; }
+@media (max-width: 1023px) {
+	#sidebar { transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1) !important; }
+	#sidebar.open { transition-duration: 250ms !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+	#sidebar, #sidebar.open { transition-duration: 0ms !important; }
+}
