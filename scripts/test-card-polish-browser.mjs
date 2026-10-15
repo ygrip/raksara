@@ -62,18 +62,22 @@ try {
     await card.waitFor();
     await page.waitForFunction(() => document.querySelector('.profile-avatar-wrap.loaded'));
     assert.equal(await page.locator('.profile-avatar').evaluate(el => getComputedStyle(el).animationName), 'profileAvatarBreath', 'medallion breath is preserved');
-    const lights = page.locator('.profile-cover-particles');
-    assert.equal(await lights.locator('.profile-cover-star').count(), 9, 'cover has its own frequent star flashes');
-    assert.equal(await lights.locator('.profile-cover-firefly').count(), 12, 'fireflies are anchored to the cover');
+    const lights = page.locator('.profile-hero > .fireflies-layer');
+    await lights.waitFor();
+    assert.equal(await lights.count(), 1, 'profile reuses one Fireflies component');
+    assert.equal(await page.locator('.bg-gradient .fireflies-layer').count(), 0, 'no duplicate ambient fireflies behind the cover');
+    assert.equal(await page.locator('.profile-cover-particles, .profile-cover-star, .profile-cover-firefly').count(), 0, 'duplicate cover effects were removed');
+    assert.equal(await lights.locator('.fireflies-canvas').count(), 1, 'profile uses the existing worker-compatible firefly renderer');
     const stacking = await page.locator('.profile-hero').evaluate(hero => ({
       image: Number(getComputedStyle(hero.querySelector('.profile-hero-bg')).zIndex),
       overlay: Number(getComputedStyle(hero.querySelector('.profile-hero-overlay')).zIndex),
-      particles: Number(getComputedStyle(hero.querySelector('.profile-cover-particles')).zIndex),
-      card: Number(getComputedStyle(hero.querySelector('.profile-hero-content')).zIndex)
+      fireflies: Number(getComputedStyle(hero.querySelector(':scope > .fireflies-layer')).zIndex),
+      card: Number(getComputedStyle(hero.querySelector('.profile-hero-content')).zIndex),
+      pointerEvents: getComputedStyle(hero.querySelector(':scope > .fireflies-layer')).pointerEvents
     }));
-    assert(stacking.image < stacking.overlay && stacking.overlay < stacking.particles && stacking.particles < stacking.card, 'particles remain above cover image, behind profile card');
-    assert.equal(await lights.locator('.profile-cover-star').first().evaluate(el => getComputedStyle(el).animationName), 'profileCoverStarFlash');
-    assert.equal(await lights.locator('.profile-cover-firefly').first().evaluate(el => getComputedStyle(el).animationName), 'profileCoverFireflyGlow');
+    assert(stacking.image < stacking.overlay && stacking.overlay < stacking.fireflies && stacking.fireflies < stacking.card,
+      'the existing fireflies render above the cover image and below the identity card');
+    assert.equal(stacking.pointerEvents, 'none', 'fireflies never intercept profile interactions');
     const background = await card.evaluate(el => getComputedStyle(el).backgroundColor);
     await card.hover();
     await page.waitForTimeout(150);
@@ -108,11 +112,13 @@ try {
     assert(Math.abs(before.x - after.x) < .1 && Math.abs(before.y - after.y) < .1, 'metadata tile stays stationary');
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.waitForTimeout(100);
-    assert.equal(await lights.evaluate(el => getComputedStyle(el).display), 'none', 'reduced motion hides decorative cover particles');
+    assert.equal(await lights.evaluate(el => getComputedStyle(el).display), 'block', 'reduced motion keeps the original static firefly presentation');
+    assert.equal(await lights.locator('.firefly').evaluateAll(nodes => nodes.every(el => el.getAnimations().every(a => a.playState !== 'running'))), true,
+      'reduced motion stops active DOM firefly twinkles');
     assert.equal(await page.locator('.profile-avatar').evaluate(el => getComputedStyle(el).animationName), 'none', 'reduced motion stops avatar pulse');
     assert.equal(await chip.locator('.meta-value').evaluate(el => getComputedStyle(el).transform), 'none', 'live reduced motion disables text movement');
     assert.deepEqual(errors, []);
     await page.close();
-    console.log(`${theme}: bento grid, stationary focus, portfolio tilt and shimmer, avatar breath, cover stars/fireflies, 3D/shimmer, stable chips, appearing metadata text and reduced motion passed at ${base}`);
+    console.log(`${theme}: bento grid, stationary focus, portfolio tilt and shimmer, avatar breath, original above-cover fireflies, 3D/shimmer, stable chips, appearing metadata text and reduced motion passed at ${base}`);
   }
 } finally { await browser.close(); }
