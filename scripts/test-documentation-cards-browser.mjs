@@ -56,12 +56,12 @@ try {
     const search = page.locator('.component-list-search').first();
     await search.fill('unlikely-no-such-component-xyz');
     await page.waitForTimeout(100);
-    assert.equal(await cards.filter({ visible: true }).count(), 0, 'search hides non-matches');
+    assert.equal(await page.locator('.component-list .component-card:visible').count(), 0, 'search hides non-matches');
     assert.equal(await page.locator('.component-list-empty').first().isVisible(), true,
       'search shows a useful empty state');
     await search.fill('');
     await page.waitForTimeout(100);
-    assert.equal(await cards.filter({ visible: true }).count(), count, 'clearing search restores cards');
+    assert.equal(await page.locator('.component-list .component-card:visible').count(), count, 'clearing search restores cards');
     assert.equal(await cards.first().locator('.component-card-title').innerText(), originalTitle);
 
     await page.emulateMedia({ reducedMotion: 'reduce' });
