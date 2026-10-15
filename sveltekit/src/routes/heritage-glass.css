@@ -1454,3 +1454,212 @@ body.reading-mode #app .article-header .article-meta { justify-content: center; 
   #app :is(.home-section, .page-header, .article-header, .home-hero-content, .thought-card)::before,
   #app :is(.home-section, .page-header, .article-header, .home-hero-content, .home-section-header, .post-card, .portfolio-card, .home-info-card, .gallery-window)::after { display: none; }
 }
+
+
+/* ── Documentation reference cards: editorial glass, not status-chip wallpaper ──
+   Both the /doc index and ::component-powered documentation share this treatment.
+   The number establishes scanning order; the arrow identifies the entire card as a link.
+   No generic icon, repetitive CTA or meaningless "Available" badge. */
+#app .component-list-wrap {
+  container-type: inline-size;
+  margin: 24px 0 36px;
+}
+
+#app .component-list-wrap .component-list-search-wrap { margin-bottom: 18px; }
+#app .component-list-wrap .component-list-search {
+  min-height: 52px;
+  border: 1px solid var(--hg-line);
+  border-radius: 17px;
+  background: var(--hg-sheen), var(--hg-frost-card);
+  box-shadow: var(--hg-rim);
+  color: var(--text-primary);
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+#app .component-list-wrap .component-list-search:is(:focus, :focus-visible) {
+  border-color: var(--hg-accent-text);
+  box-shadow: var(--hg-rim), 0 0 0 3px color-mix(in oklab, var(--accent) 18%, transparent);
+  outline: none;
+}
+
+#app .component-list-wrap .component-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 0;
+}
+@container (min-width: 640px) {
+  #app .component-list-wrap .component-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+#app .component-list-wrap .component-card {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  min-height: 208px;
+  overflow: hidden;
+  padding: 23px clamp(20px, 3vw, 28px) 27px;
+  gap: 0;
+  border: 1px solid var(--raksara-edge-border);
+  border-radius: 24px;
+  background:
+    radial-gradient(95% 85% at 0% 0%, color-mix(in oklab, var(--accent) 10%, transparent), transparent 80%),
+    var(--hg-sheen),
+    var(--hg-frost-card);
+  box-shadow: var(--hg-rim), var(--card-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: transform .22s var(--hg-ease), border-color .2s ease, box-shadow .22s var(--hg-ease);
+}
+#app .component-list-wrap .component-card[hidden] { display: none !important; }
+#app .component-list-wrap .component-card::before {
+  content: '';
+  position: absolute;
+  top: 22px;
+  bottom: 22px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 4px 4px 0;
+  background: var(--hg-metal);
+  opacity: .72;
+  pointer-events: none;
+}
+#app .component-list-wrap .component-card::after {
+  content: '';
+  position: absolute;
+  width: 82px;
+  height: 82px;
+  right: 0;
+  bottom: 0;
+  background: var(--hg-accent-text);
+  -webkit-mask-image: var(--hg-br);
+  mask-image: var(--hg-br);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  opacity: .18;
+  pointer-events: none;
+  transition: opacity .22s ease;
+}
+#app .component-list-wrap .component-card:is(:hover, :focus-visible) {
+  transform: translateY(-2px);
+  border-color: var(--hg-line-strong);
+  box-shadow: var(--hg-rim), var(--card-shadow-hover);
+  text-decoration: none;
+}
+#app .component-list-wrap .component-card:is(:hover, :focus-visible)::after { opacity: .36; }
+#app .component-list-wrap .component-card:focus-visible {
+  outline: 2px solid var(--hg-accent-text);
+  outline-offset: 4px;
+}
+
+#app .component-list-wrap .component-card-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  margin-bottom: 19px;
+}
+#app .component-list-wrap .component-card-number {
+  font: 600 12px/1.3 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .12em;
+  color: var(--hg-accent-text);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--hg-line);
+}
+#app .component-list-wrap .component-card-arrow {
+  display: grid;
+  flex: 0 0 39px;
+  place-items: center;
+  width: 39px;
+  height: 39px;
+  margin-left: auto;
+  border: 1px solid var(--hg-line);
+  border-radius: 13px;
+  background: var(--hg-tint);
+  color: var(--hg-accent-text);
+  transition: transform .22s var(--hg-ease), border-color .22s ease, background .22s ease;
+}
+#app .component-list-wrap .component-card:is(:hover, :focus-visible) .component-card-arrow {
+  transform: translateX(3px);
+  border-color: var(--hg-line-strong);
+  background: color-mix(in oklab, var(--accent) 17%, var(--hg-frost-card));
+}
+#app .component-list-wrap .component-card-title {
+  display: block;
+  flex: none;
+  min-width: 0;
+  margin: 0 0 9px;
+  font: 600 clamp(23px, 2.5vw, 29px)/1.12 var(--hg-display);
+  letter-spacing: -.012em;
+  color: var(--text-primary);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+#app .component-list-wrap .component-card-desc {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  min-width: 0;
+  margin: 0;
+  max-width: 64ch;
+  font: 400 13.5px/1.6 var(--font-sans);
+  color: var(--text-secondary);
+}
+#app .component-list-wrap .component-card-status {
+  flex: 0 1 auto;
+  max-width: 58%;
+  margin: 0;
+  padding: 5px 9px;
+  border: 1px solid var(--hg-count-edge);
+  border-radius: 999px;
+  background: var(--hg-tint);
+  color: var(--hg-accent-text);
+  font: 700 11px/1.25 var(--font-sans);
+  overflow-wrap: anywhere;
+}
+#app .component-list-wrap .component-list-empty {
+  grid-column: 1 / -1;
+  padding: 26px;
+  border: 1px dashed var(--hg-line);
+  border-radius: 17px;
+  background: var(--hg-tint);
+  color: var(--text-secondary);
+}
+
+@media (max-width: 480px) {
+  #app .component-list-wrap .component-list { gap: 12px; }
+  #app .component-list-wrap .component-card {
+    min-height: 180px;
+    padding: 19px 20px 22px;
+    border-radius: 20px;
+  }
+  #app .component-list-wrap .component-card-header { margin-bottom: 14px; }
+  #app .component-list-wrap .component-card-title { font-size: 25px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #app .component-list-wrap .component-card,
+  #app .component-list-wrap .component-card-arrow,
+  #app .component-list-wrap .component-card::after {
+    transform: none !important;
+    transition: none !important;
+  }
+}
+@media (forced-colors: active) {
+  #app .component-list-wrap .component-card::before,
+  #app .component-list-wrap .component-card::after { display: none; }
+  #app .component-list-wrap .component-card { border: 1px solid CanvasText; background: Canvas; }
+  #app .component-list-wrap .component-card-arrow { border-color: CanvasText; }
+}
