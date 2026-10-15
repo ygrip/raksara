@@ -2469,7 +2469,7 @@ async function renderProfilePagePrerender(pages, imageManifest, portfolioItems =
       <div class="profile-hero-bg" id="profile-hero-bg" data-src="${escapeHtml(coverPublicUrl)}"${heroBgStyle}></div>
       <div class="profile-hero-skeleton"></div>
       <div class="profile-hero-overlay"></div>
-      <div class="profile-cover-particles" aria-hidden="true">${coverParticlesHtml}</div>
+      ${coverUrl ? `<div class="profile-cover-particles" aria-hidden="true">${coverParticlesHtml}</div>` : ""}
       <div class="profile-hero-share profile-share-desktop">${shareButtonHtml}</div>
       <div class="profile-hero-content">
         <div class="profile-card">
