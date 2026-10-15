@@ -32,22 +32,8 @@ function routeFromNav(value: unknown): PostNav | null {
 
 function stripLeadingTitle(md: string, title?: string | null): string {
   if (!title) return md;
-  const normalized = title.replace(/\s+/g, ' ').trim().toLowerCase();
-  const lines = md.split(/\r?\n/);
-
-  // The first heading may follow a TOC directive and metadata chips.
-  // Never strip a later heading after real article content has started.
-  for (let i = 0; i < Math.min(lines.length, 20); i++) {
-    const line = lines[i].trim();
-    if (!line || /^::toc(?:\(|\s|$)/i.test(line) || /^(?:<chip\b[^>]*>.*?<\/chip>\s*)+$/i.test(line)) continue;
-    const heading = line.match(/^#\s+(.+?)\s*#*\s*$/);
-    if (heading && heading[1].replace(/\s+/g, ' ').trim().toLowerCase() === normalized) {
-      lines.splice(i, 1);
-      return lines.join('\n');
-    }
-    break;
-  }
-  return md;
+  const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return md.replace(new RegExp(`^\\s*#\\s+${escaped}\\s*\\n+`, 'i'), '');
 }
 
 export const prerender = true;
