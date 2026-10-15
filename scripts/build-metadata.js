@@ -1871,6 +1871,7 @@ function renderPostCardPrerender(post, options = {}, imageManifest) {
           <div class="post-card-summary">${escapeHtml(post.summary || "")}</div>
           <div class="post-card-meta">
             <time class="post-card-date" datetime="${escapeHtml(post.date || '')}">${formatDate(post.date)}</time>
+            ${post.status ? `<span class="status-chip status-${escapeHtml(post.status)}">${escapeHtml(post.status)}</span>` : ""}
             ${post.category ? `<span class="post-card-category">${escapeHtml(post.category)}</span>` : ""}
           </div>
           <div class="post-card-tags">
