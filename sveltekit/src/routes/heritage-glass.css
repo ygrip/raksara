@@ -1263,6 +1263,19 @@ body.reading-mode #app .article-header .article-meta { justify-content: center; 
   background: var(--hg-glass-fill);
   border: 1px solid var(--hg-line);
 }
+/* Preserve semantic status ink. Ordinary "Available" never renders. */
+#app .component-card-status:is(.status-wip, .status-draft) {
+  color: #f5c064;
+  background: rgb(245 158 11 / .1);
+  border-color: rgb(245 158 11 / .38);
+}
+#app .component-card-status.status-deprecated {
+  color: #ff9b9b;
+  background: rgb(239 68 68 / .1);
+  border-color: rgb(239 68 68 / .38);
+}
+:root[data-theme='light'] #app .component-card-status:is(.status-wip, .status-draft) { color: #815500; }
+:root[data-theme='light'] #app .component-card-status.status-deprecated { color: #a52834; }
 #app .component-card-arrow {
   display: inline-flex;
   grid-column: 2; grid-row: 3;
