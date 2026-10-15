@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { tilt } from '$lib/actions/tilt';
 	import type { PortfolioItem } from '$lib/types';
 	import ShareCard from '$lib/components/ShareCard.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
@@ -126,7 +125,7 @@
 	<p class="italic" style="color: var(--text-tertiary);">No projects match your search.</p>
 {/if}
 
-<div class="timeline" use:tilt={{ selector: '.portfolio-card' }}>
+<div class="timeline">
 	{#each grouped as group}
 		<div class="timeline-year">
 			<div class="timeline-year-label">{group.label}</div>
