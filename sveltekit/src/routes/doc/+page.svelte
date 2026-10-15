@@ -28,12 +28,16 @@
 			<input class="component-list-search" type="search" bind:value={query} placeholder="Filter components..." aria-label="Filter components" />
 		</div>
 		<div class="component-list">
-			{#each filteredDocs as doc}
+			{#each filteredDocs as doc, i (doc.slug)}
 				<a href="/{doc.slug}" class="component-card">
 					<div class="component-card-header">
-						<h3 class="component-card-title">{doc.title}</h3>
-						{#if doc.status && doc.status.toLowerCase() !== "available"}<span class="component-card-status status-{doc.status.toLowerCase()}">{doc.status}</span>{/if}
+						<span class="component-card-number" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+						{#if doc.status && doc.status.toLowerCase() !== 'available'}<span class="component-card-status status-{doc.status.toLowerCase()}">{doc.status}</span>{/if}
+						<span class="component-card-arrow" aria-hidden="true">
+							<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+						</span>
 					</div>
+					<h3 class="component-card-title">{doc.title}</h3>
 					{#if doc.summary}
 						<p class="component-card-desc">{doc.summary}</p>
 					{/if}
