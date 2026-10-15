@@ -60,7 +60,66 @@ try {
       'category text and metadata must never be truncated');
     assert(result.tagOverflow <= 1 && result.tagBoxes.every(tag =>
       tag.right <= result.body.right + 1),
-      'tags must wrap within the card instead of being clipped or masked');
+      'tags must wrap within the card without horizontal clipping');
+
+    const chips = card.locator('.post-card-tags');
+    await page.waitForFunction(() => {
+      const el = [...document.querySelectorAll('.post-list .post-card')]
+        .find(card => card.querySelector('.status-chip'))?.querySelector('.post-card-tags');
+      return !!el && el.classList.contains('is-overflowing') === (el.scrollHeight > el.clientHeight + 1);
+    });
+    const normal = await chips.evaluate(el => ({
+      overflowing: el.classList.contains('is-overflowing'),
+      scrollHeight: el.scrollHeight,
+      height: el.clientHeight,
+      mask: getComputedStyle(el).maskImage
+    }));
+    assert(normal.height <= 54 + 1, 'natural tag layout stays at two 24px rows plus a 6px gap');
+    assert.equal(normal.overflowing, normal.scrollHeight > normal.height + 1,
+      'fade only appears for a naturally overflowing tag list');
+    assert.equal(normal.mask !== 'none', normal.overflowing,
+      'a fully visible tag list never receives a fade mask');
+
+    // Force a third and fourth row to verify overflow behavior at every viewport.
+    await chips.evaluate(el => {
+      for (let i = 0; i < 16; i++) {
+        const tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.dataset.overflowFixture = 'true';
+        tag.textContent = `extra-tag-${i}`;
+        el.append(tag);
+      }
+    });
+    await page.waitForFunction(() => {
+      const el = [...document.querySelectorAll('.post-list .post-card')]
+        .find(card => card.querySelector('.status-chip'))?.querySelector('.post-card-tags');
+      return !!el && el.classList.contains('is-overflowing');
+    });
+    const limited = await chips.evaluate(el => {
+      const css = getComputedStyle(el);
+      return {
+        height: el.clientHeight,
+        scrollHeight: el.scrollHeight,
+        maxHeight: parseFloat(css.maxHeight),
+        overflow: css.overflow,
+        mask: css.maskImage,
+        chipHeights: [...el.querySelectorAll('.tag')].map(tag => tag.getBoundingClientRect().height)
+      };
+    });
+    assert.equal(limited.maxHeight, 54, 'two-row height includes the 6px gutter');
+    assert(limited.height <= 55 && limited.scrollHeight > limited.height + 1,
+      'third and later rows are hidden below the two-row boundary');
+    assert.equal(limited.overflow, 'hidden');
+    assert(limited.mask.includes('linear-gradient('), 'overflowed chips fade at the lower edge');
+    assert(limited.chipHeights.every(height => Math.abs(height - 24) < 1),
+      'each chip occupies exactly one row, including long tags');
+
+    await chips.evaluate(el => el.querySelectorAll('[data-overflow-fixture]').forEach(tag => tag.remove()));
+    await page.waitForFunction(() => {
+      const el = [...document.querySelectorAll('.post-list .post-card')]
+        .find(card => card.querySelector('.status-chip'))?.querySelector('.post-card-tags');
+      return !!el && el.classList.contains('is-overflowing') === (el.scrollHeight > el.clientHeight + 1);
+    });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
       true, 'the page must not scroll horizontally');
     assert.deepEqual(errors, [], 'page should not produce runtime errors');
