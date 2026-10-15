@@ -477,7 +477,7 @@
 
 <!-- Static dot grid and accent lighting; fireflies are deferred, compositor-only CSS animation. -->
 <div class="bg-gradient" aria-hidden="true">
-	{#if Fireflies}<Fireflies />{/if}
+	{#if Fireflies && currentPath.replace(/\/+$/, '') !== '/profile'}<Fireflies />{/if}
 </div>
 
 <!-- Mobile overlay -->
