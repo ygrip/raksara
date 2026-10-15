@@ -61,7 +61,19 @@ try {
     const card = page.locator('.profile-card');
     await card.waitFor();
     await page.waitForFunction(() => document.querySelector('.profile-avatar-wrap.loaded'));
-    assert.equal(await page.locator('.profile-avatar').evaluate(el => getComputedStyle(el).animationName), 'avatarPulse', 'avatar pulse is preserved');
+    assert.equal(await page.locator('.profile-avatar').evaluate(el => getComputedStyle(el).animationName), 'profileAvatarBreath', 'medallion breath is preserved');
+    const lights = page.locator('.profile-cover-particles');
+    assert.equal(await lights.locator('.profile-cover-star').count(), 9, 'cover has its own frequent star flashes');
+    assert.equal(await lights.locator('.profile-cover-firefly').count(), 12, 'fireflies are anchored to the cover');
+    const stacking = await page.locator('.profile-hero').evaluate(hero => ({
+      image: Number(getComputedStyle(hero.querySelector('.profile-hero-bg')).zIndex),
+      overlay: Number(getComputedStyle(hero.querySelector('.profile-hero-overlay')).zIndex),
+      particles: Number(getComputedStyle(hero.querySelector('.profile-cover-particles')).zIndex),
+      card: Number(getComputedStyle(hero.querySelector('.profile-hero-content')).zIndex)
+    }));
+    assert(stacking.image < stacking.overlay && stacking.overlay < stacking.particles && stacking.particles < stacking.card, 'particles remain above cover image, behind profile card');
+    assert.equal(await lights.locator('.profile-cover-star').first().evaluate(el => getComputedStyle(el).animationName), 'profileCoverStarFlash');
+    assert.equal(await lights.locator('.profile-cover-firefly').first().evaluate(el => getComputedStyle(el).animationName), 'profileCoverFireflyGlow');
     const background = await card.evaluate(el => getComputedStyle(el).backgroundColor);
     await card.hover();
     await page.waitForTimeout(150);
@@ -96,9 +108,11 @@ try {
     assert(Math.abs(before.x - after.x) < .1 && Math.abs(before.y - after.y) < .1, 'metadata tile stays stationary');
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.waitForTimeout(100);
+    assert.equal(await lights.evaluate(el => getComputedStyle(el).display), 'none', 'reduced motion hides decorative cover particles');
+    assert.equal(await page.locator('.profile-avatar').evaluate(el => getComputedStyle(el).animationName), 'none', 'reduced motion stops avatar pulse');
     assert.equal(await chip.locator('.meta-value').evaluate(el => getComputedStyle(el).transform), 'none', 'live reduced motion disables text movement');
     assert.deepEqual(errors, []);
     await page.close();
-    console.log(`${theme}: bento grid, stationary focus, portfolio tilt and shimmer, avatar pulse, 3D/shimmer, stable chips, appearing metadata text and reduced motion passed at ${base}`);
+    console.log(`${theme}: bento grid, stationary focus, portfolio tilt and shimmer, avatar breath, cover stars/fireflies, 3D/shimmer, stable chips, appearing metadata text and reduced motion passed at ${base}`);
   }
 } finally { await browser.close(); }
