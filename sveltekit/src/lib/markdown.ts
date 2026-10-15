@@ -203,14 +203,19 @@ function injectComponents(
     if (!matching.length) return '';
     const listId = `cl-${Math.random().toString(36).slice(2, 10)}`;
     const cards = matching
-      .map((entry) => {
+      .map((entry, index) => {
         const title = escapeHtml(entry.title || 'Untitled');
         const desc = escapeHtml(entry.summary || entry.description || '');
         const status = entry.status?.toLowerCase() === 'available' ? '' : (entry.status || '');
         const statusClass = status ? ` status-${status.toLowerCase().replace(/\s+/g, '-')}` : '';
         const href = `/${entry.slug || ''}`;
         return `<a href="${escapeHtml(href)}" class="component-card glass" data-title="${escapeHtml((entry.title || '').toLowerCase())}" data-desc="${escapeHtml((entry.summary || entry.description || '').toLowerCase())}">
-          <div class="component-card-header"><span class="component-card-title">${title}</span>${status ? `<span class="component-card-status${escapeHtml(statusClass)}">${escapeHtml(status)}</span>` : ''}</div>
+          <div class="component-card-header">
+            <span class="component-card-number" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span>
+            ${status ? `<span class="component-card-status${escapeHtml(statusClass)}">${escapeHtml(status)}</span>` : ''}
+            <span class="component-card-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span>
+          </div>
+          <span class="component-card-title">${title}</span>
           ${desc ? `<p class="component-card-desc">${desc}</p>` : ''}
         </a>`;
       })
