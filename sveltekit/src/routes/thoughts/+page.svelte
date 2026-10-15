@@ -11,7 +11,7 @@
 	const config = $derived(data.config);
 
 	const pageTitle = 'Shower Thoughts';
-	const pageSubtitle = $derived((config as unknown as Record<string, unknown>)?.thoughts_subtitle as string | undefined ?? 'Random ideas that pop in my mind');
+	const pageSubtitle = $derived((config as unknown as Record<string, unknown>)?.thoughts_subtitle as string | undefined ?? '');
 
 	type SortKey = 'latest' | 'oldest' | 'az' | 'za';
 	let sortKey = $state<SortKey>('latest');
@@ -43,7 +43,7 @@
 
 <svelte:head>
 	<title>{pageTitle} · {config?.hero_title ?? 'Raksara'}</title>
-	<meta name="description" content={pageSubtitle ?? `Read short thoughts on ${config?.hero_title ?? 'Raksara'}.`} />
+	<meta name="description" content={pageSubtitle || `Short notes and observations from ${config?.author ?? config?.hero_title ?? 'Raksara'}.`} />
 	<meta property="og:title" content="{pageTitle} · {config?.hero_title ?? 'Raksara'}" />
 	<meta property="og:description" content={pageSubtitle ?? ''} />
 

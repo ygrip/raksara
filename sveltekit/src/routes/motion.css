@@ -508,28 +508,6 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
         transition-duration: var(--rk-depth-follow);
     }
 
-    /* Flat wrappers own hit testing; the inner cards carry the 3D transform. */
-    #app .home-card-depth > :is(.portfolio-card, .home-info-card) {
-        transition: transform var(--rk-card-duration) var(--rk-depth-ease),
-            border-color var(--rk-card-duration) var(--rk-depth-ease);
-    }
-    #app .home-card-depth:is(:hover, :focus-within) > :is(.portfolio-card, .home-info-card) {
-        transform: perspective(1000px) translateY(-10px) scale(1.06)
-            rotateX(calc(var(--rk-tilt-x, 0deg) * .8))
-            rotateY(calc(var(--rk-tilt-y, 0deg) * .8));
-        border-color: var(--hg-accent-text);
-    }
-    #app :is(.portfolio-grid, .home-info-cards):has(> .home-card-depth:is(:hover, :focus-within))
-        > .home-card-depth:not(:hover):not(:focus-within) > :is(.portfolio-card, .home-info-card) {
-        transform: scale(.94);
-    }
-    #app .home-card-depth:is(:hover, :focus-within) { position: relative; z-index: 2; }
-    #app .home-card-depth :is(.home-info-card-arrow, .portfolio-card-title) {
-        transition: transform var(--rk-card-duration) var(--rk-depth-ease);
-    }
-    #app .home-card-depth:is(:hover, :focus-within) .home-info-card-arrow { transform: translateX(4px); }
-    #app .home-card-depth:is(:hover, :focus-within) .portfolio-card-title { transform: translateX(3px); }
-
     /* Avatar-group falloff, applied to labels inside stationary metadata tiles. */
     #app .profile-meta-chip {
         position: relative;
@@ -592,7 +570,7 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
     }
 }
 
-/* ── Card hover tilt (transitions.dev 19-card-tilt) ─────────────────
+/* ── Portfolio card tilt and cursor shimmer ─────────────────
    Driven by lib/actions/tilt.ts, delegated from a flat [data-tilt]
    container. The hover lift is folded into the same function list so
    the tilt composes with it instead of replacing it. Fine pointers
@@ -606,7 +584,7 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
 }
 
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-    #app [data-tilt] :is(.portfolio-card, .gallery-window) {
+    #app [data-tilt] .portfolio-card {
         position: relative;
         transition:
             border-color var(--duration-fast) var(--ease-smooth-out),
@@ -615,7 +593,7 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
             transform var(--tilt-return) var(--ease-smooth-out);
     }
 
-    #app [data-tilt]:hover :is(.portfolio-card, .gallery-window) {
+    #app [data-tilt]:hover .portfolio-card {
         transform:
             perspective(var(--tilt-perspective))
             translateY(var(--tilt-lift, 0px))
@@ -623,11 +601,11 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
             rotateY(var(--tilt-ry, 0deg));
     }
 
-    #app [data-tilt]:hover :is(.portfolio-card, .gallery-window):hover {
+    #app [data-tilt]:hover .portfolio-card:hover {
         --tilt-lift: -2px;
     }
 
-    #app [data-tilt] :is(.portfolio-card, .gallery-window).is-tilting {
+    #app [data-tilt] .portfolio-card.is-tilting {
         transition:
             border-color var(--duration-fast) var(--ease-smooth-out),
             background-color var(--duration-fast) var(--ease-smooth-out),

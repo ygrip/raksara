@@ -2166,7 +2166,6 @@ body {
 .home-info-card-link:hover {
     border-color: rgba(var(--accent-rgb), 0.5);
     background: var(--bg-glass);
-    transform: translateY(-2px);
 }
 
 .home-info-card-icon {
@@ -2337,7 +2336,6 @@ body {
 .post-card:hover {
     border-color: var(--accent-border);
     background: var(--bg-hover);
-    transform: translateY(-3px) scale(1.005);
     box-shadow:
         0 8px 32px var(--accent-glow),
         0 2px 8px var(--shadow-color);
@@ -2541,9 +2539,6 @@ body {
     opacity: 1;
 }
 
-.post-card.has-thumb:hover .post-card-thumb img {
-    transform: scale(1.06);
-}
 
 .post-card.has-thumb .post-card-body {
     padding: 20px 24px;
@@ -2596,7 +2591,6 @@ body {
 
 .portfolio-card:hover {
     border-color: var(--accent-border);
-    transform: translateY(-4px);
     box-shadow:
         0 12px 40px var(--accent-glow),
         0 4px 12px var(--shadow-color);
@@ -2794,7 +2788,6 @@ body {
 }
 
 .timeline .portfolio-card:hover {
-    transform: translateX(4px);
     box-shadow: 0 8px 24px var(--accent-glow);
 }
 
@@ -3232,7 +3225,6 @@ body {
 }
 
 .thought-card:hover {
-    transform: translateY(-2px);
     border-color: var(--accent-border);
     box-shadow: 0 8px 32px var(--accent-glow);
 }
@@ -3627,7 +3619,7 @@ body {
     transition: var(--transition-hover);
 }
 
-.tag:hover {
+a.tag:hover {
     color: var(--accent);
     border-color: var(--accent-border);
     background: var(--accent-subtle);

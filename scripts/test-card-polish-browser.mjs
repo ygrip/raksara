@@ -31,13 +31,24 @@ try {
       const first = wrappers.first();
       await first.locator('a').first().focus();
       await page.waitForTimeout(350);
-      assert((await first.locator(':scope > div').boundingBox()).width > (await first.boundingBox()).width * 1.025, 'focused card visibly zooms');
+      const focusedCard = await first.locator(':scope > div').boundingBox();
+      const focusedWrapper = await first.boundingBox();
+      assert(Math.abs(focusedCard.width - focusedWrapper.width) < 1, 'focused card remains stationary');
       if (await wrappers.count() > 1) {
         const sibling = wrappers.nth(1);
-        assert((await sibling.locator(':scope > div').boundingBox()).width < (await sibling.boundingBox()).width * .99, 'other cards shrink to emphasize focus');
+        const siblingCard = await sibling.locator(':scope > div').boundingBox();
+        const siblingWrapper = await sibling.boundingBox();
+        assert(Math.abs(siblingCard.width - siblingWrapper.width) < 1, 'sibling card does not shrink on focus');
       }
       await page.evaluate(() => document.activeElement.blur());
     }
+    const featuredCard = grid.locator('.portfolio-card').first();
+    await featuredCard.hover();
+    await page.waitForFunction(() => {
+      const card = document.querySelector('.portfolio-grid .portfolio-card.is-tilt-active');
+      const glare = card?.querySelector(':scope > .t-tilt-glare');
+      return glare && Number(getComputedStyle(glare).opacity) > 0.05;
+    });
     await page.setViewportSize({ width: 375, height: 812 });
     await grid.scrollIntoViewIfNeeded();
     await page.waitForTimeout(350);
@@ -88,6 +99,6 @@ try {
     assert.equal(await chip.locator('.meta-value').evaluate(el => getComputedStyle(el).transform), 'none', 'live reduced motion disables text movement');
     assert.deepEqual(errors, []);
     await page.close();
-    console.log(`${theme}: bento grid, zoom/shrink focus, avatar pulse, 3D/shimmer, stable chips, appearing metadata text and reduced motion passed at ${base}`);
+    console.log(`${theme}: bento grid, stationary focus, portfolio tilt and shimmer, avatar pulse, 3D/shimmer, stable chips, appearing metadata text and reduced motion passed at ${base}`);
   }
 } finally { await browser.close(); }

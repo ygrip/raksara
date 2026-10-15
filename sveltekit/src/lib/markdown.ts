@@ -206,14 +206,12 @@ function injectComponents(
       .map((entry) => {
         const title = escapeHtml(entry.title || 'Untitled');
         const desc = escapeHtml(entry.summary || entry.description || '');
-        const icon = entry.icon ? `<span class="component-card-icon">${escapeHtml(entry.icon)}</span>` : '';
-        const status = entry.status || '';
+        const status = entry.status?.toLowerCase() === 'available' ? '' : (entry.status || '');
         const statusClass = status ? ` status-${status.toLowerCase().replace(/\s+/g, '-')}` : '';
         const href = `/${entry.slug || ''}`;
         return `<a href="${escapeHtml(href)}" class="component-card glass" data-title="${escapeHtml((entry.title || '').toLowerCase())}" data-desc="${escapeHtml((entry.summary || entry.description || '').toLowerCase())}">
-          <div class="component-card-header">${icon}<span class="component-card-title">${title}</span></div>
+          <div class="component-card-header"><span class="component-card-title">${title}</span>${status ? `<span class="component-card-status${escapeHtml(statusClass)}">${escapeHtml(status)}</span>` : ''}</div>
           ${desc ? `<p class="component-card-desc">${desc}</p>` : ''}
-          <div class="component-card-footer">${status ? `<span class="component-card-status${escapeHtml(statusClass)}">${escapeHtml(status)}</span>` : ''}<span class="component-card-link">See details <span aria-hidden="true">→</span></span></div>
         </a>`;
       })
       .join('');

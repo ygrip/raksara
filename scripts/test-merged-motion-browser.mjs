@@ -64,6 +64,10 @@ try {
     await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.4);
     if (reducedMotion === 'no-preference') {
       await page.waitForFunction(() => document.querySelector('[data-tilt] .portfolio-card.is-tilt-active'));
+      await page.waitForFunction(() => {
+        const glare = document.querySelector('[data-tilt] .portfolio-card.is-tilt-active > .t-tilt-glare');
+        return glare && Number(getComputedStyle(glare).opacity) > 0.05;
+      });
       await page.emulateMedia({ reducedMotion: 'reduce' });
     }
     assert.equal(await card.evaluate((el) => getComputedStyle(el).transform.startsWith('matrix3d')), false, 'reduced motion removes 3D tilt immediately');

@@ -149,10 +149,6 @@ export function attachHeroTilt(hero: HTMLElement): () => void {
   };
 }
 
-/** Reuse the stationary-wrapper tilt for linked home cards, with Svelte cleanup. */
-export function cardDepth(node: HTMLElement) {
-  return { destroy: attachHeroTilt(node) };
-}
 
 /** One-shot entrances, with a static accessible fallback without IO. */
 export function attachScrollReveals(
