@@ -42,6 +42,13 @@ try {
       }
       await page.evaluate(() => document.activeElement.blur());
     }
+    const featuredCard = grid.locator('.portfolio-card').first();
+    await featuredCard.hover();
+    await page.waitForFunction(() => {
+      const card = document.querySelector('.portfolio-grid .portfolio-card.is-tilt-active');
+      const glare = card?.querySelector(':scope > .t-tilt-glare');
+      return glare && Number(getComputedStyle(glare).opacity) > 0.05;
+    });
     await page.setViewportSize({ width: 375, height: 812 });
     await grid.scrollIntoViewIfNeeded();
     await page.waitForTimeout(350);
@@ -92,6 +99,6 @@ try {
     assert.equal(await chip.locator('.meta-value').evaluate(el => getComputedStyle(el).transform), 'none', 'live reduced motion disables text movement');
     assert.deepEqual(errors, []);
     await page.close();
-    console.log(`${theme}: bento grid, stationary focus, avatar pulse, 3D/shimmer, stable chips, appearing metadata text and reduced motion passed at ${base}`);
+    console.log(`${theme}: bento grid, stationary focus, portfolio tilt and shimmer, avatar pulse, 3D/shimmer, stable chips, appearing metadata text and reduced motion passed at ${base}`);
   }
 } finally { await browser.close(); }
