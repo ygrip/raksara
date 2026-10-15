@@ -16,6 +16,34 @@
 	let shaderMounts: Array<{ host: HTMLElement; instance: Record<string, unknown> }> = [];
 	let detachMotion: () => void = () => {};
 
+	let profileFireflies: Record<string, unknown> | null = null;
+	let loadingProfileFireflies = false;
+	let firefliesDisposed = false;
+
+	/** Reuse the site's Fireflies.svelte renderer, mounted over the cover.
+	 * The layout unmounts its ambient instance on /profile, so there is only
+	 * one firefly system active at any time. */
+	async function initProfileFireflies() {
+		if (firefliesDisposed || profileFireflies || loadingProfileFireflies || !containerEl) return;
+		const hero = containerEl.querySelector<HTMLElement>('.profile-hero');
+		const cover = hero?.querySelector<HTMLElement>('#profile-hero-bg');
+		if (!hero || !cover?.dataset['src']) return;
+		const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+		if (connection?.saveData || matchMedia('(prefers-reduced-transparency: reduce), (forced-colors: active)').matches) return;
+		loadingProfileFireflies = true;
+		try {
+			const { default: Fireflies } = await import('$lib/components/Fireflies.svelte');
+			if (!firefliesDisposed && hero.isConnected && !profileFireflies) {
+				profileFireflies = mount(Fireflies, { target: hero });
+			}
+		} catch (error) {
+			console.warn('[fireflies] Cover enhancement unavailable; keeping the profile cover.', error);
+		} finally {
+			loadingProfileFireflies = false;
+		}
+	}
+
+
 	/** Shader accents for the prerendered hero: glints on the cover image. */
 	async function initProfileShaders() {
 		const HeritageShader = await loadHeritageShader();
@@ -166,6 +194,7 @@
 			initProfileShare();
 			initAvatarEasterEgg();
 			void initProfileShaders();
+			void initProfileFireflies();
 			await initArticleFeatures(containerEl);
 		}
 	});
@@ -179,6 +208,7 @@
 			initProfileShare();
 			initAvatarEasterEgg();
 			void initProfileShaders();
+			void initProfileFireflies();
 			if (containerEl) await initArticleFeatures(containerEl);
 		})();
 	});
@@ -186,6 +216,9 @@
 	onDestroy(() => {
 		detachMotion();
 		destroyProfileShaders();
+		firefliesDisposed = true;
+		if (profileFireflies) void unmount(profileFireflies);
+		profileFireflies = null;
 		if (eggResetTimer) clearTimeout(eggResetTimer);
 		if (eggToastTimer) clearTimeout(eggToastTimer);
 	});
