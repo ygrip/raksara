@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { attachScrollDepth, attachScrollReveals } from '$lib/actions/scroll-motion';
+	import { tilt } from '$lib/actions/tilt';
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
 	import { dotFieldImages } from '$lib/dot-field';
@@ -242,7 +243,7 @@
 					{#if section.description}
 						<p class="home-section-desc">{section.description}</p>
 					{/if}
-					<div class="portfolio-grid">
+					<div class="portfolio-grid" use:tilt={{ selector: '.portfolio-card' }}>
 						{#each items as item}
 							<div class="home-card-depth">
 							<div class="portfolio-card">
@@ -481,7 +482,7 @@
 				<h2>Projects</h2>
 				<a href="/portfolio" aria-label="All portfolio projects">All portfolio projects →</a>
 			</div>
-			<div class="portfolio-grid">
+			<div class="portfolio-grid" use:tilt={{ selector: '.portfolio-card' }}>
 				{#each bundle.portfolio.slice(0, 4) as item}
 					<div class="home-card-depth">
 					<div class="portfolio-card">
