@@ -141,10 +141,10 @@
 				{/if}
 				<div class="post-card-meta" aria-label="Post metadata">
 					<time datetime={post.date}>{formatDate(post.date)}</time>
+					{#if post.status}<span class="status-chip status-{post.status}">{post.status}</span>{/if}
 					{#if post.category}
 						<span class="post-card-category">{post.category}</span>
 					{/if}
-					{#if post.status}<span class="status-chip status-{post.status}">{post.status}</span>{/if}
 				</div>
 				<div class="post-card-tags">
 					{#each (post.tags ?? []) as tag}
