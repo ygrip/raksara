@@ -122,7 +122,7 @@ try {
     id: SECTION_ID,
     title,
     enabled: true,
-    ...(description ? { description } : {}),
+    // Link labels and per-link details already explain the directory.
     items: links,
   };
 
