@@ -25,18 +25,20 @@
 {#if docs.length}
 	<div class="component-list-wrap">
 		<div class="component-list-search-wrap">
-			<input class="component-list-search" type="search" bind:value={query} placeholder="Filter components..." aria-label="Filter components" />
+			<svg class="component-list-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5" stroke-linecap="round"/></svg>
+			<input class="component-list-search" type="search" bind:value={query} placeholder="Find a component..." aria-label="Filter components" />
+			{#if query.trim()}<span class="component-list-filter-count" aria-live="polite">{filteredDocs.length} of {docs.length}</span>{/if}
 		</div>
 		<div class="component-list">
-			{#each filteredDocs as doc}
+			{#each filteredDocs as doc (doc.slug)}
 				<a href="/{doc.slug}" class="component-card">
-					<div class="component-card-header">
-						<h3 class="component-card-title">{doc.title}</h3>
+					<div class="component-card-kicker">
+						<span class="component-card-index" aria-hidden="true">{String(docs.indexOf(doc) + 1).padStart(2, '0')}</span>
 						{#if doc.status && doc.status.toLowerCase() !== "available"}<span class="component-card-status status-{doc.status.toLowerCase()}">{doc.status}</span>{/if}
 					</div>
-					{#if doc.summary}
-						<p class="component-card-desc">{doc.summary}</p>
-					{/if}
+					<div class="component-card-header"><h3 class="component-card-title">{doc.title}</h3></div>
+					{#if doc.summary}<p class="component-card-desc">{doc.summary}</p>{/if}
+					<span class="component-card-arrow" aria-hidden="true"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span>
 				</a>
 			{/each}
 			{#if filteredDocs.length === 0}

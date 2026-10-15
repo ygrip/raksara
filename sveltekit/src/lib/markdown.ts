@@ -203,19 +203,21 @@ function injectComponents(
     if (!matching.length) return '';
     const listId = `cl-${Math.random().toString(36).slice(2, 10)}`;
     const cards = matching
-      .map((entry) => {
+      .map((entry, index) => {
         const title = escapeHtml(entry.title || 'Untitled');
         const desc = escapeHtml(entry.summary || entry.description || '');
         const status = entry.status?.toLowerCase() === 'available' ? '' : (entry.status || '');
         const statusClass = status ? ` status-${status.toLowerCase().replace(/\s+/g, '-')}` : '';
         const href = `/${entry.slug || ''}`;
         return `<a href="${escapeHtml(href)}" class="component-card glass" data-title="${escapeHtml((entry.title || '').toLowerCase())}" data-desc="${escapeHtml((entry.summary || entry.description || '').toLowerCase())}">
-          <div class="component-card-header"><span class="component-card-title">${title}</span>${status ? `<span class="component-card-status${escapeHtml(statusClass)}">${escapeHtml(status)}</span>` : ''}</div>
+          <div class="component-card-kicker"><span class="component-card-index" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span>${status ? `<span class="component-card-status${escapeHtml(statusClass)}">${escapeHtml(status)}</span>` : ''}</div>
+          <div class="component-card-header"><span class="component-card-title">${title}</span></div>
           ${desc ? `<p class="component-card-desc">${desc}</p>` : ''}
+          <span class="component-card-arrow" aria-hidden="true"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span>
         </a>`;
       })
       .join('');
-    return `<div class="component-list-wrap"><div class="component-list-search-wrap"><input class="component-list-search" type="search" placeholder="Filter components..." aria-label="Filter components" data-list="${listId}"></div><div class="component-list" id="${listId}">${cards}</div></div>`;
+    return `<div class="component-list-wrap"><div class="component-list-search-wrap"><svg class="component-list-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5" stroke-linecap="round"/></svg><input class="component-list-search" type="search" placeholder="Find a component..." aria-label="Filter components" data-list="${listId}"></div><div class="component-list" id="${listId}">${cards}</div></div>`;
   });
 }
 
