@@ -2445,31 +2445,10 @@ async function renderProfilePagePrerender(pages, imageManifest, portfolioItems =
   );
 
 
-  // Decorative cover-local lights stay above the image, never above the identity card.
-  // Fixed positions and opacity-only animation avoid layout work on every frame.
-  const coverStars = [
-    [8, 18, 3.3, -0.8], [21, 43, 4.2, -2], [33, 13, 3.5, -2.4],
-    [47, 27, 4.6, -3.2], [60, 10, 3.4, -1.5], [72, 26, 4.1, -2.3],
-    [85, 51, 3.7, -2.9], [93, 16, 3.9, -0.7], [15, 75, 4.7, -4.3],
-  ];
-  const coverFireflies = [
-    [5, 33, 64, 6.2, -1], [17, 61, 48, 7.1, -4], [27, 28, 52, 5.8, -2],
-    [38, 70, 62, 8.1, -6], [50, 12, 58, 6.6, -3], [58, 56, 50, 7.7, -5],
-    [70, 17, 66, 5.9, -2.5], [80, 65, 46, 8.3, -4.5], [91, 29, 60, 6.9, -1.5],
-    [14, 87, 50, 7.3, -6.5], [63, 81, 57, 5.6, -3.8], [93, 83, 42, 8.7, -2.8],
-  ];
-  const coverParticlesHtml = [
-    ...coverStars.map(([x, y, period, delay]) =>
-      '<span class="profile-cover-star" style="--px:' + x + '%;--py:' + y + '%;--period:' + period + 's;--delay:' + delay + 's"></span>'),
-    ...coverFireflies.map(([x, y, size, period, delay]) =>
-      '<span class="profile-cover-firefly" style="--px:' + x + '%;--py:' + y + '%;--size:' + size + 'px;--period:' + period + 's;--delay:' + delay + 's"></span>'),
-  ].join('');
-
   return `<div class="profile-hero" id="profile-hero">
       <div class="profile-hero-bg" id="profile-hero-bg" data-src="${escapeHtml(coverPublicUrl)}"${heroBgStyle}></div>
       <div class="profile-hero-skeleton"></div>
       <div class="profile-hero-overlay"></div>
-      ${coverUrl ? `<div class="profile-cover-particles" aria-hidden="true">${coverParticlesHtml}</div>` : ""}
       <div class="profile-hero-share profile-share-desktop">${shareButtonHtml}</div>
       <div class="profile-hero-content">
         <div class="profile-card">
