@@ -893,10 +893,19 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 #app .profile-avatar-wrap.loaded .profile-avatar {
   animation: none;
 }
+/* A quiet medallion breath with a separately expanding hairline halo. */
+@keyframes profileAuraBreath {
+  0%, 100% { opacity: .6; transform: scale(.98); }
+  50% { opacity: 1; transform: scale(1.055); }
+}
+@keyframes profileAvatarBreath {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
 @media (prefers-reduced-motion: no-preference) {
-  #app .profile-avatar-wrap.loaded::before { animation: avatarRipple 2.8s ease-out infinite; }
-  #app .profile-avatar-wrap.loaded::after { animation: avatarRipple 2.8s ease-out 1.4s infinite; }
-  #app .profile-avatar-wrap.loaded .profile-avatar { animation: avatarPulse 3s ease-in-out infinite; }
+  #app .profile-avatar-wrap.loaded::before { animation: profileAuraBreath 4s ease-in-out infinite; }
+  #app .profile-avatar-wrap.loaded::after { animation: avatarRipple 4s ease-out .8s infinite; }
+  #app .profile-avatar-wrap.loaded .profile-avatar { animation: profileAvatarBreath 4s ease-in-out infinite; }
 }
 
 /* Profile facts: one glass strip, label over value, hairline dividers; no nested pills. */

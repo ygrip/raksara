@@ -69,7 +69,7 @@
 				renderer.registerNode('root', rootPassthrough.fragment, null, null, {}, rootPassthrough);
 				const effect = Sparkle;
 				const props = {
-					size: 64, intensity: 11, threshold: 0.62, expand: 0, rayLength: 9, colorize: 0.6, speed: 0.6, seed: 3
+					size: 64, intensity: 11, threshold: 0.56, expand: 0, rayLength: 9, colorize: 0.6, speed: 1.1, seed: 3
 				};
 				const source = ImageTexture;
 				const sourceProps = { url: src, objectFit: 'cover' };
