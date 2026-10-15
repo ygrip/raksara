@@ -58,17 +58,17 @@ try {
     await copy.click();
     await page.waitForFunction(() => document.querySelector('#merged-motion-fixture .t-icon-swap').dataset.state === 'a');
     await page.goto(new URL('/portfolio/', base).href);
-    const card = page.locator('[data-tilt] .portfolio-card').first();
+    const card = page.locator('.timeline .portfolio-card').first();
     await card.scrollIntoViewIfNeeded();
     const box = await card.boundingBox();
     await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.4);
-    if (reducedMotion === 'no-preference') {
-      await page.waitForFunction(() => document.querySelector('[data-tilt] .portfolio-card.is-tilt-active'));
-      await page.emulateMedia({ reducedMotion: 'reduce' });
-    }
-    assert.equal(await card.evaluate((el) => getComputedStyle(el).transform.startsWith('matrix3d')), false, 'reduced motion removes 3D tilt immediately');
+    assert.equal(await card.evaluate((el) => getComputedStyle(el).transform), 'none', 'portfolio cards do not move on hover');
     assert.equal(await page.locator('.t-tilt-glare:visible').count(), 0);
-    console.log(`${reducedMotion}: theme swap, accessible accordion, clipboard failure/success/reset and reduced-motion portfolio tilt passed`);
+    if (reducedMotion === 'no-preference') {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      assert.equal(await card.evaluate((el) => getComputedStyle(el).transform), 'none', 'reduced motion leaves cards stationary');
+    }
+    console.log(`${reducedMotion}: theme swap, accessible accordion, clipboard failure/success/reset and stationary portfolio cards passed`);
     await page.close();
   }
   assert.deepEqual(errors, [], 'no uncaught browser errors');
