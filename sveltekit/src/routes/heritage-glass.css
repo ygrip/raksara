@@ -585,7 +585,7 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 #app .blog-dir-chip svg { color: var(--hg-accent-text); opacity: 1; }
 /* Rounded, tabular counters keep theme-native ink on a stronger accent surface. */
 #app :is(.blog-dir-count, .chapters-dir-badge) { display: inline-flex; align-items: center; justify-content: center; min-width: 32px; min-height: 28px; padding: 4px 9px; border: 1px solid color-mix(in srgb, var(--hg-accent-text) 55%, var(--hg-surface)); border-radius: 999px; color: var(--text-primary); background: color-mix(in srgb, var(--hg-accent-text) 22%, var(--hg-surface)); opacity: 1; font-size: 14px; font-weight: 750; line-height: 1.2; font-variant-numeric: tabular-nums; flex-shrink: 0; }
-#app :is(.blog-dir-chip, .tag, .post-card-category):hover {
+#app :is(.blog-dir-chip, a.tag, a.post-card-category):hover {
   color: var(--text-primary); background: var(--hg-surface); border-color: var(--hg-accent-text);
   box-shadow: inset 0 0 0 1px var(--hg-accent-text);
 }
