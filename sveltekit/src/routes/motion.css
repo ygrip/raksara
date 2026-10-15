@@ -569,3 +569,79 @@ html.is-reading body.reading-mode #app .article-top-bar .article-actions {
         transform: none !important;
     }
 }
+
+/* ── Portfolio card tilt and cursor shimmer ─────────────────
+   Driven by lib/actions/tilt.ts, delegated from a flat [data-tilt]
+   container. The hover lift is folded into the same function list so
+   the tilt composes with it instead of replacing it. Fine pointers
+   only; reduced motion keeps the flat hover. */
+:root {
+    --tilt-perspective: 1000px;
+    --tilt-return: 1000ms;
+    --tilt-follow: 400ms;
+    --tilt-glare-opacity: 0.22;
+    --tilt-glare-fade: 300ms;
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    #app [data-tilt] .portfolio-card {
+        position: relative;
+        transition:
+            border-color var(--duration-fast) var(--ease-smooth-out),
+            background-color var(--duration-fast) var(--ease-smooth-out),
+            box-shadow var(--duration-fast) var(--ease-smooth-out),
+            transform var(--tilt-return) var(--ease-smooth-out);
+    }
+
+    #app [data-tilt]:hover .portfolio-card {
+        transform:
+            perspective(var(--tilt-perspective))
+            translateY(var(--tilt-lift, 0px))
+            rotateX(var(--tilt-rx, 0deg))
+            rotateY(var(--tilt-ry, 0deg));
+    }
+
+    #app [data-tilt]:hover .portfolio-card:hover {
+        --tilt-lift: -2px;
+    }
+
+    #app [data-tilt] .portfolio-card.is-tilting {
+        transition:
+            border-color var(--duration-fast) var(--ease-smooth-out),
+            background-color var(--duration-fast) var(--ease-smooth-out),
+            box-shadow var(--duration-fast) var(--ease-smooth-out),
+            transform var(--tilt-follow) var(--ease-smooth-out);
+    }
+
+    /* Cursor-tracked glare: soft circles that add like light. */
+    .t-tilt-glare {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        border-radius: inherit;
+        pointer-events: none;
+        opacity: 0;
+        mix-blend-mode: screen;
+        background:
+            radial-gradient(circle 95px at var(--tilt-gx, 50%) var(--tilt-gy, 50%),
+                rgba(255, 255, 255, 0.48), rgba(255, 255, 255, 0.06) 52%, rgba(255, 255, 255, 0) 84%),
+            radial-gradient(circle 200px at var(--tilt-gx, 50%) var(--tilt-gy, 50%),
+                rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04) 58%, rgba(255, 255, 255, 0) 78%),
+            radial-gradient(circle 360px at var(--tilt-gx, 50%) var(--tilt-gy, 50%),
+                rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0) 88%);
+        transition: opacity var(--tilt-glare-fade) var(--ease-smooth-out);
+    }
+
+    .is-tilt-active > .t-tilt-glare {
+        opacity: var(--tilt-glare-opacity);
+    }
+
+    /* Light surfaces: screen adds almost nothing, so soften with overlay. */
+    [data-theme="light"] .t-tilt-glare {
+        mix-blend-mode: soft-light;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .t-tilt-glare { display: none; }
+}
