@@ -31,16 +31,12 @@
 			{#each filteredDocs as doc}
 				<a href="/{doc.slug}" class="component-card">
 					<div class="component-card-header">
-						{#if doc.icon}<span class="component-card-icon">{doc.icon}</span>{/if}
 						<h3 class="component-card-title">{doc.title}</h3>
-						{#if doc.status}<span class="component-card-status status-{doc.status.toLowerCase()}">{doc.status}</span>{/if}
+						{#if doc.status && doc.status.toLowerCase() !== "available"}<span class="component-card-status status-{doc.status.toLowerCase()}">{doc.status}</span>{/if}
 					</div>
 					{#if doc.summary}
 						<p class="component-card-desc">{doc.summary}</p>
 					{/if}
-					<div class="component-card-footer">
-						<span class="component-card-link">See detail →</span>
-					</div>
 				</a>
 			{/each}
 			{#if filteredDocs.length === 0}
