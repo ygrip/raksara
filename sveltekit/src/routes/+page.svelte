@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { cardDepth, attachScrollDepth, attachScrollReveals } from '$lib/actions/scroll-motion';
-	import { tilt } from '$lib/actions/tilt';
+	import { attachScrollDepth, attachScrollReveals } from '$lib/actions/scroll-motion';
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
 	import { dotFieldImages } from '$lib/dot-field';
@@ -245,7 +244,7 @@
 					{/if}
 					<div class="portfolio-grid">
 						{#each items as item}
-							<div class="home-card-depth" use:cardDepth>
+							<div class="home-card-depth">
 							<div class="portfolio-card">
 								<a
 									href={portfolioHref(item.slug)}
@@ -294,7 +293,7 @@
 					<div class="home-info-cards">
 						{#each section.items as item}
 							{#if item.href}
-								<div class="home-card-depth" use:cardDepth>
+								<div class="home-card-depth">
 								<div class="home-info-card home-info-card-link">
 									<a
 										href={rewriteTaxonomyHref(item.href, config)}
@@ -386,7 +385,7 @@
 			{#if gallery && gallery.length > 0}
 				{@const stackSources = galleryCover ? [galleryCover, galleryCover, galleryCover] : gallery.slice(0, 3).map((g) => g.image ?? g.images?.[0]?.src ?? '')}
 				{#if stackSources.length}
-					<div class="home-section" use:tilt={{ selector: '.gallery-window', max: 6 }}>
+					<div class="home-section">
 						{#if section.title}
 							<div class="home-section-header">
 								<h2>{section.title}</h2>
@@ -484,7 +483,7 @@
 			</div>
 			<div class="portfolio-grid">
 				{#each bundle.portfolio.slice(0, 4) as item}
-					<div class="home-card-depth" use:cardDepth>
+					<div class="home-card-depth">
 					<div class="portfolio-card">
 						<div class="portfolio-card-title"><a href={portfolioHref(item.slug)}>{item.title}</a></div>
 						{#if item.summary}<div class="portfolio-card-summary">{item.summary}</div>{/if}
@@ -511,7 +510,7 @@
 	{#if gallery && gallery.length > 0}
 		{@const stackSources = galleryCover ? [galleryCover, galleryCover, galleryCover] : gallery.slice(0, 3).map((g) => g.image ?? g.images?.[0]?.src ?? '')}
 		{#if stackSources.length}
-			<div class="home-section" use:tilt={{ selector: '.gallery-window', max: 6 }}>
+			<div class="home-section">
 				<div class="gallery-window">
 					<a href="/gallery" class="gallery-window-link" aria-label="View gallery">
 						<div class="gallery-window-chrome">
