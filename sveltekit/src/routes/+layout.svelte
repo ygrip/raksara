@@ -343,16 +343,57 @@
 			});
 		};
 
+		// Cap visual post tags at two rows; the gradient appears only if chips
+		// actually overflow. One observer tracks viewport/layout changes for all
+		// cards, including prerendered home content and client-side navigation.
+		const trackedTagRows = new Set<HTMLElement>();
+		const syncTagOverflow = (tags: HTMLElement) => {
+			tags.classList.toggle('is-overflowing', tags.scrollHeight > tags.clientHeight + 1);
+		};
+		const tagResizeObserver = new ResizeObserver((entries) => {
+			for (const { target } of entries) if (target instanceof HTMLElement) syncTagOverflow(target);
+		});
+		const observeTagRows = (root: ParentNode) => {
+			const track = (tags: HTMLElement) => {
+				if (trackedTagRows.has(tags)) return;
+				trackedTagRows.add(tags);
+				tagResizeObserver.observe(tags);
+				syncTagOverflow(tags);
+			};
+			if (root instanceof HTMLElement && root.matches('.post-card-tags')) track(root);
+			root.querySelectorAll<HTMLElement>('.post-card-tags').forEach(track);
+		};
+		const forgetTagRows = (root: HTMLElement) => {
+			const forget = (tags: HTMLElement) => {
+				tagResizeObserver.unobserve(tags);
+				trackedTagRows.delete(tags);
+			};
+			if (root.matches('.post-card-tags')) forget(root);
+			root.querySelectorAll<HTMLElement>('.post-card-tags').forEach(forget);
+		};
+
 		prepareImages();
+		observeTagRows(document);
 		const imageObserver = new MutationObserver((mutations) => {
 			for (const mutation of mutations) {
+				// Chips may change without the card changing size; check the new rows.
+				if (mutation.target instanceof HTMLElement) {
+					const tags = mutation.target.closest<HTMLElement>('.post-card-tags');
+					if (tags) syncTagOverflow(tags);
+				}
+				mutation.removedNodes.forEach((node) => {
+					if (node instanceof HTMLElement) forgetTagRows(node);
+				});
 				mutation.addedNodes.forEach((node) => {
 					if (node instanceof HTMLImageElement) {
 						prepareProgressiveImage(node);
 						if (node.complete) settleLoadedImage(node);
 						return;
 					}
-					if (node instanceof HTMLElement) prepareImages(node);
+					if (node instanceof HTMLElement) {
+						prepareImages(node);
+						observeTagRows(node);
+					}
 				});
 			}
 		});
@@ -410,6 +451,8 @@
 			window.removeEventListener('keydown', onGlobalSearchKey);
 			document.removeEventListener('raksara-theme-change', onDiagramThemeChange);
 			imageObserver.disconnect();
+			tagResizeObserver.disconnect();
+			trackedTagRows.clear();
 			if (injectAdsense) {
 				['pointerdown', 'scroll', 'keydown'].forEach((ev) =>
 					window.removeEventListener(ev, injectAdsense as EventListener, true)
