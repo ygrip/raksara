@@ -32,8 +32,22 @@ function routeFromNav(value: unknown): PostNav | null {
 
 function stripLeadingTitle(md: string, title?: string | null): string {
   if (!title) return md;
-  const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return md.replace(new RegExp(`^\\s*#\\s+${escaped}\\s*\\n+`, 'i'), '');
+  const normalized = title.replace(/\\s+/g, ' ').trim().toLowerCase();
+  const lines = md.split(/\\r?\\n/);
+
+  // A title can follow the TOC directive and metadata chips, not just appear
+  // on the first line. Only inspect the preamble: a later H1 is real content.
+  for (let i = 0; i < Math.min(lines.length, 20); i++) {
+    const line = lines[i].trim();
+    if (!line || /^::toc(?:\\(|\\s|$)/i.test(line) || /^(?:<chip\\b[^>]*>.*?<\\/chip>\\s*)+$/i.test(line)) continue;
+    const heading = line.match(/^#\\s+(.+?)\\s*#*\\s*$/);
+    if (heading && heading[1].replace(/\\s+/g, ' ').trim().toLowerCase() === normalized) {
+      lines.splice(i, 1);
+      return lines.join('\\n');
+    }
+    break;
+  }
+  return md;
 }
 
 export const prerender = true;
