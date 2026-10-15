@@ -1881,89 +1881,11 @@ a.home-info-card-link:hover,
 }
 
 
-/* Cover-local lights float above the actual image and its darkening overlay,
-   but stay behind the profile identity card and share controls. */
-.profile-cover-particles {
-    position: absolute;
-    inset: 0;
+/* Render the existing Fireflies.svelte layer over the profile cover,
+   beneath the identity card and share controls. Hero overflow clips the
+   worker canvas and DOM fallback to the image, not the rest of the page. */
+#app .profile-hero > .fireflies-layer {
     z-index: 4;
-    overflow: hidden;
-    pointer-events: none;
-    contain: layout paint;
-}
-
-.profile-cover-particles > span {
-    position: absolute;
-    left: var(--px);
-    top: var(--py);
-    opacity: 0;
-    will-change: opacity;
-}
-
-.profile-cover-star {
-    width: 14px;
-    height: 14px;
-    margin: -7px;
-    color: color-mix(in srgb, var(--accent) 16%, #fff9e6);
-    animation: profileCoverStarFlash var(--period) ease-in-out var(--delay) infinite;
-}
-
-.profile-cover-star::before {
-    content: '✦';
-    display: block;
-    font-size: 14px;
-    line-height: 14px;
-    text-align: center;
-    text-shadow: 0 0 8px rgb(255 250 226 / .8), 0 0 16px var(--accent);
-}
-
-.profile-cover-firefly {
-    width: var(--size);
-    height: var(--size);
-    margin: calc(var(--size) / -2);
-    border-radius: 50%;
-    background: radial-gradient(circle closest-side,
-        color-mix(in srgb, var(--accent) 15%, #fff9df) 0 6%,
-        color-mix(in srgb, var(--accent) 65%, transparent) 18%,
-        color-mix(in srgb, var(--accent) 24%, transparent) 47%,
-        transparent 100%);
-    animation: profileCoverFireflyGlow var(--period) ease-in-out var(--delay) infinite;
-}
-
-:root[data-theme='light'] .profile-cover-star {
-    color: color-mix(in srgb, var(--accent) 60%, #fff4d8);
-}
-:root[data-theme='light'] .profile-cover-firefly {
-    background: radial-gradient(circle closest-side,
-        color-mix(in srgb, var(--accent) 35%, #fff8d9) 0 6%,
-        color-mix(in srgb, var(--accent) 50%, transparent) 22%,
-        transparent 100%);
-}
-
-@keyframes profileCoverStarFlash {
-    0%, 12%, 46%, 100% { opacity: 0; }
-    18% { opacity: .35; }
-    24% { opacity: 1; }
-    29% { opacity: .5; }
-    34% { opacity: .92; }
-    41% { opacity: 0; }
-}
-
-@keyframes profileCoverFireflyGlow {
-    0%, 100% { opacity: .13; }
-    27% { opacity: .58; }
-    52% { opacity: .25; }
-    76% { opacity: .82; }
-}
-
-@media (max-width: 768px) {
-    /* Fewer compositor layers on small screens, still several flashes per cycle. */
-    .profile-cover-star:nth-child(n + 8),
-    .profile-cover-firefly:nth-child(n + 17) { display: none; }
-}
-
-@media (prefers-reduced-motion: reduce), (prefers-reduced-transparency: reduce), (forced-colors: active) {
-    .profile-cover-particles { display: none; }
 }
 
 .profile-hero-share {
