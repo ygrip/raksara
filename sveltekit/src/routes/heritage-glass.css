@@ -447,6 +447,13 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
   font-weight: 600;
   letter-spacing: .01em;
 }
+
+/* At the narrowest phone sizes, preserve date + status on one line
+   without cutting the thumbnail or metadata off at the card boundary. */
+@media (max-width: 360px) {
+  #app .post-list > .post-card.has-thumb .post-card-thumb { width: 84px; }
+  #app .post-list > .post-card.has-thumb .post-card-body { padding-inline: 12px; }
+}
 #app .home-section-header { gap: 16px; }
 #app .home-section-header h2 { min-width: 0; text-wrap: balance; }
 #app .home-section-header > a { flex-shrink: 0; position: static; }
