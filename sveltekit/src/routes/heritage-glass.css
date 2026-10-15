@@ -1630,6 +1630,19 @@ body.reading-mode #app .article-header .article-meta { justify-content: center; 
   font: 700 11px/1.25 var(--font-sans);
   overflow-wrap: anywhere;
 }
+/* Meaningful lifecycle warnings stay distinguishable from decorative accents. */
+#app .component-list-wrap .component-card-status:is(.status-wip, .status-draft) {
+  background: rgb(245 158 11 / .12);
+  border-color: rgb(245 158 11 / .35);
+  color: #f5c064;
+}
+#app .component-list-wrap .component-card-status.status-deprecated {
+  background: rgb(239 68 68 / .12);
+  border-color: rgb(239 68 68 / .35);
+  color: #fca5a5;
+}
+:root[data-theme='light'] #app .component-list-wrap .component-card-status:is(.status-wip, .status-draft) { color: #92400e; }
+:root[data-theme='light'] #app .component-list-wrap .component-card-status.status-deprecated { color: #991b1b; }
 #app .component-list-wrap .component-list-empty {
   grid-column: 1 / -1;
   padding: 26px;
