@@ -410,7 +410,6 @@ a.home-info-card-link:hover,
 .gallery-window:hover {
     border-color: color-mix(in srgb, var(--accent) 28%, var(--border-color));
     background: color-mix(in srgb, var(--raksara-glass-strong) 90%, transparent);
-    transform: translateY(-2px);
     box-shadow: var(--card-shadow-hover);
 }
 
@@ -2972,7 +2971,7 @@ a.home-info-card-link:hover,
     font-weight: 600;
 }
 
-.tag:hover {
+a.tag:hover {
     border-color: color-mix(in srgb, var(--accent) 52%, var(--border-color));
     background: color-mix(in srgb, var(--accent) 20%, var(--bg-card));
     color: var(--text-primary);
@@ -2985,7 +2984,7 @@ a.home-info-card-link:hover,
     color: color-mix(in srgb, var(--accent) 55%, #10201a);
 }
 
-[data-theme="light"] .tag:hover {
+[data-theme="light"] a.tag:hover {
     background: color-mix(in srgb, var(--accent) 16%, #ffffff);
     color: color-mix(in srgb, var(--accent) 40%, #0b1611);
 }
