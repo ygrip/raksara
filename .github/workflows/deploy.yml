@@ -157,7 +157,7 @@ jobs:
         if: ${{ !cancelled() && steps.search-console-auth.outcome == 'failure' }}
         run: echo "::warning::Search Console authentication failed; deployment is unaffected. Check GSC_SERVICE_ACCOUNT_JSON."
 
-      - name: Verify and submit live sitemap
+      - name: Submit sitemap to Google Search Console
         if: steps.search-console-auth.outcome == 'success'
         continue-on-error: true
         env:
@@ -165,5 +165,5 @@ jobs:
           GOOGLE_ACCESS_TOKEN: ${{ steps.search-console-auth.outputs.access_token }}
         run: |
           if ! python3 scripts/submit-sitemap.py; then
-            echo "::warning::Sitemap verification/submission failed; deployment is unaffected. Check the live sitemap and Search Console property permissions."
+            echo "::warning::Sitemap submission failed; deployment is unaffected. Check Google API access and Search Console property permissions."
           fi
