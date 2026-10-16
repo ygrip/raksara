@@ -8,6 +8,7 @@
     "build:sveltekit": "cd sveltekit && npm run build",
     "check:sveltekit": "cd sveltekit && npm run check",
     "test:dot-field": "node scripts/test-dot-field.mjs",
+    "test:border-beam": "node scripts/test-border-beam.mjs",
     "test:taxonomy": "node scripts/test-taxonomy.mjs",
     "test:taxonomy:policy": "node scripts/test-taxonomy-policy.mjs",
     "validate:seo:build": "node scripts/validate-seo-build.js",

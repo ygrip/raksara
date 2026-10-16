@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { tilt } from '$lib/actions/tilt';
+	import PortfolioBorderBeam from '$lib/components/PortfolioBorderBeam.svelte';
 	import type { PortfolioItem } from '$lib/types';
 	import ShareCard from '$lib/components/ShareCard.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
@@ -133,6 +134,7 @@
 			{#each group.items as item}
 				<div class="timeline-item">
 					<div class="portfolio-card">
+						{#if item.featured}<PortfolioBorderBeam />{/if}
 						<a
 							href={portfolioHref(item.slug)}
 							class="portfolio-card-surface"
