@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { attachScrollDepth, attachScrollReveals } from '$lib/actions/scroll-motion';
 	import { tilt } from '$lib/actions/tilt';
+	import PortfolioBorderBeam from '$lib/components/PortfolioBorderBeam.svelte';
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
 	import { dotFieldImages } from '$lib/dot-field';
@@ -248,6 +249,7 @@
 						{#each items as item}
 							<div class="home-card-depth">
 							<div class="portfolio-card">
+								{#if item.featured}<PortfolioBorderBeam />{/if}
 								<a
 									href={portfolioHref(item.slug)}
 									class="portfolio-card-surface"
@@ -488,6 +490,7 @@
 				{#each bundle.portfolio.slice(0, 4) as item}
 					<div class="home-card-depth">
 					<div class="portfolio-card">
+						{#if item.featured}<PortfolioBorderBeam />{/if}
 						<div class="portfolio-card-title"><a href={portfolioHref(item.slug)}>{item.title}</a></div>
 						{#if item.summary}<div class="portfolio-card-summary">{item.summary}</div>{/if}
 						{#if item.tags?.length}
