@@ -138,3 +138,32 @@ jobs:
           if [ "$HTTP" != "200" ]; then
             echo "::warning::Cloudflare cache purge returned HTTP $HTTP — you may need to purge manually"
           fi
+
+      # Opt in by setting GSC_SITE_URL and the service-account JSON secret.
+      # Authentication and submission are deliberately non-blocking for deployment.
+      - name: Authenticate to Google Search Console
+        id: search-console-auth
+        if: vars.GSC_SITE_URL != ''
+        continue-on-error: true
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.GSC_SERVICE_ACCOUNT_JSON }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/webmasters
+          create_credentials_file: false
+          export_environment_variables: false
+
+      - name: Warn about Search Console authentication failure
+        if: ${{ !cancelled() && steps.search-console-auth.outcome == 'failure' }}
+        run: echo "::warning::Search Console authentication failed; deployment is unaffected. Check GSC_SERVICE_ACCOUNT_JSON."
+
+      - name: Verify and submit live sitemap
+        if: steps.search-console-auth.outcome == 'success'
+        continue-on-error: true
+        env:
+          GSC_SITE_URL: ${{ vars.GSC_SITE_URL }}
+          GOOGLE_ACCESS_TOKEN: ${{ steps.search-console-auth.outputs.access_token }}
+        run: |
+          if ! python3 scripts/submit-sitemap.py; then
+            echo "::warning::Sitemap verification/submission failed; deployment is unaffected. Check the live sitemap and Search Console property permissions."
+          fi

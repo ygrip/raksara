@@ -173,6 +173,27 @@ The deploy workflow:
 5. Runs `npm run build:sveltekit`.
 6. Uploads `sveltekit/build` to GitHub Pages.
 
+### Optional: submit the sitemap to Google Search Console
+
+1. In a Google Cloud project, [enable the Search Console API](https://developers.google.com/webmaster-tools/v1/prereqs). Create a service account and a JSON key; keep the key out of Git.
+2. Verify your production site in Search Console. Add the service account's `client_email` as a **delegated owner** under the property's **Settings → Users and permissions**, using a verified-owner account. It needs access to the exact property used below; Google Cloud IAM roles alone do not grant Search Console access.
+3. Configure these settings in the engine repository (or its `github-pages` environment):
+
+   | Type | Name | Value |
+   |---|---|---|
+   | Variable | `GSC_SITE_URL` | Exact Search Console property ID: `sc-domain:example.com` or `https://example.com/` (include the URL-prefix property's trailing slash/path) |
+   | Secret | `GSC_SERVICE_ACCOUNT_JSON` | Complete service-account JSON key |
+
+4. Run **Deploy Site**. After deployment and the optional cache purge, the workflow authenticates, fetches `${SITE_URL}/sitemap.xml`, and requires an exact match with the built XML before calling the [Search Console sitemap submission API](https://developers.google.com/webmaster-tools/v1/sitemaps/submit). Publication/cache lag gets five attempts, ten seconds apart. Authentication and submission failures emit warnings, not failed deployments. Leave `GSC_SITE_URL` unset to disable submission.
+
+Successful submission tells Google where the sitemap is; it does **not** guarantee crawling or indexing. Check the property's Sitemaps report for processing results. Rotate the JSON key as a credential and remove its repository secret when no longer needed.
+
+Google documentation: [API authorization and scope](https://developers.google.com/webmaster-tools/v1/how-tos/authorizing), [service-account property access](https://developers.google.com/search/apis/indexing-api/v3/prereqs). The latter documents service-account access; this workflow uses the **Search Console API**, not the Indexing API.
+
+Do not use Google's [retired sitemap-ping endpoint](https://developers.google.com/search/blog/2023/06/sitemaps-lastmod-ping). The [Indexing API](https://developers.google.com/search/apis/indexing-api/v3/quickstart) only supports job-posting pages and livestream pages (`JobPosting`, or `BroadcastEvent` embedded in `VideoObject`), not ordinary blog or portfolio pages.
+
+Local regression checks: `python3 scripts/test-submit-sitemap.py`.
+
 ## Sensitive Data
 
 Do not commit actual secrets, tokens, private content, or generated build output. The repo ignores `content/`, `.env*`, `metadata/`, `sveltekit/build/`, and generated SvelteKit static content/metadata assets. Keep deploy credentials in GitHub Actions secrets.
