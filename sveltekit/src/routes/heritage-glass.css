@@ -578,6 +578,34 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
   -webkit-mask-size: contain; mask-size: contain;
   -webkit-mask-position: center; mask-position: center;
 }
+/* One light pass behind the label; the carved lotus keeps its own ::after. */
+#app .home-btn.home-btn-primary::before {
+  display: block; content: ''; position: absolute; inset: 0; z-index: -1;
+  width: auto; height: auto; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(105deg, transparent 30%, color-mix(in oklab, var(--hg-accent-text) 20%, transparent) 50%, transparent 70%);
+  transform: translateX(-110%); opacity: 0; transition: none; animation: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  #app .home-btn-primary:focus-visible::before {
+    animation: hg-button-sheen var(--duration-very-slow, 500ms) linear both;
+  }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  #app .home-btn-primary:hover::before {
+    animation: hg-button-sheen var(--duration-very-slow, 500ms) linear both;
+  }
+}
+@keyframes hg-button-sheen {
+  0% { transform: translateX(-110%); opacity: 0; }
+  20%, 80% { opacity: 1; }
+  100% { transform: translateX(110%); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce), (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  #app .home-btn.home-btn-primary::before { display: none; animation: none; }
+}
+@media print {
+  #app .home-btn.home-btn-primary::before { display: none; animation: none; }
+}
 #app .home-btn-primary:hover, #app .content-cards-more-btn:hover {
   border-color: var(--hg-accent-text);
   background: var(--hg-glass-fill-hover);
