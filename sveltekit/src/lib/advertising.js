@@ -18,17 +18,19 @@ export function toAdsenseClientId(value) {
  * Eligibility does NOT certify the content as policy-compliant.
  *
  * @param {string} pathname
- * @param {{ post?: { slug?: string, type?: string }, item?: { slug?: string }, renderedHtml?: string } | null | undefined} data
+ * @param {unknown} data
  */
 export function isAdEligibleContentPage(pathname, data) {
   const path = '/' + String(pathname ?? '').replace(/^\/+|\/+$/g, '');
-  if (!data || typeof data.renderedHtml !== 'string' || !data.renderedHtml.trim()) return false;
-  if (/^\/blog\/post\/.+/.test(path) && data.post?.slug) {
-    if (path !== '/blog/post/' + data.post.slug) return false;
-    return !['poem', 'novel', 'chapters', 'comic'].includes(data.post.type ?? 'blog');
+  if (!data || typeof data !== 'object') return false;
+  const content = /** @type {{ post?: { slug?: string, type?: string }, item?: { slug?: string }, renderedHtml?: string }} */ (data);
+  if (typeof content.renderedHtml !== 'string' || !content.renderedHtml.trim()) return false;
+  if (/^\/blog\/post\/.+/.test(path) && content.post?.slug) {
+    if (path !== '/blog/post/' + content.post.slug) return false;
+    return !['poem', 'novel', 'chapters', 'comic'].includes(content.post.type ?? 'blog');
   }
-  if (/^\/portfolio\/[^/]+$/.test(path) && data.item?.slug) {
-    return path === '/portfolio/' + data.item.slug;
+  if (/^\/portfolio\/[^/]+$/.test(path) && content.item?.slug) {
+    return path === '/portfolio/' + content.item.slug;
   }
   return false;
 }
