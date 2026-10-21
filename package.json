@@ -19,7 +19,9 @@
     "build": "npm run build:metadata && npm run validate:seo:build && npm run build:sveltekit && npm run validate:seo:dist",
     "test:adsense:readiness": "node scripts/test-adsense-readiness.mjs",
     "test:publication": "node scripts/test-publication-policy.mjs",
-    "validate:publication:dist": "node scripts/validate-publication-dist.cjs"
+    "validate:publication:dist": "node scripts/validate-publication-dist.cjs",
+    "test:content-date": "node scripts/test-content-date.mjs",
+    "validate:profile:metadata": "node scripts/test-content-date.mjs --verify-generated"
   },
   "keywords": [
     "blog",
