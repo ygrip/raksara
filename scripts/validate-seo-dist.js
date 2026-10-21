@@ -349,7 +349,11 @@ for (const kind of ['tag', 'category']) {
     error(`/${kind}/: shared taxonomy shell is missing built HTML`);
     continue;
   }
-  const shellHead = firstMatch(readFile(shellPath), /<head\b[^>]*>([\s\S]*?)<\/head>/i);
+  const shellHtml = readFile(shellPath);
+  const shellHead = firstMatch(shellHtml, /<head\b[^>]*>([\s\S]*?)<\/head>/i);
+  for (const href of ['/blog/', '/portfolio/']) {
+    if (!shellHtml.includes(`href="${href}"`)) error(`/${kind}/: noindex archive shell is missing useful static destination ${href}`);
+  }
   const robotsTags = [...shellHead.matchAll(/<meta\s+[^>]*name=["']robots["'][^>]*content=["']([^"']+)["'][^>]*>/gi)];
   if (robotsTags.length !== 1 || !/^noindex\s*,\s*follow$/i.test(robotsTags[0][1].trim())) {
     error(`/${kind}/: initial HTML must contain exactly one noindex, follow robots tag`);
