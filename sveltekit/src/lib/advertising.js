@@ -13,6 +13,7 @@ export function toAdsenseClientId(value) {
 
 /** @param {unknown} raw */
 function extractPublisher(raw) {
+  if (Array.isArray(raw)) return raw.length > 1 ? raw[1] : '';
   if (typeof raw === 'string') {
     const parts = raw.split(',').map(value => value.trim());
     return parts.length > 1 ? parts[1] : raw;
@@ -69,9 +70,14 @@ export function resolveAdsenseConfig(siteConfig) {
   const clientId = toAdsenseClientId(extractPublisher(raw));
   if (!clientId) return disabled;
   const publisherId = clientId.slice(3);
-  const rawRecord = typeof raw === 'string' && raw.includes(',') ? raw.trim() : '';
+  const rawRecord = typeof raw === 'string' && raw.includes(',') ? raw.trim()
+    : Array.isArray(raw) ? raw.map(value => String(value).trim()).join(', ') : '';
   const suppliedRecord = typeof options.ads_txt === 'string' ? options.ads_txt.trim() : '';
-  const adsTxtLine = suppliedRecord || rawRecord || `google.com, ${publisherId}, DIRECT`;
+  const sellerDomain = String(options.domain ?? options.network ?? options.host ?? 'google.com').trim();
+  const relationship = String(options.relationship ?? options.type ?? options.account_type ?? 'DIRECT').trim().toUpperCase();
+  const authorityId = String(options.cert ?? options.cert_id ?? options.certification ?? options.caid ?? '').trim();
+  const derivedRecord = [sellerDomain, publisherId, relationship, authorityId].filter(Boolean).join(', ');
+  const adsTxtLine = suppliedRecord || rawRecord || derivedRecord;
 
   return {
     enabled: true, clientId, publisherId, adsTxtLine,
