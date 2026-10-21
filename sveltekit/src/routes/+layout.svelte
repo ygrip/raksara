@@ -12,6 +12,7 @@
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
 	import AdcashAutoTag from '$lib/components/AdcashAutoTag.svelte';
 	import { getAdsenseId, getGiscusConfig } from '$lib/seo';
+	import { toAdsenseClientId, isAdEligibleContentPage } from '$lib/advertising.js';
 	import { assetUrl } from '$lib/utils';
 	import { themeTokens, earlyThemeScript } from '$lib/theme';
 	import { isTaxonomyPath, isIndexableTaxonomyPath } from '$lib/taxonomy.js';
@@ -93,6 +94,7 @@
 	const isDocsHref = (href: string) => /^\/(documentation|doc)(\/|$)/.test(href);
 	const nav = $derived((config?.nav ?? defaultNav).filter((link) => !isDocsHref(link.href)));
 	const adsenseId = $derived(config ? getAdsenseId(config) : '');
+	const adsenseClientId = $derived(toAdsenseClientId(adsenseId));
 	const giscusEnabled = $derived(config ? (getGiscusConfig(config)?.enabled ?? false) : false);
 	const googleVerificationTokens = $derived(config ? getGoogleVerificationTokens(config) : []);
 	const currentPath = $derived($page.url.pathname);
@@ -422,18 +424,21 @@
 		};
 		window.addEventListener('keydown', onGlobalSearchKey);
 
-		// AdSense: lazy-inject script only after first user interaction.
-		// Skip localhost/dev so blocked ad requests do not pollute console QA.
+		// Keep account verification in prerendered HTML. Load the provider script
+		// only after interaction with a content detail page, never on directories
+		// or navigation-only shells. A loaded provider script persists across SPA
+		// navigation; Auto Ads placement restrictions also need configuring in AdSense.
 		let injectAdsense: (() => void) | null = null;
 		const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
-		if (adsenseId && !isLocalHost) {
+		if (adsenseClientId && !isLocalHost) {
 			injectAdsense = () => {
+				if (!isAdEligibleContentPage($page.url.pathname, $page.data)) return;
 				if (document.getElementById('adsense-script')) return;
 				const s = document.createElement('script');
 				s.id = 'adsense-script';
 				s.async = true;
 				s.defer = true;
-				s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseId}`;
+				s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClientId}`;
 				s.onerror = () => s.remove();
 				document.head.appendChild(s);
 				['pointerdown', 'scroll', 'keydown'].forEach((ev) =>
@@ -487,7 +492,8 @@
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
 	{/if}
-	{#if adsenseId}
+	{#if adsenseClientId}
+		<meta name="google-adsense-account" content={adsenseClientId} />
 		<link rel="dns-prefetch" href="https://pagead2.googlesyndication.com" />
 	{/if}
 	{#if giscusEnabled}
