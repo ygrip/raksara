@@ -10,11 +10,15 @@ permissions:
 jobs:
   build-and-check:
     runs-on: ubuntu-latest
+    env:
+      SITE_URL: ${{ vars.SITE_URL }}
+      PUBLIC_SITE_URL: ${{ vars.SITE_URL }}
+      PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.PUBLIC_TURNSTILE_SITE_KEY || 'ci-placeholder' }}
     steps:
       - name: Checkout Raksara
         uses: actions/checkout@v4
 
-      - name: Checkout public content
+      - name: Checkout content
         uses: actions/checkout@v4
         with:
           repository: ygrip/raksara-content
