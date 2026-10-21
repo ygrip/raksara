@@ -731,20 +731,64 @@ The static build renders each token as:
 If the field is missing, SEO validation emits a warning so Search Console setup
 does not get forgotten during indexing work.
 
-### Google AdSense (`ads.txt` + meta tag)
+### Optional Google AdSense
 
-You can configure AdSense directly in `raksara.yml`:
+Raksara does **not** require AdSense. Without any AdSense settings, the engine
+does not emit an AdSense meta tag, load the provider script, or generate
+`ads.txt`. Enable it per site in that site's own `raksara.yml`:
 
 ```yaml
-adsense: google.com, <your-pub>, DIRECT, <your-key>
+advertising:
+  adsense:
+    enabled: true
+    publisher_id: ca-pub-1234567890123456
+    ads_txt: google.com, pub-1234567890123456, DIRECT, f08c47fec0942fa0
+    load_strategy: interaction
+    allowed_paths:
+      - /posts/**
+      - /projects/*
+    excluded_paths:
+      - /posts/private/**
 ```
 
-When this field is set, build output will include:
+**The paths are examples, not Raksara defaults.** Configure them to match
+the site being published. `*` matches one URL segment; `**` matches zero
+or more segments. Exclusions take precedence. An empty or omitted
+`allowed_paths` list means **no ad script loads**, even when verification
+is enabled. This avoids enabling ads on navigation-only routes by accident.
 
-- `ads.txt` at the site root (with that exact line)
-- `<meta name="google-adsense-account" content="<your-pub>"/>` in generated page heads
+`load_strategy` is `interaction` (default, load when a visitor interacts
+with an eligible route) or `immediate` (load as soon as an eligible route
+is visited). Set `allow_localhost: true` only for local testing. The
+account meta tag is always part of the initial server-rendered HTML
+when AdSense is enabled, regardless of ad-script strategy.
 
-If `adsense` is missing, `ads.txt` is not generated.
+The optional `ads_txt` record can be customized; otherwise it is derived
+from the publisher ID. AdSense uses `ca-pub-...` in the meta tag and script,
+and `pub-...` in the `ads.txt` seller record. The engine accepts either
+form in `publisher_id` and normalizes it.
+
+To disable an existing configuration:
+
+```yaml
+advertising:
+  adsense:
+    enabled: false
+```
+
+For compatibility, the old `adsense: google.com, pub-..., DIRECT, ...`
+field still produces account verification and `ads.txt`. It does not
+automatically enable ad-script loading: migrate to the nested configuration
+and provide `allowed_paths` when you actually want advertisements.
+An explicit `advertising.adsense.enabled: false` overrides any legacy
+setting.
+
+**Placement limitation:** after Google Auto Ads loads, its script may
+continue running across client-side navigation. An initial route allowlist
+cannot guarantee that the already-loaded provider will never place ads on
+other routes. Configure Google's exclusions or use manual ad placements
+when strict page-level restrictions are required. Site approval and
+regional consent requirements are separate from Raksara's technical settings.
 
 ### Giscus Comments (GitHub Discussions)
 
