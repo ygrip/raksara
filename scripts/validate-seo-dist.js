@@ -121,7 +121,9 @@ function isBlockedByRobots(pathname, disallows) {
   });
 }
 
-console.log('\nValidating built static HTML for SEO...\n');
+async function validateSeoDist() {
+  const { resolveAdsenseConfig } = await import('../sveltekit/src/lib/advertising.js');
+  console.log('\nValidating built static HTML for SEO...\n');
 
 if (!fs.existsSync(BUILD_DIR)) {
   error(`Build directory not found: ${BUILD_DIR}`);
@@ -142,6 +144,26 @@ if (sitemapUrls.length === 0) {
 const robotsText = fs.existsSync(ROBOTS_PATH) ? readFile(ROBOTS_PATH) : '';
 const disallows = parseDefaultRobotsDisallows(robotsText);
 if (!robotsText) warn('robots.txt not found; skipping robots block checks');
+
+// Account verification must exist in prerendered HTML, not only after a click.
+// ads.txt intentionally uses pub-..., while HTML uses ca-pub-....
+const siteConfigPath = path.join(STATIC_DIR, 'metadata', 'config.json');
+const siteConfig = fs.existsSync(siteConfigPath) ? JSON.parse(readFile(siteConfigPath)) : null;
+const adsense = resolveAdsenseConfig(siteConfig);
+const expectedAdAccount = adsense.clientId;
+if (adsense.enabled) {
+  const adsTxtPath = path.join(BUILD_DIR, 'ads.txt');
+  if (!fs.existsSync(adsTxtPath)) {
+    error('Built site is missing root ads.txt despite enabled AdSense configuration');
+  } else {
+    const lines = readFile(adsTxtPath).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    if (!lines.includes(adsense.adsTxtLine)) {
+      error('Built ads.txt does not match the configured AdSense seller record');
+    }
+  }
+} else if (fs.existsSync(path.join(BUILD_DIR, 'ads.txt'))) {
+  error('AdSense disabled but built site still publishes ads.txt');
+}
 
 let checked = 0;
 let missingHtml = 0;
@@ -177,6 +199,15 @@ for (const url of sitemapUrls) {
   checked++;
 
   const head = firstMatch(html, /<head\b[^>]*>([\s\S]*?)<\/head>/i);
+  const adsenseTags = [...head.matchAll(/<meta\b[^>]*name=["']google-adsense-account["'][^>]*>/gi)];
+  if (expectedAdAccount) {
+    if (adsenseTags.length !== 1 || firstMatch(adsenseTags[0]?.[0] ?? '', /content=["']([^"']+)["']/i) !== expectedAdAccount) {
+      error(`${relativeFile}: expected exactly one server-rendered google-adsense-account meta tag with ${expectedAdAccount}`);
+    }
+  } else if (adsenseTags.length > 0) {
+    error(`${relativeFile}: AdSense is disabled but publisher metadata was emitted`);
+  }
+
   const titles = [...head.matchAll(/<title\b[^>]*>([\s\S]*?)<\/title>/gi)];
   if (titles.length === 0 || !titles[0][1].trim()) {
     error(`${relativeFile}: missing or empty <title>`);
@@ -316,7 +347,19 @@ for (const kind of ['tag', 'category']) {
     error(`/${kind}/: shared taxonomy shell is missing built HTML`);
     continue;
   }
-  const shellHead = firstMatch(readFile(shellPath), /<head\b[^>]*>([\s\S]*?)<\/head>/i);
+  const shellHtml = readFile(shellPath);
+  const shellHead = firstMatch(shellHtml, /<head\b[^>]*>([\s\S]*?)<\/head>/i);
+  const fallback = firstMatch(shellHtml, /<nav\b[^>]*class=["'][^"']*taxonomy-start-here[^"']*["'][^>]*>([\s\S]*?)<\/nav>/i);
+  if (!fallback) {
+    error(`/${kind}/: missing static fallback navigation`);
+  } else {
+    const expectedLinks = Array.isArray(siteConfig?.nav) ? siteConfig.nav.filter(link =>
+      typeof link.href === 'string' && link.href.startsWith('/') && !link.href.startsWith('/tag/') && !link.href.startsWith('/category/')
+    ) : [];
+    for (const link of expectedLinks) {
+      if (!fallback.includes(`href="${link.href}"`)) error(`/${kind}/: configured fallback link ${link.href} is missing`);
+    }
+  }
   const robotsTags = [...shellHead.matchAll(/<meta\s+[^>]*name=["']robots["'][^>]*content=["']([^"']+)["'][^>]*>/gi)];
   if (robotsTags.length !== 1 || !/^noindex\s*,\s*follow$/i.test(robotsTags[0][1].trim())) {
     error(`/${kind}/: initial HTML must contain exactly one noindex, follow robots tag`);
@@ -396,3 +439,9 @@ console.log(`   Sitemap URLs: ${sitemapUrls.length}; checked HTML files: ${check
 if (errors > 0) {
   process.exit(1);
 }
+
+}
+validateSeoDist().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});

@@ -28,6 +28,8 @@
 	const topic = $derived(kind === 'tag' && term && config.topics && Object.hasOwn(config.topics, term) ? config.topics[term] : null);
 	const displayName = $derived(topic?.title?.trim() || (kind === 'tag' ? topicName(term) : term));
 	const siteName = $derived(config.hero_title ?? config.title ?? 'Raksara');
+	const fallbackLinks = $derived((config.nav ?? []).filter(link => typeof link.href === 'string' && link.href.startsWith('/') && !link.href.startsWith('/tag/') && !link.href.startsWith('/category/')));
+
 	const intro = $derived(topic?.intro?.trim() || topic?.description?.trim() || (term ? `Content collected under ${displayName}.` : `Choose a ${kind} to browse its content.`));
 	const title = $derived(term ? `${displayName}${kind === 'tag' ? ' articles' : ''} · ${siteName}` : `Browse by ${kind} · ${siteName}`);
 	const root = $derived(String(config.site_url || config.url || '').replace(/\/+$/, ''));
@@ -165,12 +167,28 @@
 {/if}
 
 {#if !fixedTerm}
-	<noscript><p>JavaScript is needed to browse this archive. Visit the <a href="/blog/">blog</a>, <a href="/portfolio/">portfolio</a>, or a highlighted topic instead.</p></noscript>
+	<!-- Shared noindex shells still provide useful, crawlable destinations without JS. -->
+	<nav class="taxonomy-start-here" aria-label="Explore published content">
+		<p>Explore other sections of the site or start with a featured topic:</p>
+		<div class="taxonomy-start-links">
+			{#each fallbackLinks as link}
+				<a class="tag" href={link.href}>{link.label}</a>
+			{/each}
+			{#each config.taxonomy?.highlighted_tags ?? [] as highlighted}
+				<a class="tag" href={taxonomyHref('tag', highlighted, config)}>
+					{config.topics?.[highlighted]?.title ?? topicName(highlighted)}
+				</a>
+			{/each}
+		</div>
+	</nav>
+	<noscript><p>JavaScript is needed to browse this archive. Use the links above or the site navigation to continue.</p></noscript>
 {:else if initialArchive && initialArchive.pages > 1}
 	<noscript><p>The first page is shown above. JavaScript is needed to browse further archive pages.</p></noscript>
 {/if}
 
 <style>
+	.taxonomy-start-here { margin: 16px 0 28px; color: var(--text-secondary); }
+	.taxonomy-start-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 	.taxonomy-detail-status { min-height: 120px; color: var(--text-secondary); }
 	.taxonomy-detail-pagination { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:16px; margin:24px 0; }
 	.taxonomy-detail-pagination a { min-height:44px; }

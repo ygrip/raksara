@@ -1,0 +1,58 @@
+name: PR Quality
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-check:
+    runs-on: ubuntu-latest
+    env:
+      SITE_URL: ${{ vars.SITE_URL }}
+      PUBLIC_SITE_URL: ${{ vars.SITE_URL }}
+      PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.PUBLIC_TURNSTILE_SITE_KEY || 'ci-placeholder' }}
+    steps:
+      - name: Checkout Raksara
+        uses: actions/checkout@v4
+
+      - name: Checkout content
+        uses: actions/checkout@v4
+        with:
+          repository: ygrip/raksara-content
+          token: ${{ secrets.CONTENT_PAT }}
+          path: content
+          lfs: true
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm ci --prefix sveltekit
+
+      - name: Test advertising and taxonomy
+        run: |
+          npm run test:adsense:readiness
+          npm run test:taxonomy:policy
+
+      - name: Generate metadata
+        run: npm run build:metadata
+
+      - name: Validate prerender inputs
+        run: npm run validate:seo:build
+
+      - name: Typecheck
+        run: npm run check:sveltekit
+
+      - name: Build static site
+        run: npm run build:sveltekit
+
+      - name: Validate rendered output
+        run: npm run validate:seo:dist

@@ -777,7 +777,8 @@ async function generateSeoArtifacts({
   siteConfig,
 }) {
   const siteUrl = getSiteUrl(siteConfig);
-  const adsenseConfig = parseAdsenseConfig(siteConfig);
+  const { resolveAdsenseConfig } = await import('../sveltekit/src/lib/advertising.js');
+  const adsenseConfig = resolveAdsenseConfig(siteConfig);
   const routes = collectRoutes({
     posts,
     portfolioItems,
@@ -1581,40 +1582,6 @@ function escapeXml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
-}
-
-function parseAdsenseConfig(siteConfig) {
-  if (!siteConfig || typeof siteConfig !== "object") return null;
-
-  const raw = siteConfig.adsense;
-  if (!raw) return null;
-
-  let parts = [];
-  if (typeof raw === "string") {
-    parts = raw.split(",").map((entry) => entry.trim()).filter(Boolean);
-  } else if (Array.isArray(raw)) {
-    parts = raw.map((entry) => String(entry).trim()).filter(Boolean);
-  } else if (typeof raw === "object") {
-    const domain = raw.domain || raw.network || raw.host || "";
-    const publisher = raw.publisher || raw.pub || raw.account || raw.publisher_id || raw.publisherId || "";
-    const relationship = raw.relationship || raw.type || raw.account_type || "";
-    const cert = raw.cert || raw.cert_id || raw.certification || raw.caid || "";
-    parts = [domain, publisher, relationship, cert].map((entry) => String(entry).trim()).filter(Boolean);
-  }
-
-  if (parts.length < 2) return null;
-
-  const domain = parts[0];
-  const publisher = parts[1];
-  const relationship = (parts[2] || "DIRECT").toUpperCase();
-  const cert = parts[3] || "";
-  const accountMatch = publisher.match(/pub-\d+/i);
-  const accountId = accountMatch ? accountMatch[0] : "";
-
-  return {
-    accountId,
-    adsTxtLine: [domain, publisher, relationship, cert].filter(Boolean).join(", "),
-  };
 }
 
 function writeWebFile(filename, content) {

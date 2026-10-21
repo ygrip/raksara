@@ -11,7 +11,8 @@
 	import type { LayoutData } from './$types';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
 	import AdcashAutoTag from '$lib/components/AdcashAutoTag.svelte';
-	import { getAdsenseId, getGiscusConfig } from '$lib/seo';
+	import { getGiscusConfig } from '$lib/seo';
+	import { resolveAdsenseConfig, isAdsensePathEligible } from '$lib/advertising.js';
 	import { assetUrl } from '$lib/utils';
 	import { themeTokens, earlyThemeScript } from '$lib/theme';
 	import { isTaxonomyPath, isIndexableTaxonomyPath } from '$lib/taxonomy.js';
@@ -92,7 +93,7 @@
 	// Documentation is reachable from the About page only; keep it out of site navigation.
 	const isDocsHref = (href: string) => /^\/(documentation|doc)(\/|$)/.test(href);
 	const nav = $derived((config?.nav ?? defaultNav).filter((link) => !isDocsHref(link.href)));
-	const adsenseId = $derived(config ? getAdsenseId(config) : '');
+	const adsenseSettings = $derived(resolveAdsenseConfig(config));
 	const giscusEnabled = $derived(config ? (getGiscusConfig(config)?.enabled ?? false) : false);
 	const googleVerificationTokens = $derived(config ? getGoogleVerificationTokens(config) : []);
 	const currentPath = $derived($page.url.pathname);
@@ -422,28 +423,38 @@
 		};
 		window.addEventListener('keydown', onGlobalSearchKey);
 
-		// AdSense: lazy-inject script only after first user interaction.
-		// Skip localhost/dev so blocked ad requests do not pollute console QA.
-		let injectAdsense: (() => void) | null = null;
+		// Verification is prerendered; script loading is an explicit site choice.
+		// Keep listeners until visiting an eligible route, including client-side
+		// navigation from a directory to an article.
+		let interacted = (navigator as Navigator & { userActivation?: { hasBeenActive?: boolean } }).userActivation?.hasBeenActive === true;
+		const settings = adsenseSettings;
 		const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
-		if (adsenseId && !isLocalHost) {
-			injectAdsense = () => {
-				if (document.getElementById('adsense-script')) return;
-				const s = document.createElement('script');
-				s.id = 'adsense-script';
-				s.async = true;
-				s.defer = true;
-				s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseId}`;
-				s.onerror = () => s.remove();
-				document.head.appendChild(s);
-				['pointerdown', 'scroll', 'keydown'].forEach((ev) =>
-					injectAdsense && window.removeEventListener(ev, injectAdsense, true)
-				);
-			};
-			['pointerdown', 'scroll', 'keydown'].forEach((ev) =>
-				injectAdsense && window.addEventListener(ev, injectAdsense, { once: true, passive: true, capture: true })
-			);
+		const canLoad = settings.enabled && settings.allowedPaths.length > 0
+			&& (!isLocalHost || settings.allowLocalhost);
+		const injectAdsense = () => {
+			if (!canLoad || (settings.loadStrategy === 'interaction' && !interacted)) return;
+			if (!isAdsensePathEligible($page.url.pathname, settings)) return;
+			if (document.getElementById('adsense-script')) return;
+			const script = document.createElement('script');
+			script.id = 'adsense-script';
+			script.async = true;
+			script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${settings.clientId}`;
+			script.onerror = () => script.remove();
+			document.head.appendChild(script);
+		};
+		const onAdInteraction = () => {
+			interacted = true;
+			injectAdsense();
+		};
+		if (canLoad && settings.loadStrategy === 'interaction') {
+			for (const name of ['pointerdown', 'scroll', 'keydown']) {
+				window.addEventListener(name, onAdInteraction, { passive: true, capture: true });
+			}
 		}
+		// Subscribe to route changes so interacting on an excluded page does not
+		// permanently prevent ad initialization on subsequent allowed pages.
+		const unsubscribeAdRoute = canLoad ? page.subscribe(() => injectAdsense()) : () => {};
+		if (settings.loadStrategy === 'immediate') injectAdsense();
 
 		return () => {
 			document.removeEventListener('load', onImageLoad, true);
@@ -453,10 +464,9 @@
 			imageObserver.disconnect();
 			tagResizeObserver.disconnect();
 			trackedTagRows.clear();
-			if (injectAdsense) {
-				['pointerdown', 'scroll', 'keydown'].forEach((ev) =>
-					window.removeEventListener(ev, injectAdsense as EventListener, true)
-				);
+			unsubscribeAdRoute();
+			for (const name of ['pointerdown', 'scroll', 'keydown']) {
+				window.removeEventListener(name, onAdInteraction, true);
 			}
 		};
 	});
@@ -487,7 +497,8 @@
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
 	{/if}
-	{#if adsenseId}
+	{#if adsenseSettings.enabled}
+		<meta name="google-adsense-account" content={adsenseSettings.clientId} />
 		<link rel="dns-prefetch" href="https://pagead2.googlesyndication.com" />
 	{/if}
 	{#if giscusEnabled}
