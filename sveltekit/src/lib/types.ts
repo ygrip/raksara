@@ -237,7 +237,7 @@ export interface SiteConfig {
       excluded_paths?: string[];
       allow_localhost?: boolean;
     };
-    adcash?: Record<string, unknown>;
+    adcash?: object;
   };
   /** Google Search Console verification token(s). */
   google_site_verification?: string | string[];
