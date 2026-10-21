@@ -4,6 +4,7 @@
  */
 
 import type { SiteConfig, Post, PortfolioItem } from './types';
+import { resolveAdsenseConfig } from './advertising.js';
 
 export type JsonLdObject = Record<string, unknown>;
 
@@ -201,24 +202,9 @@ export function buildBreadcrumbSchema(
   };
 }
 
-/** Extract AdSense publisher ID from various config.adsense shapes. */
+/** Legacy utility: publisher ID for an enabled optional site configuration. */
 export function getAdsenseId(config: SiteConfig): string {
-  const raw = config.adsense;
-  if (!raw) return '';
-  let candidate = '';
-  if (typeof raw === 'string') {
-    candidate = raw;
-  } else if (typeof raw === 'object') {
-    candidate = String(
-      raw['publisher_id'] ?? raw['publisher'] ?? raw['pub'] ?? raw['account'] ?? ''
-    );
-  }
-  const match = candidate.match(/pub-\d{6,}/i);
-  if (!match) return '';
-  const id = match[0].toLowerCase();
-  // Ignore placeholder all-zeros pub IDs
-  if (/^pub-0+$/.test(id)) return '';
-  return id;
+  return resolveAdsenseConfig(config).publisherId;
 }
 
 /** Resolve effective Giscus config from either config.comments or config.giscus. */
