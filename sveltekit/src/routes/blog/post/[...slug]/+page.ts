@@ -58,8 +58,20 @@ export const load = (async ({ params, fetch, parent }) => {
     throw error(404, 'Post not found');
   }
 
-  const nextPage = routeFromNav(post.next_page);
-  const previousPage = routeFromNav(post.previous_page);
+  const publishedRoutes = new Set(allPosts.map((item) => `/blog/post/${item.slug}`));
+  const visibleNav = (value: unknown): PostNav | null => {
+    const nav = routeFromNav(value);
+    if (!nav) return null;
+    // Authored next/previous references must not expose unpublished targets.
+    try {
+      const url = new URL(nav.href, 'https://raksara.invalid');
+      return publishedRoutes.has(url.pathname.replace(/\/+$/, '')) ? nav : null;
+    } catch {
+      return null;
+    }
+  };
+  const nextPage = visibleNav(post.next_page);
+  const previousPage = visibleNav(post.previous_page);
 
   const renderedHtml = await renderMarkdown(
     stripLeadingTitle(markdown ?? '', post.title),
