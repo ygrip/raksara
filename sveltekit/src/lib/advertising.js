@@ -99,6 +99,7 @@ export function matchesAdPath(pathname, pattern) {
   if (typeof pattern !== 'string' || !pattern.startsWith('/')) return false;
   const actual = pathSegments(pathname);
   const expected = pathSegments(pattern);
+  /** @param {number} i @param {number} j @returns {boolean} */
   function walk(i, j) {
     if (i === expected.length) return j === actual.length;
     if (expected[i] === '**') {
