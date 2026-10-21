@@ -18,6 +18,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ygrip/raksara-content
+          token: ${{ secrets.CONTENT_PAT }}
           path: content
           lfs: true
 
