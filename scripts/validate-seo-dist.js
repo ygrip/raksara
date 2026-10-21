@@ -121,7 +121,9 @@ function isBlockedByRobots(pathname, disallows) {
   });
 }
 
-console.log('\nValidating built static HTML for SEO...\n');
+async function validateSeoDist() {
+  const { resolveAdsenseConfig } = await import('../sveltekit/src/lib/advertising.js');
+  console.log('\nValidating built static HTML for SEO...\n');
 
 if (!fs.existsSync(BUILD_DIR)) {
   error(`Build directory not found: ${BUILD_DIR}`);
@@ -147,26 +149,20 @@ if (!robotsText) warn('robots.txt not found; skipping robots block checks');
 // ads.txt intentionally uses pub-..., while HTML uses ca-pub-....
 const siteConfigPath = path.join(STATIC_DIR, 'metadata', 'config.json');
 const siteConfig = fs.existsSync(siteConfigPath) ? JSON.parse(readFile(siteConfigPath)) : null;
-const rawAdsense = siteConfig?.adsense;
-const publisherCandidate = typeof rawAdsense === 'string'
-  ? rawAdsense
-  : rawAdsense && typeof rawAdsense === 'object'
-    ? String(rawAdsense.publisher ?? rawAdsense.pub ?? rawAdsense.publisher_id ?? rawAdsense.account ?? '')
-    : '';
-const publisherMatch = publisherCandidate.match(/\b(pub-\d{6,})\b/i);
-const publisherId = publisherMatch?.[1]?.toLowerCase() ?? '';
-const expectedAdAccount = publisherId && !/^pub-0+$/.test(publisherId) ? `ca-${publisherId}` : '';
-if (rawAdsense && !expectedAdAccount) error('Configured AdSense publisher ID is invalid');
-if (expectedAdAccount) {
+const adsense = resolveAdsenseConfig(siteConfig);
+const expectedAdAccount = adsense.clientId;
+if (adsense.enabled) {
   const adsTxtPath = path.join(BUILD_DIR, 'ads.txt');
   if (!fs.existsSync(adsTxtPath)) {
-    error('Built site is missing root ads.txt despite an AdSense publisher being configured');
+    error('Built site is missing root ads.txt despite enabled AdSense configuration');
   } else {
-    const lines = readFile(adsTxtPath).split(/\r?\n/).map((line) => line.trim());
-    if (!lines.some((line) => line.toLowerCase().startsWith(`google.com, ${publisherId}, direct,`))) {
-      error('Built ads.txt does not authorize the configured Google AdSense publisher as DIRECT');
+    const lines = readFile(adsTxtPath).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    if (!lines.includes(adsense.adsTxtLine)) {
+      error('Built ads.txt does not match the configured AdSense seller record');
     }
   }
+} else if (fs.existsSync(path.join(BUILD_DIR, 'ads.txt'))) {
+  error('AdSense disabled but built site still publishes ads.txt');
 }
 
 let checked = 0;
@@ -203,11 +199,13 @@ for (const url of sitemapUrls) {
   checked++;
 
   const head = firstMatch(html, /<head\b[^>]*>([\s\S]*?)<\/head>/i);
+  const adsenseTags = [...head.matchAll(/<meta\b[^>]*name=["']google-adsense-account["'][^>]*>/gi)];
   if (expectedAdAccount) {
-    const tags = [...head.matchAll(/<meta\b[^>]*name=["']google-adsense-account["'][^>]*>/gi)];
-    if (tags.length !== 1 || firstMatch(tags[0]?.[0] ?? '', /content=["']([^"']+)["']/i) !== expectedAdAccount) {
+    if (adsenseTags.length !== 1 || firstMatch(adsenseTags[0]?.[0] ?? '', /content=["']([^"']+)["']/i) !== expectedAdAccount) {
       error(`${relativeFile}: expected exactly one server-rendered google-adsense-account meta tag with ${expectedAdAccount}`);
     }
+  } else if (adsenseTags.length > 0) {
+    error(`${relativeFile}: AdSense is disabled but publisher metadata was emitted`);
   }
 
   const titles = [...head.matchAll(/<title\b[^>]*>([\s\S]*?)<\/title>/gi)];
@@ -433,3 +431,9 @@ console.log(`   Sitemap URLs: ${sitemapUrls.length}; checked HTML files: ${check
 if (errors > 0) {
   process.exit(1);
 }
+
+}
+validateSeoDist().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});
