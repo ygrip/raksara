@@ -27,7 +27,9 @@ function clean(value) {
   return String(value ?? '').trim();
 }
 
-console.log('\n📣 Validating advertising configuration...\n');
+async function main() {
+  const { resolveAdsenseConfig } = await import('../sveltekit/src/lib/advertising.js');
+  console.log('\n📣 Validating advertising configuration...\n');
 
 const config = readConfig();
 const adcash = config?.advertising?.adcash;
@@ -83,4 +85,55 @@ if (!config || adcash?.enabled !== true) {
   }
 }
 
+// AdSense is optional. Validate only when a site explicitly configures it.
+const modern = config?.advertising?.adsense;
+const legacy = config?.adsense;
+const active = modern === undefined ? legacy : modern;
+if (active === undefined || active === null || active === false || modern?.enabled === false) {
+  if (config) ok('AdSense is disabled (no publisher artifacts will be generated)');
+} else {
+  const adsense = resolveAdsenseConfig(config);
+  if (modern !== undefined && (!modern || typeof modern !== 'object' || Array.isArray(modern))) {
+    fail('advertising.adsense must be a settings object');
+  } else if (modern !== undefined && modern.enabled !== true) {
+    ok('AdSense is disabled (set advertising.adsense.enabled: true to opt in)');
+  } else {
+    if (!adsense.enabled) fail('Configured AdSense publisher ID is invalid or missing');
+    if (adsense.enabled) {
+      const parts = adsense.adsTxtLine.split(',').map(value => value.trim());
+      if (/[\r\n]/.test(adsense.adsTxtLine) || parts.length < 3 || parts[1] !== adsense.publisherId || !['DIRECT', 'RESELLER'].includes(parts[2].toUpperCase())) {
+        fail('AdSense ads_txt must authorize the configured publisher using a valid seller record');
+      }
+      if (adsense.allowedPaths.length === 0) ok('AdSense is in verification-only mode (no allowed_paths)');
+      else ok(`AdSense is enabled for ${adsense.allowedPaths.length} configured path rule(s)`);
+    }
+    if (modern?.load_strategy !== undefined && !['immediate', 'interaction'].includes(modern.load_strategy)) {
+      fail('advertising.adsense.load_strategy must be immediate or interaction');
+    }
+    if (modern?.allow_localhost !== undefined && typeof modern.allow_localhost !== 'boolean') {
+      fail('advertising.adsense.allow_localhost must be a boolean');
+    }
+    for (const key of ['allowed_paths', 'excluded_paths']) {
+      const patterns = modern?.[key];
+      if (patterns === undefined) continue;
+      if (!Array.isArray(patterns)) {
+        fail(`advertising.adsense.${key} must be an array`);
+        continue;
+      }
+      for (const pattern of patterns) {
+        if (typeof pattern !== 'string' || !pattern.startsWith('/') || /[?#]/.test(pattern) ||
+            pattern.split('/').some(part => part.includes('*') && part !== '*' && part !== '**')) {
+          fail(`advertising.adsense.${key} contains an invalid URL path pattern`);
+        }
+      }
+    }
+  }
+}
+
 console.log(`\n${process.exitCode ? '❌' : '✅'} Advertising configuration validation complete.\n`);
+
+}
+main().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});
