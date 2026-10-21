@@ -165,12 +165,27 @@
 {/if}
 
 {#if !fixedTerm}
+	<!-- Shared noindex shells still provide useful, crawlable destinations without JS. -->
+	<nav class="taxonomy-start-here" aria-label="Explore published content">
+		<p>Browse the published writing and projects directly, or start with a featured topic:</p>
+		<div class="taxonomy-start-links">
+			<a class="tag" href="/blog/">All articles</a>
+			<a class="tag" href="/portfolio/">Projects</a>
+			{#each config.taxonomy?.highlighted_tags ?? [] as highlighted}
+				<a class="tag" href={taxonomyHref('tag', highlighted, config)}>
+					{config.topics?.[highlighted]?.title ?? topicName(highlighted)}
+				</a>
+			{/each}
+		</div>
+	</nav>
 	<noscript><p>JavaScript is needed to browse this archive. Visit the <a href="/blog/">blog</a>, <a href="/portfolio/">portfolio</a>, or a highlighted topic instead.</p></noscript>
 {:else if initialArchive && initialArchive.pages > 1}
 	<noscript><p>The first page is shown above. JavaScript is needed to browse further archive pages.</p></noscript>
 {/if}
 
 <style>
+	.taxonomy-start-here { margin: 16px 0 28px; color: var(--text-secondary); }
+	.taxonomy-start-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 	.taxonomy-detail-status { min-height: 120px; color: var(--text-secondary); }
 	.taxonomy-detail-pagination { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:16px; margin:24px 0; }
 	.taxonomy-detail-pagination a { min-height:44px; }
