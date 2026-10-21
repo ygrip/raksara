@@ -30,7 +30,7 @@ const meta = Object.fromEntries(['date', 'updated'].map(key => [key, normalizeCo
 assert.equal(meta.date, '2026-03-06');
 assert.equal(meta.updated, '2026-10-21');
 const entries = [
-  { date: '2026-10-20', title: 'Older' },
+  { date: '2026-01-20', title: 'Older' },
   { date: meta.date, updated: meta.updated, title: 'Updated recently' },
   { date: '2026-07-01', title: 'Another' },
 ];
