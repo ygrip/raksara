@@ -143,6 +143,32 @@ const robotsText = fs.existsSync(ROBOTS_PATH) ? readFile(ROBOTS_PATH) : '';
 const disallows = parseDefaultRobotsDisallows(robotsText);
 if (!robotsText) warn('robots.txt not found; skipping robots block checks');
 
+// Account verification must exist in prerendered HTML, not only after a click.
+// ads.txt intentionally uses pub-..., while HTML uses ca-pub-....
+const siteConfigPath = path.join(STATIC_DIR, 'metadata', 'config.json');
+const siteConfig = fs.existsSync(siteConfigPath) ? JSON.parse(readFile(siteConfigPath)) : null;
+const rawAdsense = siteConfig?.adsense;
+const publisherCandidate = typeof rawAdsense === 'string'
+  ? rawAdsense
+  : rawAdsense && typeof rawAdsense === 'object'
+    ? String(rawAdsense.publisher ?? rawAdsense.pub ?? rawAdsense.publisher_id ?? rawAdsense.account ?? '')
+    : '';
+const publisherMatch = publisherCandidate.match(/\\b(pub-\\d{6,})\\b/i);
+const publisherId = publisherMatch?.[1]?.toLowerCase() ?? '';
+const expectedAdAccount = publisherId && !/^pub-0+$/.test(publisherId) ? `ca-${publisherId}` : '';
+if (rawAdsense && !expectedAdAccount) error('Configured AdSense publisher ID is invalid');
+if (expectedAdAccount) {
+  const adsTxtPath = path.join(BUILD_DIR, 'ads.txt');
+  if (!fs.existsSync(adsTxtPath)) {
+    error('Built site is missing root ads.txt despite an AdSense publisher being configured');
+  } else {
+    const lines = readFile(adsTxtPath).split(/\\r?\\n/).map((line) => line.trim());
+    if (!lines.some((line) => line.toLowerCase().startsWith(`google.com, ${publisherId}, direct,`))) {
+      error('Built ads.txt does not authorize the configured Google AdSense publisher as DIRECT');
+    }
+  }
+}
+
 let checked = 0;
 let missingHtml = 0;
 let missingTitle = 0;
@@ -177,6 +203,13 @@ for (const url of sitemapUrls) {
   checked++;
 
   const head = firstMatch(html, /<head\b[^>]*>([\s\S]*?)<\/head>/i);
+  if (expectedAdAccount) {
+    const tags = [...head.matchAll(/<meta\\b[^>]*name=["']google-adsense-account["'][^>]*>/gi)];
+    if (tags.length !== 1 || !new RegExp(`\\\\bcontent=["']${expectedAdAccount}["']`, 'i').test(tags[0]?.[0] ?? '')) {
+      error(`${relativeFile}: expected exactly one server-rendered google-adsense-account meta tag with ${expectedAdAccount}`);
+    }
+  }
+
   const titles = [...head.matchAll(/<title\b[^>]*>([\s\S]*?)<\/title>/gi)];
   if (titles.length === 0 || !titles[0][1].trim()) {
     error(`${relativeFile}: missing or empty <title>`);
