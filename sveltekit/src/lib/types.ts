@@ -224,7 +224,7 @@ export interface SiteConfig {
     description?: string;
   }>;
   /** Legacy shorthand for account verification and ads.txt. Optional. */
-  adsense?: string | Record<string, string>;
+  adsense?: string | string[] | Record<string, string>;
   /** Optional ad providers. Each provider must explicitly opt in. */
   advertising?: {
     adsense?: {
