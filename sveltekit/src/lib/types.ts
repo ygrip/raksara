@@ -223,8 +223,22 @@ export interface SiteConfig {
     intro?: string;
     description?: string;
   }>;
-  /** AdSense publisher ID string or structured object from config.json */
+  /** Legacy shorthand for account verification and ads.txt. Optional. */
   adsense?: string | Record<string, string>;
+  /** Optional ad providers. Each provider must explicitly opt in. */
+  advertising?: {
+    adsense?: {
+      enabled?: boolean;
+      publisher_id?: string;
+      publisher?: string;
+      ads_txt?: string;
+      load_strategy?: 'immediate' | 'interaction';
+      allowed_paths?: string[];
+      excluded_paths?: string[];
+      allow_localhost?: boolean;
+    };
+    adcash?: Record<string, unknown>;
+  };
   /** Google Search Console verification token(s). */
   google_site_verification?: string | string[];
   /** camelCase alias for google_site_verification. */
