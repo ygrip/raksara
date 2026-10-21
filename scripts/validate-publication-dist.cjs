@@ -55,7 +55,17 @@ for (const relative of fg.sync('**/*.md', { cwd: contentDir, onlyFiles: true }))
   }
   const section = relative.split('/')[0];
   const slug = section === 'blog' ? relative.slice('blog/'.length, -3) : path.basename(relative, '.md');
-  const route = section === 'blog' ? `/blog/post/${slug}/` : section === 'portfolio' ? `/portfolio/${slug}/` : null;
+  const route = section === 'blog' ? `/blog/post/${slug}/`
+    : section === 'portfolio' ? `/portfolio/${slug}/`
+    : section === 'pages' ? `/${relative.startsWith('pages/doc/') ? 'doc/' + slug : slug}/` : null;
+  if (route) {
+    const relativeRoute = route.replace(/^\/+/, '');
+    const routeHtml = path.join(distDir, relativeRoute, 'index.html');
+    const routeFlatHtml = path.join(distDir, relativeRoute.replace(/\/+$/, '') + '.html');
+    if (fs.existsSync(routeHtml) || fs.existsSync(routeFlatHtml)) {
+      throw new Error(`Unpublished content page has built HTML: ${route}`);
+    }
+  }
   if (route && output.some(xml => xml.includes(`<loc>${new URL(route, 'https://example.invalid').pathname}`))) {
     throw new Error(`Unpublished route in feed or sitemap: ${route}`);
   }
