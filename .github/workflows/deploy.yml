@@ -85,7 +85,9 @@ jobs:
           restore-keys: raksara-og-
 
       - name: Test taxonomy policy and bounded data generation
-        run: npm run test:taxonomy:policy
+        run: |
+          npm run test:taxonomy:policy
+          npm run test:publication
 
       - name: Build metadata and static assets
         run: npm run build:metadata

@@ -41,6 +41,7 @@ jobs:
         run: |
           npm run test:adsense:readiness
           npm run test:taxonomy:policy
+          npm run test:publication
 
       - name: Generate metadata
         run: npm run build:metadata

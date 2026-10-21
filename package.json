@@ -13,11 +13,13 @@
     "test:taxonomy": "node scripts/test-taxonomy.mjs",
     "test:taxonomy:policy": "node scripts/test-taxonomy-policy.mjs",
     "validate:seo:build": "node scripts/validate-seo-build.js",
-    "validate:seo:dist": "node scripts/validate-seo-dist.js && node scripts/validate-agentic-dist.js && node scripts/validate-sitelinks-dist.js",
+    "validate:seo:dist": "node scripts/validate-seo-dist.js && node scripts/validate-agentic-dist.js && node scripts/validate-sitelinks-dist.js && npm run validate:publication:dist",
     "dev": "npm run build:metadata && cd sveltekit && npm run dev",
     "dev:sveltekit": "npm run dev",
     "build": "npm run build:metadata && npm run validate:seo:build && npm run build:sveltekit && npm run validate:seo:dist",
-    "test:adsense:readiness": "node scripts/test-adsense-readiness.mjs"
+    "test:adsense:readiness": "node scripts/test-adsense-readiness.mjs",
+    "test:publication": "node scripts/test-publication-policy.mjs",
+    "validate:publication:dist": "node scripts/validate-publication-dist.cjs"
   },
   "keywords": [
     "blog",

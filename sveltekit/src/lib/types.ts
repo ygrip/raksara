@@ -36,6 +36,8 @@ export interface Post {
   readingMode?: boolean;
   comments_enabled?: boolean;
   status?: 'draft' | 'ongoing' | 'completed';
+  published?: boolean;
+  visibility?: 'public' | 'draft' | 'private';
   next_page?: FrontmatterNavValue;
   previous_page?: FrontmatterNavValue;
   ogImage?: {
@@ -57,6 +59,8 @@ export interface PortfolioItem {
   github?: string;
   demo?: string;
   status?: 'draft' | 'ongoing' | 'completed';
+  published?: boolean;
+  visibility?: 'public' | 'draft' | 'private';
   featured?: boolean;
   ogImage?: { landscape: string; portrait: string };
 }
@@ -223,6 +227,8 @@ export interface SiteConfig {
     intro?: string;
     description?: string;
   }>;
+  /** Which editorial workflow statuses are withheld from public builds. */
+  publication?: { hidden_statuses?: string[] };
   /** Legacy shorthand for account verification and ads.txt. Optional. */
   adsense?: string | string[] | Record<string, string>;
   /** Optional ad providers. Each provider must explicitly opt in. */

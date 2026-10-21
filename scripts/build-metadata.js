@@ -15,6 +15,7 @@ const commonjs = require("@rollup/plugin-commonjs");
 const { imagesToIco } = require("png-to-ico");
 const { generateOgImages, generateProfileOgImage } = require('./og-images');
 const { buildTaxonomyData } = require('./taxonomy-data.cjs');
+const { isPublished, prunePrivateMarkdown } = require('./publication-policy.cjs');
 let taxonomyPolicy;
 
 const REPO_ROOT = path.join(__dirname, "..");
@@ -216,6 +217,13 @@ async function buildMetadata() {
   console.log("Building metadata...\n");
 
   const files = await fg("**/*.md", { cwd: CONTENT_DIR });
+  const publicMarkdownPaths = new Set();
+  const configPath = path.join(CONTENT_DIR, "raksara.yml");
+  let siteConfig = { color: "purple" };
+  if (fs.existsSync(configPath)) {
+    const parsed = yaml.load(fs.readFileSync(configPath, "utf-8"));
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) siteConfig = { ...siteConfig, ...parsed };
+  }
   const posts = [];
   const portfolioItems = [];
   const galleryItems = [];
@@ -231,9 +239,11 @@ async function buildMetadata() {
     const parsed = parseMatter(raw, file);
     if (!parsed) continue;
     const { data: rawData, content } = parsed;
+    if (!isPublished(rawData, siteConfig)) continue;
     const section = file.split(path.sep)[0];
     const strictMode = process.argv.includes("--strict");
     const data = validateFrontmatter(section, rawData, file, strictMode);
+    publicMarkdownPaths.add(file.replace(/\\/g, '/'));
     let slug =
       section === "blog"
         ? file.replace(/^blog\//, "").replace(/\.md$/, "")
@@ -325,6 +335,7 @@ async function buildMetadata() {
 
   const searchDocs = [];
   for (const file of files) {
+    if (!publicMarkdownPaths.has(file.replace(/\\/g, '/'))) continue;
     const fullPath = path.join(CONTENT_DIR, file);
     const raw = fs.readFileSync(fullPath, "utf-8");
     const parsed2 = parseMatter(raw, file);
@@ -386,15 +397,6 @@ async function buildMetadata() {
   write("portfolio-index.json", { totalItems: portfolioItems.length, defaultSort: "latest" });
   write("thoughts-index.json", { totalItems: thoughts.length, defaultSort: "latest" });
 
-  const configPath = path.join(CONTENT_DIR, "raksara.yml");
-  let siteConfig = { color: "purple" };
-  if (fs.existsSync(configPath)) {
-    const raw = fs.readFileSync(configPath, "utf-8");
-    const parsed = yaml.load(raw);
-    if (parsed && typeof parsed === "object") {
-      siteConfig = { ...siteConfig, ...parsed };
-    }
-  }
   if (siteConfig.admin && typeof siteConfig.admin === "object") {
     const { enabled, workerUrl, allowedAuthors, auth, content } = siteConfig.admin;
     siteConfig.admin = {
@@ -420,7 +422,7 @@ async function buildMetadata() {
   siteConfig.pwa_asset_version = buildPwaAssetVersion(siteConfig);
   write("config.json", siteConfig);
 
-  copyMetadataToWeb();
+  copyMetadataToWeb(publicMarkdownPaths);
   const imageManifest = await generateResponsiveImages();
   write("image-manifest.json", imageManifest);
   fs.copyFileSync(
@@ -738,7 +740,7 @@ function mergeDirInto(srcDir, destDir) {
   }
 }
 
-function copyMetadataToWeb() {
+function copyMetadataToWeb(publicMarkdownPaths) {
   const sveltekitMetaDir = path.join(SVELTEKIT_STATIC_DIR, "metadata");
   fs.mkdirSync(sveltekitMetaDir, { recursive: true });
   const metaFiles = fs.readdirSync(METADATA_DIR);
@@ -762,7 +764,8 @@ function copyMetadataToWeb() {
     console.log("  ✓ Migrated legacy content/content/ assets to sveltekit/static/content/");
   }
 
-  console.log("  ✓ Copied metadata and content to sveltekit/static/");
+  const pruned = prunePrivateMarkdown(sveltekitContentDir, publicMarkdownPaths);
+  console.log(`  ✓ Copied published metadata and content to sveltekit/static/ (${pruned} unpublished Markdown files excluded)`);
 }
 
 async function generateSeoArtifacts({
@@ -895,9 +898,9 @@ function collectRoutes({
     "/categories",
     "/tag",
     "/category",
-    "/profile",
-    "/about",
   ]);
+  // Content-backed pages, including profile and about, are added only when
+  // their source file passes the publication policy below.
 
   for (const p of posts) routes.add(`/blog/post/${p.slug}`);
   for (const p of portfolioItems) routes.add(`/portfolio/${p.slug}`);
