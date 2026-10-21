@@ -88,12 +88,15 @@ jobs:
         run: |
           npm run test:taxonomy:policy
           npm run test:publication
+          npm run test:content-date
 
       - name: Build metadata and static assets
         run: npm run build:metadata
 
       - name: Validate generated SEO metadata
-        run: npm run validate:seo:build
+        run: |
+          npm run validate:seo:build
+          npm run validate:profile:metadata
 
       - name: Check SvelteKit types
         run: npm run check:sveltekit
