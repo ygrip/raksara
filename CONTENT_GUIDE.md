@@ -53,6 +53,50 @@ summary: "A short one-liner that shows in card previews."
 Your markdown content starts here.
 ```
 
+### Publication visibility (public, draft, private)
+
+Raksara publishes content by default for backward compatibility. Set explicit
+frontmatter when a file is not ready for visitors:
+
+```yaml
+---
+title: "Work in progress"
+date: 2026-10-21
+visibility: draft
+---
+```
+
+All five Markdown sections (`blog`, `portfolio`, `pages`, `thoughts`,
+and `gallery`) use the same publication policy:
+
+- `visibility: public` (or omitted): eligible for publication.
+- `visibility: draft` or `visibility: private`: never published.
+- `published: false` or legacy `draft: true`: never published.
+- Legacy `status: draft`: **not published by default**. Status values
+  such as `ongoing` and `completed` remain publicly eligible.
+
+Explicit private/draft settings take precedence over status. A hidden file is
+excluded at build time from page routes, sitemap, RSS/Atom, search, taxonomy,
+recommendations, and **the copied public Markdown source**. Don't use
+`noindex` as the only protection for unpublished content.
+
+The relationship between editorial status and visibility is site-configurable:
+
+```yaml
+publication:
+  hidden_statuses: [draft]
+```
+
+The list defaults to `[draft]`, including on older sites. You can supply
+other workflow statuses or an empty list to control which statuses imply
+nonpublication. Explicit `visibility: private`, `visibility: draft`,
+`published: false`, and `draft: true` are **always private**. Don't put
+secrets in the content repo: this policy controls deployment artifacts, not
+repository access or unrelated assets linked from Markdown.
+
+Raksara checks authored next/previous links against its published post list;
+links to excluded draft chapters are suppressed until those chapters are released.
+
 ### Nested Directories
 
 Blog posts support nested directories. Folders are displayed as navigable
