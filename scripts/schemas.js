@@ -38,6 +38,8 @@ const PostSchema = z.object({
   comments_enabled: z.boolean().optional(),
   status: StatusSchema.optional(),
   draft: z.boolean().optional(),
+  published: z.boolean().optional(),
+  visibility: z.enum(["public", "draft", "private"]).optional(),
   dir: z.string().optional(),
 }).passthrough();
 
@@ -52,6 +54,8 @@ const PortfolioSchema = z.object({
   cover: z.string().optional(),
   status: StatusSchema.optional(),
   draft: z.boolean().optional(),
+  published: z.boolean().optional(),
+  visibility: z.enum(["public", "draft", "private"]).optional(),
 }).passthrough();
 
 const GallerySchema = z.object({
@@ -69,6 +73,8 @@ const GallerySchema = z.object({
   caption: z.string().optional(),
   tags: z.array(z.string()).optional().default([]),
   draft: z.boolean().optional(),
+  published: z.boolean().optional(),
+  visibility: z.enum(["public", "draft", "private"]).optional(),
 }).passthrough();
 
 const ThoughtsSchema = z.object({
@@ -76,6 +82,8 @@ const ThoughtsSchema = z.object({
   date: ISODate,
   tags: z.array(z.string()).optional().default([]),
   draft: z.boolean().optional(),
+  published: z.boolean().optional(),
+  visibility: z.enum(["public", "draft", "private"]).optional(),
 }).passthrough();
 
 const PageSchema = z.object({
@@ -83,6 +91,8 @@ const PageSchema = z.object({
   date: ISODate.optional(),
   summary: z.string().optional(),
   draft: z.boolean().optional(),
+  published: z.boolean().optional(),
+  visibility: z.enum(["public", "draft", "private"]).optional(),
   icon: z.string().optional(),
   status: z.string().optional(),
   description: z.string().optional(),
