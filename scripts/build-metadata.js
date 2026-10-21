@@ -898,9 +898,9 @@ function collectRoutes({
     "/categories",
     "/tag",
     "/category",
-    "/profile",
-    "/about",
   ]);
+  // Content-backed pages, including profile and about, are added only when
+  // their source file passes the publication policy below.
 
   for (const p of posts) routes.add(`/blog/post/${p.slug}`);
   for (const p of portfolioItems) routes.add(`/portfolio/${p.slug}`);
