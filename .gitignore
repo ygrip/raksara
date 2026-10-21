@@ -49,6 +49,9 @@ sveltekit/static/404.html
 # Project plan (internal)
 plan/
 
+# Site-specific private review notes (keep local, not in the engine)
+docs/adsense-review-checklist.md
+
 # Environment — never commit actual values
 sveltekit/.env
 sveltekit/.env.*
