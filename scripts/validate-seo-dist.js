@@ -349,8 +349,16 @@ for (const kind of ['tag', 'category']) {
   }
   const shellHtml = readFile(shellPath);
   const shellHead = firstMatch(shellHtml, /<head\b[^>]*>([\s\S]*?)<\/head>/i);
-  for (const href of ['/blog/', '/portfolio/']) {
-    if (!shellHtml.includes(`href="${href}"`)) error(`/${kind}/: noindex archive shell is missing useful static destination ${href}`);
+  const fallback = firstMatch(shellHtml, /<nav\b[^>]*class=["'][^"']*taxonomy-start-here[^"']*["'][^>]*>([\s\S]*?)<\/nav>/i);
+  if (!fallback) {
+    error(`/${kind}/: missing static fallback navigation`);
+  } else {
+    const expectedLinks = Array.isArray(siteConfig?.nav) ? siteConfig.nav.filter(link =>
+      typeof link.href === 'string' && link.href.startsWith('/') && !link.href.startsWith('/tag/') && !link.href.startsWith('/category/')
+    ) : [];
+    for (const link of expectedLinks) {
+      if (!fallback.includes(`href="${link.href}"`)) error(`/${kind}/: configured fallback link ${link.href} is missing`);
+    }
   }
   const robotsTags = [...shellHead.matchAll(/<meta\s+[^>]*name=["']robots["'][^>]*content=["']([^"']+)["'][^>]*>/gi)];
   if (robotsTags.length !== 1 || !/^noindex\s*,\s*follow$/i.test(robotsTags[0][1].trim())) {
