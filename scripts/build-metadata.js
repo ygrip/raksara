@@ -16,6 +16,7 @@ const { imagesToIco } = require("png-to-ico");
 const { generateOgImages, generateProfileOgImage } = require('./og-images');
 const { buildTaxonomyData } = require('./taxonomy-data.cjs');
 const { isPublished, prunePrivateMarkdown } = require('./publication-policy.cjs');
+const { normalizeContentDate } = require('./content-date.cjs');
 let taxonomyPolicy;
 
 const REPO_ROOT = path.join(__dirname, "..");
@@ -263,6 +264,14 @@ async function buildMetadata() {
       section,
       ...data,
     };
+    // YAML parses unquoted dates into Date instances. Normalize all metadata
+    // at ingestion so SSR carousels, feeds, and clients see stable strings.
+    for (const field of ['date', 'updated', 'modified']) {
+      if (entry[field] === undefined || entry[field] === null || entry[field] === '') continue;
+      const normalized = normalizeContentDate(entry[field]);
+      if (!normalized) throw new Error(`Invalid ${field} in ${file}; expected an ISO date`);
+      entry[field] = normalized;
+    }
 
     if (section === "blog") {
       entry.date = data.date
@@ -2469,16 +2478,16 @@ async function prerender(posts, thoughts, portfolio, gallery, config, imageManif
     console.log("  ⚠ home-bundle.json generation failed:", err.message);
   }
 
-  try {
+  // The profile is optional, but if enabled its prerendered body is required.
+  // Fail immediately with the real error instead of later a misleading SvelteKit
+  // 404 for missing /metadata/profile-prerender.json.
+  if ((pages || []).some((page) => page.slug === "profile")) {
     const profileMarkup = await renderProfilePagePrerender(pages, imageManifest, portfolio, posts, config);
-    if (profileMarkup) {
-      const profileCacheFile = path.join(METADATA_DIR, "profile-prerender.json");
-      fs.writeFileSync(profileCacheFile, JSON.stringify({ html: profileMarkup }), "utf-8");
-      fs.copyFileSync(profileCacheFile, path.join(WEB_DIR, "metadata", "profile-prerender.json"));
-      console.log("  ✓ Prerendered profile markup");
-    }
-  } catch (err) {
-    console.log("  ⚠ Profile prerender failed:", err.message);
+    if (!profileMarkup) throw new Error('Configured profile page could not be prerendered');
+    const profileCacheFile = path.join(METADATA_DIR, "profile-prerender.json");
+    fs.writeFileSync(profileCacheFile, JSON.stringify({ html: profileMarkup }), "utf-8");
+    fs.copyFileSync(profileCacheFile, path.join(WEB_DIR, "metadata", "profile-prerender.json"));
+    console.log("  ✓ Prerendered profile markup");
   }
 }
 
