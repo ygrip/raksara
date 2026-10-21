@@ -24,7 +24,7 @@ export function isAdEligibleContentPage(pathname, data) {
   const path = '/' + String(pathname ?? '').replace(/^\/+|\/+$/g, '');
   if (!data || typeof data.renderedHtml !== 'string' || !data.renderedHtml.trim()) return false;
   if (/^\/blog\/post\/.+/.test(path) && data.post?.slug) {
-    if (!path.endsWith('/' + data.post.slug)) return false;
+    if (path !== '/blog/post/' + data.post.slug) return false;
     return !['poem', 'novel', 'chapters', 'comic'].includes(data.post.type ?? 'blog');
   }
   if (/^\/portfolio\/[^/]+$/.test(path) && data.item?.slug) {
