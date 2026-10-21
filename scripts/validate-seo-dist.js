@@ -153,7 +153,7 @@ const publisherCandidate = typeof rawAdsense === 'string'
   : rawAdsense && typeof rawAdsense === 'object'
     ? String(rawAdsense.publisher ?? rawAdsense.pub ?? rawAdsense.publisher_id ?? rawAdsense.account ?? '')
     : '';
-const publisherMatch = publisherCandidate.match(/\\b(pub-\\d{6,})\\b/i);
+const publisherMatch = publisherCandidate.match(/\b(pub-\d{6,})\b/i);
 const publisherId = publisherMatch?.[1]?.toLowerCase() ?? '';
 const expectedAdAccount = publisherId && !/^pub-0+$/.test(publisherId) ? `ca-${publisherId}` : '';
 if (rawAdsense && !expectedAdAccount) error('Configured AdSense publisher ID is invalid');
@@ -162,7 +162,7 @@ if (expectedAdAccount) {
   if (!fs.existsSync(adsTxtPath)) {
     error('Built site is missing root ads.txt despite an AdSense publisher being configured');
   } else {
-    const lines = readFile(adsTxtPath).split(/\\r?\\n/).map((line) => line.trim());
+    const lines = readFile(adsTxtPath).split(/\r?\n/).map((line) => line.trim());
     if (!lines.some((line) => line.toLowerCase().startsWith(`google.com, ${publisherId}, direct,`))) {
       error('Built ads.txt does not authorize the configured Google AdSense publisher as DIRECT');
     }
@@ -204,8 +204,8 @@ for (const url of sitemapUrls) {
 
   const head = firstMatch(html, /<head\b[^>]*>([\s\S]*?)<\/head>/i);
   if (expectedAdAccount) {
-    const tags = [...head.matchAll(/<meta\\b[^>]*name=["']google-adsense-account["'][^>]*>/gi)];
-    if (tags.length !== 1 || !new RegExp(`\\\\bcontent=["']${expectedAdAccount}["']`, 'i').test(tags[0]?.[0] ?? '')) {
+    const tags = [...head.matchAll(/<meta\b[^>]*name=["']google-adsense-account["'][^>]*>/gi)];
+    if (tags.length !== 1 || firstMatch(tags[0]?.[0] ?? '', /content=["']([^"']+)["']/i) !== expectedAdAccount) {
       error(`${relativeFile}: expected exactly one server-rendered google-adsense-account meta tag with ${expectedAdAccount}`);
     }
   }
