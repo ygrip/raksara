@@ -38,8 +38,6 @@ export interface Post {
   status?: 'draft' | 'ongoing' | 'completed';
   published?: boolean;
   visibility?: 'public' | 'draft' | 'private';
-  published?: boolean;
-  visibility?: 'public' | 'draft' | 'private';
   next_page?: FrontmatterNavValue;
   previous_page?: FrontmatterNavValue;
   ogImage?: {
@@ -61,6 +59,8 @@ export interface PortfolioItem {
   github?: string;
   demo?: string;
   status?: 'draft' | 'ongoing' | 'completed';
+  published?: boolean;
+  visibility?: 'public' | 'draft' | 'private';
   featured?: boolean;
   ogImage?: { landscape: string; portrait: string };
 }
