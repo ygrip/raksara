@@ -958,7 +958,7 @@ Switch between multiple content panes. Tabs can be placed at the top, left, righ
 | Tab `icon` | None | Built-in name (e.g. `book`, `code`) or emoji |
 | Tab `color` | Group color | Active underline/indicator color |
 
-For small screens, vertical tabs become horizontally scrollable without shrinking their content. Nested `<TabContainer>` groups are supported. See [the component reference](content-template/pages/doc/tab-container.md).
+For small screens, vertical tabs become horizontally scrollable without shrinking their content. Nested `<TabContainer>` groups are supported. The full component reference belongs in the site's content repository at `pages/doc/tab-container.md` and is published at `/doc/tab-container`.
 
 ### Thought Bubble — `<thought>`
 
