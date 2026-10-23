@@ -11,7 +11,7 @@ Use `<TabContainer>` to divide a longer page into switchable sections. Only the 
 
 ## Basic example
 
-```html
+````html
 <TabContainer mode="top" label="Project details">
   <Tab id="overview" title="Overview" icon="book">
     ### What this project does
@@ -29,7 +29,7 @@ Use `<TabContainer>` to divide a longer page into switchable sections. Only the 
     [Read the documentation](/doc)
   </Tab>
 </TabContainer>
-```
+````
 
 ## Positioning
 
