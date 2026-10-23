@@ -139,6 +139,21 @@ export function renderTabContainer(
     '<div class="rk-tab-content">' + panels + '</div></div>';
 }
 
+/** Replace whole Markdown tokens with tab groups after all other injections. */
+export function injectTabContainers(
+  html: string,
+  storage: TabGroup[],
+  renderContent: (content: string) => string,
+  icons: Record<string, string>,
+  escape: (text: string) => string
+): string {
+  return html.replace(/(?:<p>\s*)?\[\[RAKSARA_TABS:(\d+)\]\](?:\s*<\/p>)?/g, (_match, rawIndex: string) => {
+    const index = Number(rawIndex);
+    const group = storage[index];
+    return group ? renderTabContainer(group, index, renderContent, icons, escape) : '';
+  });
+}
+
 /** Called by initArticleFeatures; safe to call repeatedly and for nested groups. */
 export function initTabContainers(root: HTMLElement): void {
   root.querySelectorAll<HTMLElement>('.rk-tab-container').forEach((group) => {
