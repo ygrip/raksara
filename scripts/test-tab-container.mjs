@@ -127,3 +127,16 @@ test('keyboard, click and repeat initialization keep only one tab panel active',
   delete globalThis.HTMLElement;
   delete globalThis.HTMLButtonElement;
 });
+
+test('dedents natural author indentation and preserves deeper code blocks', () => {
+  const store = [];
+  preprocessTabContainers(
+    '<TabContainer><Tab title="Nested">\n' +
+    '    ### Heading\n' +
+    '    **Rich text**\n' +
+    '        code block\n' +
+    '    <panel type="info">Note</panel>\n' +
+    '</Tab></TabContainer>', store);
+  assert.equal(store[0].tabs[0].content,
+    '### Heading\n**Rich text**\n    code block\n<panel type="info">Note</panel>');
+});
