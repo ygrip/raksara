@@ -17,6 +17,7 @@ import { rewriteTaxonomyHref } from './taxonomy.js';
 import { buildResponsiveAttrs, buildLqipStyle, responsiveAttrsToString } from './responsive-image';
 import { assetUrl, formatDate } from './utils';
 import { containDialog, popupDuration, popupEase } from './popup-motion';
+import { preprocessTabContainers, injectTabContainers, initTabContainers, type TabGroup } from './tab-container';
 
 // ── Helpers ────────────────────────────────────────────
 
@@ -510,6 +511,7 @@ function injectPanels(html: string, markedParse: (s: string) => string): string 
 // ── Container ─────────────────────────────────────────
 
 let _containerStorage: string[] = [];
+let _tabStorage: TabGroup[] = [];
 
 function preprocessContainers(md: string): string {
   return md.replace(/<container\s*>([\s\S]*?)<\/container>/gi, (_m, inner) => {
@@ -746,6 +748,7 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
   _tocStorage = [];
   _panelStorage = [];
   _containerStorage = [];
+  _tabStorage = [];
   _chipStorage = [];
   _gridStorage = [];
   _progressStorage = [];
@@ -835,7 +838,7 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
                     preprocessCards(
                       preprocessComponents(
                         preprocessThoughts(
-                          preprocessFileAttachments(source)
+                          preprocessFileAttachments(preprocessTabContainers(source, _tabStorage))
                         )
                       )
                     )
@@ -846,7 +849,7 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
           )
         )
       )
-    ).replace(/\[\[RAKSARA_(?:TOC|PANEL|CONTAINER|GRID|PROGRESS|THOUGHT|COMPONENT|CHAPTERS|CARDS|CAROUSEL):\d+\]\]/g, '\n\n$&\n\n')
+    ).replace(/\[\[RAKSARA_(?:TOC|PANEL|CONTAINER|GRID|PROGRESS|THOUGHT|COMPONENT|CHAPTERS|CARDS|CAROUSEL|TABS):\d+\]\]/g, '\n\n$&\n\n')
     );
   }
 
@@ -855,7 +858,7 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
 
   // Resolve stored children too: grids/containers may contain panels and code.
   function injectCustomElements(html: string): string {
-    return injectGrid(
+    return injectTabContainers(injectGrid(
     injectProgress(
       injectThoughts(
         injectChips(
@@ -885,7 +888,7 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
       )
     ),
     markedParse
-    );
+    ), _tabStorage, markedParse, CHIP_ICONS, escapeHtml);
   }
 
   return injectCustomElements(rawHtml);
@@ -1622,6 +1625,7 @@ export async function initArticleFeatures(container: HTMLElement): Promise<void>
   initCodeBlocks(container);
   initSortableTables(container);
   initTocBlocks(container);
+  initTabContainers(container);
   initComponentLists(container);
   initChaptersTables(container);
   initCarousels(container);
