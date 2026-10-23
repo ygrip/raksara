@@ -19,6 +19,18 @@ function readAttrs(source: string): Record<string, string> {
   return attrs;
 }
 
+/** Strip only shared authoring indentation; preserve intentional nested code levels. */
+function normalizeTabBody(body: string): string {
+  const lines = body.replace(/\r\n?/g, '\n').split('\n');
+  while (lines.length && !lines[0].trim()) lines.shift();
+  while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+  const nonEmpty = lines.filter((line) => line.trim().length > 0);
+  const margin = nonEmpty.length
+    ? Math.min(...nonEmpty.map((line) => /^[ \t]*/.exec(line)?.[0].length ?? 0))
+    : 0;
+  return lines.map((line) => line.trim() ? line.slice(margin) : '').join('\n');
+}
+
 function parseTabEntries(content: string): TabEntry[] {
   const tabs: TabEntry[] = [];
   const tags = /<\/?(?:tabcontainer|tab)\b[^>]*>/gi;
@@ -34,7 +46,7 @@ function parseTabEntries(content: string): TabEntry[] {
     }
     if (nestedContainers !== 0) continue;
     if (closing && active) {
-      tabs.push({ attrs: active.attrs, content: content.slice(active.start, match.index).trim() });
+      tabs.push({ attrs: active.attrs, content: normalizeTabBody(content.slice(active.start, match.index)) });
       active = null;
     } else if (!closing && !active) {
       active = { attrs: readAttrs(text.slice(text.indexOf(' ') + 1, -1)), start: tags.lastIndex };
