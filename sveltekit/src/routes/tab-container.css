@@ -1,0 +1,158 @@
+/* Markdown TabContainer: four positions, shared theme tokens, no runtime layout JS. */
+.rk-tab-container {
+  --rk-tab-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 1.5rem 0;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: var(--rk-tab-radius);
+  background: var(--bg-glass);
+  color: var(--text-primary);
+}
+.rk-tab-list {
+  display: flex;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0.5rem 0.65rem 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+  border-bottom: 1px solid var(--border-color);
+}
+.rk-tab-trigger {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  min-width: 0;
+  min-height: 42px;
+  padding: 0.6rem 0.85rem 0.8rem;
+  border: 0;
+  border-radius: 10px 10px 0 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--duration-quick, 150ms) ease, color var(--duration-quick, 150ms) ease;
+}
+.rk-tab-trigger:hover { background: var(--bg-hover); color: var(--text-primary); }
+.rk-tab-trigger:focus-visible {
+  outline: 2px solid var(--rk-tab-color, var(--accent));
+  outline-offset: -3px;
+}
+.rk-tab-trigger[aria-selected="true"] { color: var(--text-primary); background: var(--bg-active); }
+.rk-tab-trigger::after {
+  content: "";
+  position: absolute;
+  left: 0.65rem;
+  right: 0.65rem;
+  bottom: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--rk-tab-color, var(--accent));
+  opacity: 0;
+  transform: scaleX(0.5);
+  transition: opacity var(--duration-fast, 250ms) ease, transform var(--duration-fast, 250ms) ease;
+}
+.rk-tab-trigger[aria-selected="true"]::after { opacity: 1; transform: scaleX(1); }
+.rk-tab-icon { display: inline-flex; width: 16px; height: 16px; align-items: center; justify-content: center; flex: none; }
+.rk-tab-icon svg { width: 16px; height: 16px; }
+.rk-tab-icon-fallback::before { content: ""; width: 6px; height: 6px; background: currentColor; border-radius: 50%; }
+.rk-tab-content { min-width: 0; flex: 1; padding: clamp(1rem, 2.5vw, 1.5rem); }
+.rk-tab-panel { min-width: 0; overflow-wrap: anywhere; }
+.rk-tab-panel[hidden] { display: none !important; }
+.rk-tab-panel > :first-child { margin-top: 0 !important; }
+.rk-tab-panel > :last-child { margin-bottom: 0 !important; }
+.rk-tab-panel:focus { outline: none; }
+.rk-tab-panel:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
+
+.rk-tab-container[data-position="bottom"] { flex-direction: column-reverse; }
+.rk-tab-container[data-position="bottom"] .rk-tab-list {
+  border-bottom: 0;
+  border-top: 1px solid var(--border-color);
+  padding: 0 0.65rem 0.5rem;
+}
+.rk-tab-container[data-position="bottom"] .rk-tab-trigger { border-radius: 0 0 10px 10px; padding: 0.8rem 0.85rem 0.6rem; }
+.rk-tab-container[data-position="bottom"] .rk-tab-trigger::after { bottom: auto; top: 0; border-radius: 0 0 3px 3px; }
+
+.rk-tab-container[data-position="left"],
+.rk-tab-container[data-position="right"] { display: grid; grid-template-columns: minmax(145px, 25%) minmax(0, 1fr); }
+.rk-tab-container[data-position="right"] { grid-template-columns: minmax(0, 1fr) minmax(145px, 25%); }
+.rk-tab-container[data-position="right"] .rk-tab-list { grid-column: 2; grid-row: 1; border-left: 1px solid var(--border-color); border-right: 0; }
+.rk-tab-container[data-position="right"] .rk-tab-content { grid-column: 1; grid-row: 1; }
+.rk-tab-container[data-position="left"] .rk-tab-list,
+.rk-tab-container[data-position="right"] .rk-tab-list {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.2rem;
+  padding: 0.65rem 0.4rem;
+  border-bottom: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-right: 1px solid var(--border-color);
+}
+.rk-tab-container[data-position="right"] .rk-tab-list { border-right: 0; }
+.rk-tab-container[data-position="left"] .rk-tab-trigger,
+.rk-tab-container[data-position="right"] .rk-tab-trigger {
+  width: 100%;
+  white-space: normal;
+  border-radius: 8px;
+  padding: 0.8rem;
+}
+.rk-tab-container[data-position="left"] .rk-tab-trigger::after,
+.rk-tab-container[data-position="right"] .rk-tab-trigger::after {
+  left: 0;
+  right: auto;
+  top: 0.55rem;
+  bottom: 0.55rem;
+  width: 3px;
+  height: auto;
+  border-radius: 3px;
+  transform: scaleY(0.5);
+}
+.rk-tab-container[data-position="right"] .rk-tab-trigger::after { left: auto; right: 0; }
+.rk-tab-container[data-position="left"] .rk-tab-trigger[aria-selected="true"]::after,
+.rk-tab-container[data-position="right"] .rk-tab-trigger[aria-selected="true"]::after { transform: scaleY(1); }
+
+@media (max-width: 640px) {
+  /* Side positions stay usable without squeezing content into a narrow column. */
+  .rk-tab-container[data-position="left"],
+  .rk-tab-container[data-position="right"] { display: flex; flex-direction: column; }
+  .rk-tab-container[data-position="left"] .rk-tab-list,
+  .rk-tab-container[data-position="right"] .rk-tab-list {
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.35rem 0.5rem 0;
+    border: 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .rk-tab-container[data-position="left"] .rk-tab-trigger,
+  .rk-tab-container[data-position="right"] .rk-tab-trigger {
+    width: auto;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    border-radius: 8px 8px 0 0;
+    padding: 0.65rem 0.7rem 0.75rem;
+  }
+  .rk-tab-container[data-position="left"] .rk-tab-trigger::after,
+  .rk-tab-container[data-position="right"] .rk-tab-trigger::after {
+    top: auto; bottom: 0; left: 0.5rem; right: 0.5rem;
+    height: 3px; width: auto; transform: scaleX(0.5);
+  }
+  .rk-tab-container[data-position="left"] .rk-tab-trigger[aria-selected="true"]::after,
+  .rk-tab-container[data-position="right"] .rk-tab-trigger[aria-selected="true"]::after { transform: scaleX(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rk-tab-trigger, .rk-tab-trigger::after { transition: none; }
+}
