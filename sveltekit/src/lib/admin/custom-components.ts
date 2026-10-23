@@ -98,6 +98,15 @@ export const raksaraCustomComponents: AdminCustomComponent[] = [
 		supportedTypes: ['blog', 'portfolio', 'pages']
 	},
 	{
+		id: 'tab-container',
+		label: 'Tab Container',
+		group: 'html',
+		description: 'Switchable content sections. Place tabs above, below, left, or right, with individual icons and active colors.',
+		snippet: '<TabContainer mode="top">\n<Tab title="Overview" icon="book">\n**Overview** content here.\n</Tab>\n<Tab title="Examples" icon="code" color="#f59e0b">\n<panel type="info">Nested components work here.</panel>\n</Tab>\n</TabContainer>',
+		preview: 'Accessible responsive tabs; change mode to left, right, or bottom. Each Tab accepts title, icon, and optional color.',
+		supportedTypes: ['blog', 'portfolio', 'pages']
+	},
+	{
 		id: 'progress',
 		label: 'Progress Bar',
 		group: 'html',
