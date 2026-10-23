@@ -41,6 +41,7 @@ jobs:
         run: |
           npm run test:adsense:readiness
           npm run test:taxonomy:policy
+          npm run test:tab-container
           npm run test:publication
           npm run test:content-date
 
