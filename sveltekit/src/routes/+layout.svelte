@@ -4,6 +4,7 @@
 	import './heritage-glass.css';
 	import './motion.css';
 	import './popup-motion.css';
+	import './tab-container.css';
 	import { popupMotion, sidebarDialog } from '$lib/popup-motion';
 	import { onMount } from 'svelte';
 	import { navigating, page } from '$app/stores';
