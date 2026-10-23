@@ -125,7 +125,8 @@ export function renderTabContainer(
   const list = group.tabs.map((tab, i) => {
     const title = escape(tab.attrs['title'] || 'Tab ' + (i + 1));
     const icon = (tab.attrs['icon'] || '').trim();
-    const iconSvg = icons[icon.toLowerCase()];
+    const iconKey = icon.toLowerCase();
+    const iconSvg = Object.prototype.hasOwnProperty.call(icons, iconKey) ? icons[iconKey] : undefined;
     const iconHtml = !icon ? '' : iconSvg
       ? '<span class="rk-tab-icon" aria-hidden="true">' + iconSvg + '</span>'
       : /^[a-z][\w-]*$/i.test(icon)
