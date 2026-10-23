@@ -3,7 +3,8 @@ import test from 'node:test';
 import {
   preprocessTabContainers,
   renderTabContainer,
-  injectTabContainers
+  injectTabContainers,
+  initTabContainers
 } from '../sveltekit/src/lib/tab-container.ts';
 
 const escape = (s) => s.replaceAll('&', '&amp;').replaceAll('<', '&lt;')
@@ -70,4 +71,59 @@ test('ignores unmatched elements and retains surrounding prose', () => {
   const token = preprocessTabContainers(valid, store);
   assert.match(token, /^Before /);
   assert.match(token, / After$/);
+});
+
+test('keyboard, click and repeat initialization keep only one tab panel active', () => {
+  class FakeElement {
+    constructor(role = '') {
+      this.attributes = { role };
+      this.children = [];
+      this.dataset = {};
+      this.listeners = {};
+      this.hidden = false;
+      this.tabIndex = -1;
+      this.focused = false;
+    }
+    getAttribute(name) { return this.attributes[name] ?? null; }
+    setAttribute(name, value) { this.attributes[name] = value; }
+    addEventListener(name, listener) { this.listeners[name] = listener; }
+    focus() { this.focused = true; }
+  }
+  class FakeButton extends FakeElement {}
+  globalThis.HTMLElement = FakeElement;
+  globalThis.HTMLButtonElement = FakeButton;
+
+  const tabs = [new FakeButton('tab'), new FakeButton('tab'), new FakeButton('tab')];
+  const panels = [new FakeElement('tabpanel'), new FakeElement('tabpanel'), new FakeElement('tabpanel')];
+  const tablist = new FakeElement('tablist');
+  tablist.children = tabs;
+  const content = new FakeElement();
+  content.children = panels;
+  const group = new FakeElement();
+  group.querySelector = (selector) => selector.includes('rk-tab-list') ? tablist : content;
+  const root = { querySelectorAll: () => [group] };
+  const changes = [];
+  initTabContainers(root, (panel) => changes.push(panel));
+  initTabContainers(root, () => assert.fail('Double-bound event handler'));
+  assert.equal(group.dataset['tabsInit'], '1');
+  const key = (name) => ({
+    key: name,
+    preventDefault() { this.prevented = true; },
+    stopPropagation() { this.stopped = true; },
+  });
+
+  const arrow = key('ArrowRight');
+  tabs[0].listeners.keydown(arrow);
+  assert.ok(arrow.prevented && arrow.stopped);
+  assert.equal(tabs[1].getAttribute('aria-selected'), 'true');
+  assert.deepEqual(panels.map((panel) => panel.hidden), [true, false, true]);
+  assert.equal(tabs[1].focused, true);
+  const end = key('End');
+  tabs[1].listeners.keydown(end);
+  assert.equal(tabs[2].getAttribute('aria-selected'), 'true');
+  tabs[0].listeners.click();
+  assert.deepEqual(panels.map((panel) => panel.hidden), [false, true, true]);
+  assert.deepEqual(changes, [panels[1], panels[2], panels[0]]);
+  delete globalThis.HTMLElement;
+  delete globalThis.HTMLButtonElement;
 });
