@@ -155,7 +155,7 @@ export function injectTabContainers(
 }
 
 /** Called by initArticleFeatures; safe to call repeatedly and for nested groups. */
-export function initTabContainers(root: HTMLElement): void {
+export function initTabContainers(root: HTMLElement, onChange?: (panel: HTMLElement) => void): void {
   root.querySelectorAll<HTMLElement>('.rk-tab-container').forEach((group) => {
     if (group.dataset['tabsInit'] === '1') return;
     const tablist = group.querySelector<HTMLElement>(':scope > .rk-tab-list');
@@ -175,6 +175,7 @@ export function initTabContainers(root: HTMLElement): void {
         panels[i].hidden = !active;
       });
       if (focus) tabs[index].focus();
+      onChange?.(panels[index]);
     }
     tabs.forEach((tab, index) => {
       tab.addEventListener('click', () => activate(index));
