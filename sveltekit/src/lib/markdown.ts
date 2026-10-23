@@ -17,6 +17,7 @@ import { rewriteTaxonomyHref } from './taxonomy.js';
 import { buildResponsiveAttrs, buildLqipStyle, responsiveAttrsToString } from './responsive-image';
 import { assetUrl, formatDate } from './utils';
 import { containDialog, popupDuration, popupEase } from './popup-motion';
+import { preprocessTabContainers, injectTabContainers, initTabContainers, type TabGroup } from './tab-container';
 
 // ── Helpers ────────────────────────────────────────────
 
@@ -510,6 +511,7 @@ function injectPanels(html: string, markedParse: (s: string) => string): string 
 // ── Container ─────────────────────────────────────────
 
 let _containerStorage: string[] = [];
+let _tabStorage: TabGroup[] = [];
 
 function preprocessContainers(md: string): string {
   return md.replace(/<container\s*>([\s\S]*?)<\/container>/gi, (_m, inner) => {
@@ -548,6 +550,7 @@ const CHIP_ICONS: Record<string, string> = {
   book: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 2.5h7.5A2.5 2.5 0 0113 5v8.5H5.5A2.5 2.5 0 013 11V2.5zM3 11a2.5 2.5 0 012.5-2.5H13" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>',
   heart: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 13.5S2 10 2 5.8A3 3 0 018 4.5a3 3 0 016 1.3C14 10 8 13.5 8 13.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>',
   globe: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M2 8h12M8 2c1.7 1.6 2.5 3.6 2.5 6S9.7 12.4 8 14C6.3 12.4 5.5 10.4 5.5 8S6.3 3.6 8 2z" stroke="currentColor" stroke-width="1.2"/></svg>',
+  grid: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/></svg>',
 };
 
 let _chipStorage: Array<{ icon: string | null; label: string | null; content: string }> = [];
@@ -746,6 +749,7 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
   _tocStorage = [];
   _panelStorage = [];
   _containerStorage = [];
+  _tabStorage = [];
   _chipStorage = [];
   _gridStorage = [];
   _progressStorage = [];
@@ -835,7 +839,7 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
                     preprocessCards(
                       preprocessComponents(
                         preprocessThoughts(
-                          preprocessFileAttachments(source)
+                          preprocessFileAttachments(preprocessTabContainers(source, _tabStorage))
                         )
                       )
                     )
@@ -846,7 +850,7 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
           )
         )
       )
-    ).replace(/\[\[RAKSARA_(?:TOC|PANEL|CONTAINER|GRID|PROGRESS|THOUGHT|COMPONENT|CHAPTERS|CARDS|CAROUSEL):\d+\]\]/g, '\n\n$&\n\n')
+    ).replace(/\[\[RAKSARA_(?:TOC|PANEL|CONTAINER|GRID|PROGRESS|THOUGHT|COMPONENT|CHAPTERS|CARDS|CAROUSEL|TABS):\d+\]\]/g, '\n\n$&\n\n')
     );
   }
 
@@ -855,7 +859,7 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
 
   // Resolve stored children too: grids/containers may contain panels and code.
   function injectCustomElements(html: string): string {
-    return injectGrid(
+    return injectTabContainers(injectGrid(
     injectProgress(
       injectThoughts(
         injectChips(
@@ -885,7 +889,7 @@ export async function renderMarkdown(md: string, opts: RenderOptions = {}): Prom
       )
     ),
     markedParse
-    );
+    ), _tabStorage, markedParse, CHIP_ICONS, escapeHtml);
   }
 
   return injectCustomElements(rawHtml);
@@ -972,7 +976,9 @@ function normalizeHighlightLanguage(raw: string): string {
 
 /** Render all rk-chart-container elements with Chart.js (lazy-loads). */
 export async function initCharts(container: HTMLElement): Promise<void> {
-  const charts = container.querySelectorAll<HTMLElement>('.rk-chart-container');
+  // Hidden panels have no measurable width; initialize their charts on first reveal.
+  const charts = Array.from(container.querySelectorAll<HTMLElement>('.rk-chart-container'))
+    .filter((el) => el.dataset['chartInit'] !== '1' && !el.closest('.rk-tab-panel[hidden]'));
   if (!charts.length) return;
   try {
     let Chart = (window as unknown as Record<string, unknown>)['Chart'] as (new (...a: unknown[]) => unknown) | undefined;
@@ -1129,6 +1135,7 @@ export async function initCharts(container: HTMLElement): Promise<void> {
     }
 
     charts.forEach((el) => {
+      el.dataset['chartInit'] = '1';
       const config = decodeURIComponent(el.dataset['chartConfig'] ?? '{}');
       try {
         // Content-authored chart blocks follow legacy Raksara and Chart.js examples:
@@ -1399,7 +1406,8 @@ export function initMermaid(container: HTMLElement): Promise<void> {
 }
 
 async function renderMermaid(container: HTMLElement): Promise<void> {
-  const blocks = container.querySelectorAll<HTMLElement>('.rk-mermaid');
+  const blocks = Array.from(container.querySelectorAll<HTMLElement>('.rk-mermaid'))
+    .filter((el) => !el.closest('.rk-tab-panel[hidden]'));
   if (!blocks.length || !container.isConnected) return;
   try {
     // @ts-expect-error mermaid global
@@ -1622,6 +1630,10 @@ export async function initArticleFeatures(container: HTMLElement): Promise<void>
   initCodeBlocks(container);
   initSortableTables(container);
   initTocBlocks(container);
+  initTabContainers(container, (panel) => {
+    // Diagrams/charts measure their layout after a hidden tab is revealed.
+    void Promise.all([initCharts(panel), initMermaid(panel)]);
+  });
   initComponentLists(container);
   initChaptersTables(container);
   initCarousels(container);

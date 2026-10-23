@@ -8,6 +8,7 @@
     "build:sveltekit": "cd sveltekit && npm run build",
     "check:sveltekit": "cd sveltekit && npm run check",
     "test:dot-field": "node scripts/test-dot-field.mjs",
+    "test:tab-container": "node scripts/test-tab-container.mjs",
     "test:border-beam": "node scripts/test-border-beam.mjs",
     "test:button-sheen": "node scripts/test-button-sheen.mjs",
     "test:taxonomy": "node scripts/test-taxonomy.mjs",
