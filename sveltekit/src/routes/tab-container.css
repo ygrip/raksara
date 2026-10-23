@@ -5,7 +5,8 @@
   flex-direction: column;
   min-width: 0;
   margin: 1.5rem 0;
-  overflow: hidden;
+  /* Allow nested diagrams, menus and tooltips to extend outside the panels. */
+  overflow: visible;
   border: 1px solid var(--border-color);
   border-radius: var(--rk-tab-radius);
   background: var(--bg-glass);
