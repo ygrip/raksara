@@ -58,6 +58,40 @@ try {
     await page.close();
     console.log(`documentation card polish passed in ${theme} theme`);
   }
+  // /documentation renders ::component() from Markdown, unlike the Svelte /doc index.
+  // Verify that hidden cards really disappear, not merely acquire an attribute.
+  for (const theme of ['dark', 'light']) {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.addInitScript(value => localStorage.setItem('raksara-theme', value), theme);
+    await page.goto(new URL('/documentation/', base).href);
+    const search = page.getByRole('searchbox', { name: 'Filter components' });
+    await search.waitFor();
+    await page.waitForFunction(() => document.querySelector('.component-list-search')?.dataset.init === '1');
+    const cards = page.locator('.component-list .component-card');
+    const total = await cards.count();
+    assert(total > 1, 'Markdown documentation index renders its component list');
+
+    await search.fill('does-not-exist-raksara-tab-filter-test');
+    assert.equal(await cards.count(), total, 'Markdown filter retains DOM nodes to preserve links');
+    assert.equal(await page.locator('.component-list .component-card:visible').count(), 0,
+      'nonmatching Markdown cards are actually hidden despite display:grid CSS');
+    assert.equal(await page.locator('.component-list-empty:visible').count(), 1,
+      'unmatched query shows an empty state');
+
+    const title = (await cards.first().locator('.component-card-title').innerText()).trim();
+    await search.fill(title);
+    assert(await page.locator('.component-list .component-card:visible').count() >= 1,
+      'matching documentation cards are visible again');
+    await search.fill('');
+    assert.equal(await page.locator('.component-list .component-card:visible').count(), total,
+      'clearing filter restores all Markdown documentation cards');
+    assert.equal(await page.locator('.component-list-empty').count(), 0,
+      'empty-state message disappears after clearing the filter');
+    assert.deepEqual(errors, [], 'documentation filtering has no uncaught client errors');
+    await page.close();
+  }
 } finally {
   await browser.close();
 }

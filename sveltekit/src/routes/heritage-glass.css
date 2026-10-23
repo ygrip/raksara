@@ -1212,6 +1212,9 @@ body.reading-mode #app .article-header .article-meta { justify-content: center; 
   text-decoration: none;
   transition: border-color .22s var(--hg-ease), box-shadow .22s var(--hg-ease), transform .22s var(--hg-ease);
 }
+/* The Markdown ::component filter uses the native hidden attribute.
+   The card's explicit display:grid above would otherwise override the UA rule. */
+#app .component-list .component-card[hidden] { display: none !important; }
 #app .component-card::before {
   content: '';
   position: absolute; inset: 0; z-index: 0;
