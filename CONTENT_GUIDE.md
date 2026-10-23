@@ -933,6 +933,33 @@ sheet instead.
 
 ## 10. Custom Components
 
+### Tab Container — `<TabContainer>`
+
+Switch between multiple content panes. Tabs can be placed at the top, left, right, or bottom and each pane supports **normal Markdown plus nested custom components**.
+
+```html
+<TabContainer mode="left" default="overview" label="Examples">
+  <Tab id="overview" title="Overview" icon="book">
+    **Overview text** and Markdown links.
+  </Tab>
+  <Tab id="details" title="Details" icon="code" color="#f59e0b">
+    <panel type="info">Nested panels work too.</panel>
+  </Tab>
+</TabContainer>
+```
+
+| Attribute | Default | Description |
+|---|---|---|
+| `mode` | `top` | `top`, `left`, `right`, `bottom` |
+| `default` / `active` | First tab | A zero-based tab index, tab ID or title |
+| `label` | `Content tabs` | Accessible description of the tab group |
+| `color` | Site accent | Fallback indicator color for the group |
+| Tab `title` | Tab number | Label for each tab |
+| Tab `icon` | None | Built-in name (e.g. `book`, `code`) or emoji |
+| Tab `color` | Group color | Active underline/indicator color |
+
+For small screens, vertical tabs become horizontally scrollable without shrinking their content. Nested `<TabContainer>` groups are supported. See [the component reference](content-template/pages/doc/tab-container.md).
+
 ### Thought Bubble — `<thought>`
 
 Renders a styled quote bubble, suitable for dialogue or attributed quotes.
