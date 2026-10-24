@@ -2,6 +2,8 @@
 // Handles doc pages: /doc/chapters, /doc/chart, etc.
 import type { PageLoad } from './$types';
 import { loadPages, loadDocs } from '$lib/metadata';
+import { renderMarkdown } from '$lib/markdown';
+import { stripYamlFrontmatter } from '$lib/utils';
 
 function routeFromNav(value: unknown): string | null {
   const item = Array.isArray(value) ? value[0] : value;
@@ -13,13 +15,15 @@ function routeFromNav(value: unknown): string | null {
 
 export const prerender = true;
 
-export const load: PageLoad = async ({ params, fetch }) => {
+export const load: PageLoad = async ({ params, fetch, parent }) => {
+  const { config } = await parent();
   const slug = `doc/${params.path.replace(/\/+$/, '')}`;
   const pages = await loadPages(fetch).catch(() => []);
   const page = pages.find((p) => p.slug === slug) ?? null;
 
   const res = await fetch(`/content/pages/${slug}.md`);
-  const markdown = res.ok ? await res.text() : null;
+  const markdown = stripYamlFrontmatter(res.ok ? await res.text() : null);
+  const renderedHtml = markdown ? await renderMarkdown(markdown, { config }) : '';
 
   const pageNav = page as unknown as { next_page?: unknown; previous_page?: unknown } | null;
   const nextPage = routeFromNav(pageNav?.next_page);
@@ -27,5 +31,5 @@ export const load: PageLoad = async ({ params, fetch }) => {
 
   const docs = await loadDocs(fetch).catch(() => []);
 
-  return { page, markdown, slug, nextPage, previousPage, docs };
+  return { page, markdown, renderedHtml, slug, nextPage, previousPage, docs };
 };

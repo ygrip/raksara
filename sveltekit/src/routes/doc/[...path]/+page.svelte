@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import type { PageData } from './$types';
-	import { renderMarkdown, initArticleFeatures } from '$lib/markdown';
+	import { initArticleFeatures } from '$lib/markdown';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
 	import { splitLeadingHeading } from '$lib/utils';
 
@@ -14,26 +14,20 @@
 	const previousPage = $derived(data.previousPage);
 	const docs = $derived(data.docs);
 
-	let renderedHtml = $state('');
+	const renderedHtml = $derived(data.renderedHtml ?? '');
 	let articleEl: HTMLElement | null = null;
 	const rendered = $derived(splitLeadingHeading(renderedHtml));
 
+	// Pre-render the Markdown in load(); enhance interactive elements on the client.
 	$effect(() => {
-		const source = markdown;
-		const siteConfig = config;
-		if (!source) {
-			renderedHtml = '';
-			return;
-		}
-		(async () => {
-			renderedHtml = await renderMarkdown(source, { config: siteConfig });
-			await tick();
+		if (!renderedHtml) return;
+		void tick().then(async () => {
 			if (articleEl) await initArticleFeatures(articleEl);
 			if (location.hash) {
 				const target = document.querySelector(location.hash);
 				if (target) target.scrollIntoView({ behavior: 'smooth' });
 			}
-		})();
+		});
 	});
 </script>
 
