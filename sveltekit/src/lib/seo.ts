@@ -61,7 +61,7 @@ export function buildPostMeta(
   const isPost = post.section === 'blog';
   const siteUrl = config.site_url ?? config.url;
   const root = (siteUrl ?? '').replace(/\/+$/, '');
-  const url = resolveUrl(isPost ? `/blog/post/${slug}` : `/portfolio/${slug}`, siteUrl);
+  const url = resolveUrl(isPost ? `/blog/post/${slug}/` : `/portfolio/${slug}/`, siteUrl);
   const image = post.cover ? resolveUrl(post.cover, siteUrl) : undefined;
 
   const authorName = (post as Post & { author?: string }).author ?? config.author ?? '';
@@ -76,8 +76,8 @@ export function buildPostMeta(
 
   const jsonLd: JsonLdObject = {
     '@context': 'https://schema.org',
-    '@type': isPost ? articleSchemaType : 'SoftwareApplication',
-    headline: post.title,
+    '@type': isPost ? articleSchemaType : ((post as PortfolioItem).github ? 'SoftwareSourceCode' : 'CreativeWork'),
+    ...(isPost ? { headline: post.title } : { name: post.title }),
     description,
     author: [
       {
@@ -94,6 +94,7 @@ export function buildPostMeta(
     },
     ...(root ? { isPartOf: { '@id': `${root}/#website` } } : {}),
     url,
+    ...(!isPost && (post as PortfolioItem).github ? { codeRepository: (post as PortfolioItem).github } : {}),
     ...(image ? { image: [image] } : {}),
     ...(post.tags?.length ? { keywords: post.tags.join(', ') } : {}),
   };
