@@ -362,9 +362,12 @@ body { background: var(--bg-base); font-family: var(--font-sans); font-feature-s
 }
 #app :is(.post-card, .portfolio-card, a.home-info-card-link, .home-link-item, .gallery-window):hover { border-color: var(--hg-line); box-shadow: var(--card-shadow-hover), var(--hg-rim); }
 #app :is(.post-card, .portfolio-card, .home-info-card, .gallery-window):hover::after { opacity: var(--hg-carve); }
-#app .post-card-thumb { border-radius: 14px; }
+/* List thumbnails meet the card's left edge; the edge against the text stays square. */
+#app .post-card-thumb { border-radius: var(--hg-radius-card) 0 0 var(--hg-radius-card); }
 #app .home-section .post-card { display: flex; flex-direction: column; padding: 10px; }
-#app .home-section .post-card-thumb { width: 100%; height: auto; flex: none; aspect-ratio: 16 / 9; border-radius: 16px; }
+/* On the homepage, the cover runs edge to edge with only its top corners rounded. */
+#app .home-section .post-card.has-thumb { padding: 0; }
+#app .home-section .post-card-thumb { width: 100%; height: auto; flex: none; aspect-ratio: 16 / 9; border-radius: var(--hg-radius-card) var(--hg-radius-card) 0 0; }
 #app .home-section .post-card-thumb img { width: 100%; height: 100%; object-fit: cover; }
 #app .home-section .post-card-body { display: flex; flex-direction: column; flex: 1; justify-content: flex-start; padding: 18px 12px 20px; }
 #app .home-section .post-card-title { margin-top: 0; min-height: 3.6em; line-height: 1.2; text-wrap: pretty; }
