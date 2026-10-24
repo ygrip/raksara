@@ -957,7 +957,7 @@ function buildSitemapXml(siteUrl, routes, context = {}) {
       const urlLines = [
         "  <url>",
         `    <loc>${escapeXml(siteUrl + clean)}</loc>`,
-        `    <lastmod>${lastmod}</lastmod>`,
+        ...(lastmod ? [`    <lastmod>${lastmod}</lastmod>`] : []),
         `    <priority>${priority.toFixed(1)}</priority>`,
       ];
 
@@ -1147,8 +1147,9 @@ function getContentLastmod(route, { posts, portfolioItems }) {
       return d > latest ? d : latest;
     }, "1970-01-01");
   }
-  // Fallback for static routes
-  return new Date().toISOString().split("T")[0];
+  // Do not report the deployment date as a content update for static pages.
+  // Google recommends lastmod only when it reflects an actual page change.
+  return null;
 }
 
 function toPrerenderRoute(route) {
