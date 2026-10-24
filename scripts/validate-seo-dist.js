@@ -246,6 +246,16 @@ for (const url of sitemapUrls) {
     missingCanonical++;
   }
 
+  // The canonical must match the exact URL published in the sitemap,
+  // including its trailing slash. Existence alone is not enough.
+  const canonicalHref = firstMatch(
+    head,
+    /<link\s+[^>]*rel=["']canonical["'][^>]*href=["']([^"']+)["'][^>]*>/i
+  );
+  if (canonicalHref && canonicalHref !== url) {
+    error(`${relativeFile}: canonical ${canonicalHref} differs from sitemap URL ${url}`);
+  }
+
   if (hasNoindex(html)) {
     error(`${relativeFile}: sitemap URL renders robots noindex`);
     noindexCount++;
