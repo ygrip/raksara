@@ -350,6 +350,30 @@ if (robotsBlocked === 0 && robotsText) ok('robots.txt does not block sitemap URL
 if (loadingFallbacks === 0) ok('No sitemap URL renders the Loading fallback as static content');
 if (missingArticleBody === 0) ok('Article detail pages include prerendered article bodies');
 
+// Documentation routes are currently noindexed, but still must serve their
+// actual Markdown body in the initial HTML. This prevents a regression to
+// client-only "Loading…" placeholders before docs are eligible for indexing.
+const prerenderManifestPath = path.join(STATIC_DIR, 'metadata', 'prerender-routes.json');
+if (fs.existsSync(prerenderManifestPath)) {
+  const prerenderRoutes = JSON.parse(readFile(prerenderManifestPath));
+  const docRoutes = prerenderRoutes.filter((route) => /^\/doc\/[^/]/.test(route));
+  for (const route of docRoutes) {
+    const htmlFile = htmlPathForUrl(new URL(route, sitemapUrls[0]).href);
+    if (!fs.existsSync(htmlFile)) {
+      error(`${route}: documentation prerender output is missing`);
+      continue;
+    }
+    const docHtml = readFile(htmlFile);
+    if (!/<div\\b[^>]*class=["'][^"']*\\barticle-body\\b/i.test(docHtml)) {
+      error(`${route}: documentation content was not rendered into static HTML`);
+    }
+    if (/<p\\b[^>]*>\\s*Loading…\\s*<\\/p>/i.test(docHtml)) {
+      error(`${route}: documentation has a client-only Loading fallback`);
+    }
+  }
+  if (docRoutes.length > 0) ok(`Checked ${docRoutes.length} prerendered documentation page(s)`);
+}
+
 // Shared taxonomy shells must convey noindex before JavaScript executes.
 for (const kind of ['tag', 'category']) {
   const shellPath = path.join(BUILD_DIR, kind, 'index.html');
