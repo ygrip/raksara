@@ -364,10 +364,10 @@ if (fs.existsSync(prerenderManifestPath)) {
       continue;
     }
     const docHtml = readFile(htmlFile);
-    if (!/<div\\b[^>]*class=["'][^"']*\\barticle-body\\b/i.test(docHtml)) {
+    if (!/<div\b[^>]*class=["'][^"']*\barticle-body\b/i.test(docHtml)) {
       error(`${route}: documentation content was not rendered into static HTML`);
     }
-    if (/<p\\b[^>]*>\\s*Loading…\\s*<\\/p>/i.test(docHtml)) {
+    if (/<p\b[^>]*>\s*Loading…\s*<\/p>/i.test(docHtml)) {
       error(`${route}: documentation has a client-only Loading fallback`);
     }
   }
