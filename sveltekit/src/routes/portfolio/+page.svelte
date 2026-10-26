@@ -59,6 +59,9 @@
 		return [...map.entries()].map(([label, items]) => ({ label, items }));
 	});
 	const ogBase = $derived(String(config?.site_url ?? config?.url ?? '').replace(/\/+$/, ''));
+	const portfolioDescription = $derived(
+		`Explore ${(portfolio ?? []).length} open-source projects, experiments, and case studies by ${config?.author ?? config?.hero_title ?? 'the author'} on ${config?.hero_title ?? 'Raksara'}.`
+	);
 
 	function resetPagination() {
 		page = 1;
@@ -71,9 +74,9 @@
 
 <svelte:head>
 	<title>Portfolio · {config?.hero_title ?? 'Raksara'}</title>
-	<meta name="description" content={`Explore ${(portfolio ?? []).length} projects in the ${config?.hero_title ?? 'Raksara'} portfolio.`} />
+	<meta name="description" content={portfolioDescription} />
 	<meta property="og:title" content="Portfolio · {config?.hero_title ?? 'Raksara'}" />
-	<meta property="og:description" content={`Explore ${(portfolio ?? []).length} projects in the ${config?.hero_title ?? 'Raksara'} portfolio.`} />
+	<meta property="og:description" content={portfolioDescription} />
 
 	<meta property="og:type" content="website" />
 	<meta property="og:url" content="{ogBase}/portfolio/" />

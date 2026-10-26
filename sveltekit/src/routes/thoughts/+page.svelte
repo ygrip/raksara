@@ -13,6 +13,10 @@
 	const pageTitle = 'Shower Thoughts';
 	const pageSubtitle = $derived((config as unknown as Record<string, unknown>)?.thoughts_subtitle as string | undefined ?? '');
 
+	const thoughtsDescription = $derived(
+		pageSubtitle || `Short notes, observations, and half-formed ideas from ${config?.author ?? config?.hero_title ?? 'the author'}, collected on ${config?.hero_title ?? 'Raksara'}.`
+	);
+
 	type SortKey = 'latest' | 'oldest' | 'az' | 'za';
 	let sortKey = $state<SortKey>('latest');
 	let searchQuery = $state('');
@@ -43,9 +47,9 @@
 
 <svelte:head>
 	<title>{pageTitle} · {config?.hero_title ?? 'Raksara'}</title>
-	<meta name="description" content={pageSubtitle || `Short notes and observations from ${config?.author ?? config?.hero_title ?? 'Raksara'}.`} />
+	<meta name="description" content={thoughtsDescription} />
 	<meta property="og:title" content="{pageTitle} · {config?.hero_title ?? 'Raksara'}" />
-	<meta property="og:description" content={pageSubtitle ?? ''} />
+	<meta property="og:description" content={thoughtsDescription} />
 
 	<meta property="og:type" content="website" />
 	<meta property="og:url" content="{ogBase}/thoughts/" />
