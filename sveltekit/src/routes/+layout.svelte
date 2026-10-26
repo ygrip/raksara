@@ -12,7 +12,7 @@
 	import type { LayoutData } from './$types';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
 	import AdcashAutoTag from '$lib/components/AdcashAutoTag.svelte';
-	import { getGiscusConfig } from '$lib/seo';
+	import { getGiscusConfig, resolveDefaultOgImage } from '$lib/seo';
 	import { resolveAdsenseConfig, isAdsensePathEligible } from '$lib/advertising.js';
 	import { assetUrl } from '$lib/utils';
 	import { themeTokens, earlyThemeScript } from '$lib/theme';
@@ -115,22 +115,6 @@
 		return normalizedPath === normalizedHref || normalizedPath.startsWith(normalizedHref + '/');
 	}
 
-	function resolveDefaultOgImage(
-		path: string,
-		root: string,
-		ogDefaults?: { site?: string; blog?: string; portfolio?: string; profile?: string }
-	): string {
-		if (!ogDefaults) return '';
-		const resolve = (p: string) => /^https?:\/\//i.test(p) ? p : `${root}/${p.replace(/^\/+/, '')}`;
-		const siteDefault = ogDefaults.site ? resolve(ogDefaults.site) : '';
-		if (path.startsWith('/blog')) return ogDefaults.blog ? resolve(ogDefaults.blog) : siteDefault;
-		if (path.startsWith('/portfolio')) return ogDefaults.portfolio ? resolve(ogDefaults.portfolio) : siteDefault;
-		if (path === '/profile' || path.startsWith('/profile/') || path === '/about' || path.startsWith('/about/')) {
-			return ogDefaults.profile ? resolve(ogDefaults.profile) : siteDefault;
-		}
-		return siteDefault;
-	}
-
 	function buildCanonicalHref(pathname: string): string {
 		const siteUrl = String(config?.site_url || config?.url || $page.url.origin).replace(/\/+$/, '');
 		if (!pathname || pathname === '/') return `${siteUrl}/`;
@@ -143,9 +127,13 @@
 		return `/${pathname.replace(/^\/+/, '').replace(/\/+$/, '')}`;
 	}
 
+	/** Single-segment routes that must stay out of the index (galleries, indexes, admin, demo pages). */
+	const NOINDEX_SINGLE_SEGMENT_PATHS = ['/gallery', '/tags', '/categories', '/admin', '/chapters-demo', '/google-sitelinks'];
+
 	function shouldFollowPath(pathname: string): boolean {
 		const path = normalizePath(pathname);
 		if (isTaxonomyPath(path)) return true;
+		if (path.startsWith('/blog/dir/')) return true;
 		if (['/', '/blog', '/portfolio', '/profile', '/about', '/thoughts', '/tags', '/categories', '/gallery'].includes(path)) return true;
 		return false;
 	}
@@ -155,9 +143,8 @@
 		if (isTaxonomyPath(path)) return isIndexableTaxonomyPath(path, config);
 		if (['/', '/blog', '/portfolio', '/profile', '/about', '/thoughts'].includes(path)) return true;
 		if (path.startsWith('/blog/post/')) return true;
-		if (path.startsWith('/blog/dir/')) return true;
 		if (path.startsWith('/portfolio/')) return true;
-		if (/^\/[^/]+$/.test(path) && !['/gallery', '/tags', '/categories', '/admin'].includes(path)) return true;
+		if (/^\/[^/]+$/.test(path) && !NOINDEX_SINGLE_SEGMENT_PATHS.includes(path)) return true;
 		return false;
 	}
 

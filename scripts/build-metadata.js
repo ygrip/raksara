@@ -805,7 +805,7 @@ async function generateSeoArtifacts({
   const indexableRoutes = routes.filter((route) => isIndexableRoute(route, siteConfig));
 
   writeWebFile("metadata/prerender-routes.json", `${JSON.stringify(routes.map(toPrerenderRoute), null, 2)}\n`);
-  writeWebFile("sitemap.xml", buildSitemapXml(siteUrl, indexableRoutes, { posts, portfolioItems }));
+  writeWebFile("sitemap.xml", buildSitemapXml(siteUrl, indexableRoutes, { posts, portfolioItems, pages }));
   writeWebFile("feed.xml", buildRssFeed(siteUrl, posts, siteConfig));
   writeWebFile("atom.xml", buildAtomFeed(siteUrl, posts, siteConfig));
   writeWebFile("robots.txt", buildRobotsTxt(siteUrl, siteConfig));
@@ -936,7 +936,7 @@ function collectRoutes({
 }
 
 function buildSitemapXml(siteUrl, routes, context = {}) {
-  const { posts = [], portfolioItems = [] } = context;
+  const { posts = [], portfolioItems = [], pages = [] } = context;
 
   const postCoverMap = new Map(
     posts.filter((p) => p.cover).map((p) => [p.slug, p.cover])
@@ -952,7 +952,7 @@ function buildSitemapXml(siteUrl, routes, context = {}) {
       // Root gets a trailing slash; all other URLs also get trailing slash
       const clean = route === "/" ? "/" : (route.endsWith("/") ? route : route + "/");
       const priority = getSitemapPriority(route);
-      const lastmod = getContentLastmod(route, { posts, portfolioItems });
+      const lastmod = getContentLastmod(route, { posts, portfolioItems, pages });
 
       const urlLines = [
         "  <url>",
@@ -1119,7 +1119,7 @@ function buildAtomFeed(siteUrl, posts, siteConfig) {
 }
 
 /** Derive a stable lastmod from content, not build time. */
-function getContentLastmod(route, { posts, portfolioItems }) {
+function getContentLastmod(route, { posts, portfolioItems, pages = [] }) {
   if (route.startsWith("/blog/post/")) {
     const slug = route.replace("/blog/post/", "").replace(/\/+$/, "");
     const post = posts.find((p) => p.slug === slug);
@@ -1147,8 +1147,20 @@ function getContentLastmod(route, { posts, portfolioItems }) {
       return d > latest ? d : latest;
     }, "1970-01-01");
   }
-  // Do not report the deployment date as a content update for static pages.
-  // Google recommends lastmod only when it reflects an actual page change.
+  if (route === "/" && posts.length > 0) {
+    // The homepage lists the newest posts, so it changes when the newest post does.
+    return posts.reduce((latest, p) => {
+      const d = p.updated || p.modified || p.date || "";
+      return d > latest ? d : latest;
+    }, "1970-01-01");
+  }
+  // Standalone pages: use the page's own declared date. Never use the deployment
+  // date, because Google recommends lastmod only when it reflects a real change.
+  const pageSlug = route.replace(/^\/+|\/+$/g, "");
+  const standalonePage = pages.find((p) => p.slug === pageSlug);
+  if (standalonePage && !pageSlug.includes("/")) {
+    return standalonePage.updated || standalonePage.modified || standalonePage.date || null;
+  }
   return null;
 }
 
@@ -1208,18 +1220,23 @@ function buildRobotsTxt(siteUrl, siteConfig) {
     "# --- Sitemap ---",
     `Sitemap: ${siteUrl}/sitemap.xml`,
     "",
-    "Crawl-delay: 5",
   ].join("\n");
 }
 
 function shouldFollow(route) {
   if(!route) return false;
   if (taxonomyPolicy.isTaxonomyPath(route)) return true;
+  if (route.startsWith("/blog/dir/")) return true;
   if (["/", "/blog", "/portfolio", "/profile", "/about", "/thoughts", "/tags", "/categories", "/gallery"].includes(route)) {
     return true;
   }
+  return false;
 }
 
+
+// Single-segment routes that must stay out of the index and sitemap.
+// Keep in sync with NOINDEX_SINGLE_SEGMENT_PATHS in sveltekit/src/routes/+layout.svelte.
+const NOINDEX_SINGLE_SEGMENT_ROUTES = ["/gallery", "/tags", "/categories", "/admin", "/chapters-demo", "/google-sitelinks"];
 
 function isIndexableRoute(route, siteConfig) {
   if (!route) return false;
@@ -1228,9 +1245,9 @@ function isIndexableRoute(route, siteConfig) {
     return true;
   }
   if (route.startsWith("/blog/post/")) return true;
-  if (route.startsWith("/blog/dir/")) return true;
+  // Directory archives are thin listings; their posts are indexed individually.
   if (route.startsWith("/portfolio/")) return true;
-  if (/^\/[^/]+$/.test(route) && !["/gallery", "/tags", "/categories", "/admin"].includes(route)) {
+  if (/^\/[^/]+$/.test(route) && !NOINDEX_SINGLE_SEGMENT_ROUTES.includes(route)) {
     return true;
   }
   return false;
@@ -1519,7 +1536,7 @@ function getRouteMeta(route, context) {
       ...meta,
       title: `${label} — ${siteName}`,
       description: `${dir.posts.length} post${dir.posts.length === 1 ? "" : "s"} in this directory.`,
-      robots: "noindex, nofollow",
+      robots: "noindex, follow",
     };
   }
   if (route === "/portfolio") {

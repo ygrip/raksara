@@ -9,7 +9,8 @@
 	import { assetUrl, formatDate } from '$lib/utils';
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import { rewriteTaxonomyHref } from '$lib/taxonomy.js';
-	import { buildWebSiteSchema, buildPersonSchema, serializeJsonLd } from '$lib/seo';
+	import SocialMeta from '$lib/components/SocialMeta.svelte';
+	import { buildWebSiteSchema, buildPersonSchema, resolveDefaultOgImage, serializeJsonLd, truncateDescription } from '$lib/seo';
 
 	let { data }: { data: PageData } = $props();
 	const bundle        = $derived(data.bundle);
@@ -79,14 +80,15 @@
 
 	// SEO
 	const seoTitle       = $derived(homePageConfig?.seo?.title ?? config?.hero_title ?? config?.title ?? '');
-	const seoDescription = $derived(homePageConfig?.seo?.description ?? config?.description ?? config?.hero_subtitle ?? '');
+	const seoDescription = $derived(truncateDescription(homePageConfig?.seo?.description ?? config?.description ?? config?.hero_subtitle ?? ''));
 	const seoKeywords    = $derived(homePageConfig?.seo?.keywords ?? []);
 
 	const siteUrl = $derived(
 		String(config?.site_url || config?.url || $page.url.origin).replace(/\/+$/, '')
 	);
 	const webSiteJsonLd = $derived(config ? buildWebSiteSchema(config, siteUrl) : null);
-	const personJsonLd  = $derived(config?.author ? buildPersonSchema(config, siteUrl) : null);
+	const personJsonLd  = $derived(config?.author ? buildPersonSchema(config, siteUrl, data.profile) : null);
+	const socialImage   = $derived(resolveDefaultOgImage('/', siteUrl, config?.og_defaults));
 
 	// Sections from YAML, or fall back to legacy hardcoded order
 	const enabledSections = $derived(
@@ -137,6 +139,8 @@
 		{@html `<script type="application/ld+json">${serializeJsonLd(personJsonLd)}</script>`}
 	{/if}
 </svelte:head>
+
+<SocialMeta title={seoTitle} description={seoDescription} url={`${siteUrl}/`} image={socialImage} />
 
 <!-- ── Hero ─────────────────────────────────────────── -->
 <section class="home-hero dot-hero" id="profile-hero" bind:this={homeHero}>

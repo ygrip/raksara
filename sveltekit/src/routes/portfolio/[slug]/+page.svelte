@@ -4,7 +4,7 @@
 	import { initArticleFeatures } from '$lib/markdown';
 	import Giscus from '$lib/components/Giscus.svelte';
 	import ShareCard from '$lib/components/ShareCard.svelte';
-	import { shouldShowGiscus, getGiscusConfig, buildPostMeta, buildBreadcrumbSchema, serializeJsonLd } from '$lib/seo';
+	import { shouldShowGiscus, getGiscusConfig, buildPostMeta, buildBreadcrumbSchema, composeTitle, serializeJsonLd, truncateDescription } from '$lib/seo';
 	import { assetUrl, formatDate } from '$lib/utils';
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
@@ -47,8 +47,8 @@
 </script>
 
 <svelte:head>
-	<title>{item?.title ?? 'Project'} · {config?.hero_title ?? config?.title ?? ''}</title>
-	<meta name="description" content={pageMeta?.description ?? ''} />
+	<title>{composeTitle(item?.title ?? 'Project', config?.hero_title ?? config?.title ?? '')}</title>
+	<meta name="description" content={truncateDescription(pageMeta?.description ?? '')} />
 	<meta property="og:title" content={pageMeta?.title ?? ''} />
 	<meta property="og:description" content={pageMeta?.description ?? ''} />
 	{#if pageMeta}<meta property="og:url" content={pageMeta.url} />{/if}

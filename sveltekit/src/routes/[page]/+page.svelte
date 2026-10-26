@@ -4,6 +4,8 @@
 	import { initArticleFeatures } from '$lib/markdown';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
 	import { splitLeadingHeading } from '$lib/utils';
+	import SocialMeta from '$lib/components/SocialMeta.svelte';
+	import { buildBreadcrumbSchema, buildWebPageSchema, composeTitle, pageKindForSlug, serializeJsonLd, truncateDescription } from '$lib/seo';
 
 	let { data }: { data: PageData } = $props();
 	const page = $derived(data.page);
@@ -27,6 +29,32 @@
 			|| ''
 	);
 
+	const brand = $derived(config?.hero_title ?? config?.title ?? 'Raksara');
+	const siteRoot = $derived(String(config?.site_url ?? config?.url ?? '').replace(/\/+$/, ''));
+	const pagePath = $derived(`/${slug}/`);
+	const pageTitle = $derived(page?.title ?? slug);
+	const seoTitle = $derived(composeTitle(pageTitle, brand));
+	const seoDescription = $derived(truncateDescription(pageDescription));
+	const webPageJsonLd = $derived(
+		siteRoot && page
+			? buildWebPageSchema(
+					{ type: pageKindForSlug(slug), name: pageTitle, description: seoDescription, path: pagePath },
+					siteRoot
+				)
+			: null
+	);
+	const breadcrumbJsonLd = $derived(
+		siteRoot && page
+			? buildBreadcrumbSchema(
+					[
+						{ name: 'Home', url: '/' },
+						{ name: pageTitle, url: pagePath },
+					],
+					siteRoot
+				)
+			: null
+	);
+
 	let articleEl: HTMLElement | null = null;
 
 	onMount(async () => {
@@ -40,9 +68,17 @@
 </script>
 
 <svelte:head>
-	<title>{page?.title ?? slug} · {config?.hero_title ?? config?.title ?? 'Raksara'}</title>
-	<meta name="description" content={pageDescription} />
+	<title>{seoTitle}</title>
+	<meta name="description" content={seoDescription} />
+	{#if webPageJsonLd}
+		{@html `<script type="application/ld+json">${serializeJsonLd(webPageJsonLd)}</script>`}
+	{/if}
+	{#if breadcrumbJsonLd}
+		{@html `<script type="application/ld+json">${serializeJsonLd(breadcrumbJsonLd)}</script>`}
+	{/if}
 </svelte:head>
+
+<SocialMeta title={seoTitle} description={seoDescription} url={`${siteRoot}${pagePath}`} />
 
 <article bind:this={articleEl} class="mx-auto max-w-3xl standalone-page">
 	{#if headerTitle}

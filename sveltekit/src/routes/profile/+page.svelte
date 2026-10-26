@@ -5,6 +5,7 @@
 	import { initArticleFeatures } from '$lib/markdown';
 	import { assetUrl } from '$lib/utils';
 	import { shareContent } from '$lib/share';
+	import { buildBreadcrumbSchema, buildPersonSchema, buildWebPageSchema, serializeJsonLd, truncateDescription } from '$lib/seo';
 	import { attachHeroTilt, attachScrollDepth, attachScrollReveals } from '$lib/actions/scroll-motion';
 
 	let { data }: { data: PageData } = $props();
@@ -231,14 +232,44 @@
 		ogBase ? `${ogBase}/og/profile.jpg` : '/og/profile.jpg'
 	);
 	const profileDescription = $derived(
-		profile?.summary
-			?? config?.description
-			?? config?.hero_subtitle
-			?? profile?.role
-			?? profile?.title
-			?? config?.hero_title
-			?? config?.title
-			?? ''
+		truncateDescription(
+			profile?.summary
+				?? describeProfile()
+				?? config?.description
+				?? config?.hero_subtitle
+				?? profile?.title
+				?? config?.hero_title
+				?? config?.title
+				?? ''
+		)
+	);
+	/** "Name, Role in Location. Background, skills, and public profiles." */
+	function describeProfile(): string | undefined {
+		if (!profile?.title || !profile.role) return undefined;
+		const place = profile.location ? ` based in ${profile.location}` : '';
+		return `${profile.title} is a ${profile.role}${place}. Background, skills, experience, and public profiles.`;
+	}
+	const profilePersonSchema = $derived(
+		config && ogBase ? buildPersonSchema(config, ogBase, profile) : null
+	);
+	const profilePageJsonLd = $derived(
+		config && ogBase
+			? buildWebPageSchema(
+					{
+						type: 'ProfilePage',
+						name: profile?.title ?? 'Profile',
+						description: profileDescription,
+						path: '/profile/',
+						mainEntity: profilePersonSchema ? { ...profilePersonSchema, '@context': undefined } : null,
+					},
+					ogBase
+				)
+			: null
+	);
+	const profileBreadcrumbJsonLd = $derived(
+		ogBase
+			? buildBreadcrumbSchema([{ name: 'Home', url: '/' }, { name: profile?.title ?? 'Profile', url: '/profile/' }], ogBase)
+			: null
 	);
 </script>
 
@@ -251,6 +282,12 @@
 	<meta property="og:url" content="{ogBase}/profile/" />
 	<meta property="og:image" content={ogProfileImage} />
 	<meta name="twitter:image" content={ogProfileImage} />
+	{#if profilePageJsonLd}
+		{@html `<script type="application/ld+json">${serializeJsonLd(profilePageJsonLd)}</script>`}
+	{/if}
+	{#if profileBreadcrumbJsonLd}
+		{@html `<script type="application/ld+json">${serializeJsonLd(profileBreadcrumbJsonLd)}</script>`}
+	{/if}
 </svelte:head>
 
 {#if prerenderHtml}

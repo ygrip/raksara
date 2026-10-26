@@ -5,7 +5,7 @@
 	import { initArticleFeatures } from '$lib/markdown';
 	import Giscus from '$lib/components/Giscus.svelte';
 	import ShareCard from '$lib/components/ShareCard.svelte';
-	import { shouldShowGiscus, getGiscusConfig, buildPostMeta, buildBreadcrumbSchema, serializeJsonLd } from '$lib/seo';
+	import { shouldShowGiscus, getGiscusConfig, buildPostMeta, buildBreadcrumbSchema, composeTitle, serializeJsonLd, truncateDescription } from '$lib/seo';
 	import { assetUrl, formatDate, humanize } from '$lib/utils';
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
@@ -163,8 +163,8 @@
 </script>
 
 <svelte:head>
-	<title>{post?.title ?? 'Post'} · {config?.hero_title ?? config?.title ?? ''}</title>
-	<meta name="description" content={pageMeta?.description ?? ''} />
+	<title>{composeTitle(post?.title ?? 'Post', config?.hero_title ?? config?.title ?? '')}</title>
+	<meta name="description" content={truncateDescription(pageMeta?.description ?? '')} />
 	{#if pageMeta}
 		<link rel="canonical" href={pageMeta.url} />
 		<meta property="og:title" content={pageMeta.title} />

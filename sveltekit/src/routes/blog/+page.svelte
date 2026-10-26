@@ -5,6 +5,7 @@
 	import { buildLqipStyle, buildResponsiveAttrs } from '$lib/responsive-image';
 	import ShareCard from '$lib/components/ShareCard.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
+	import { buildBreadcrumbSchema, buildWebPageSchema, serializeJsonLd, truncateDescription } from '$lib/seo';
 
 	let { data }: { data: PageData } = $props();
 	const posts = $derived(data.posts);
@@ -47,6 +48,19 @@
 	const hasMore = $derived(sorted.length > visible.length);
 	const remaining = $derived(Math.max(0, sorted.length - visible.length));
 	const ogBase = $derived(String(config?.site_url ?? config?.url ?? '').replace(/\/+$/, ''));
+	const blogDescription = $derived(
+		truncateDescription(
+			`Browse ${(rootPosts ?? []).length} articles, engineering notes, and creative writing by ${config?.author ?? config?.hero_title ?? 'the author'} on ${config?.hero_title ?? 'Raksara'}.`
+		)
+	);
+	const blogJsonLd = $derived(
+		ogBase
+			? buildWebPageSchema({ type: 'CollectionPage', name: `Blog · ${config?.hero_title ?? ''}`, description: blogDescription, path: '/blog/' }, ogBase)
+			: null
+	);
+	const breadcrumbJsonLd = $derived(
+		ogBase ? buildBreadcrumbSchema([{ name: 'Home', url: '/' }, { name: 'Blog', url: '/blog/' }], ogBase) : null
+	);
 
 	function loadNextPage() {
 		if (hasMore) page += 1;
@@ -55,9 +69,15 @@
 
 <svelte:head>
 	<title>Blog · {config?.hero_title ?? 'Raksara'}</title>
-	<meta name="description" content={`Browse ${(rootPosts ?? []).length} blog posts on ${config?.hero_title ?? 'Raksara'}.`} />
+	<meta name="description" content={blogDescription} />
 	<meta property="og:title" content="Blog · {config?.hero_title ?? 'Raksara'}" />
-	<meta property="og:description" content={`Browse ${(rootPosts ?? []).length} blog posts on ${config?.hero_title ?? 'Raksara'}.`} />
+	<meta property="og:description" content={blogDescription} />
+	{#if blogJsonLd}
+		{@html `<script type="application/ld+json">${serializeJsonLd(blogJsonLd)}</script>`}
+	{/if}
+	{#if breadcrumbJsonLd}
+		{@html `<script type="application/ld+json">${serializeJsonLd(breadcrumbJsonLd)}</script>`}
+	{/if}
 
 	<meta property="og:type" content="website" />
 	<meta property="og:url" content="{ogBase}/blog/" />
