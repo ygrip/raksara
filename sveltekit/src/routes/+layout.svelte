@@ -17,6 +17,7 @@
 	import { assetUrl } from '$lib/utils';
 	import { themeTokens, earlyThemeScript } from '$lib/theme';
 	import { isTaxonomyPath, isIndexableTaxonomyPath } from '$lib/taxonomy.js';
+	import { isConfiguredNoindexPath } from '$lib/indexing.js';
 
 	let { children, data }: { children: import('svelte').Snippet; data: LayoutData } = $props();
 
@@ -132,6 +133,7 @@
 
 	function shouldFollowPath(pathname: string): boolean {
 		const path = normalizePath(pathname);
+		if (isConfiguredNoindexPath(path, config)) return true;
 		if (isTaxonomyPath(path)) return true;
 		if (path.startsWith('/blog/dir/')) return true;
 		if (['/', '/blog', '/portfolio', '/profile', '/about', '/thoughts', '/tags', '/categories', '/gallery'].includes(path)) return true;
@@ -140,6 +142,7 @@
 
 	function isIndexablePath(pathname: string): boolean {
 		const path = normalizePath(pathname);
+		if (isConfiguredNoindexPath(path, config)) return false;
 		if (isTaxonomyPath(path)) return isIndexableTaxonomyPath(path, config);
 		if (['/', '/blog', '/portfolio', '/profile', '/about', '/thoughts'].includes(path)) return true;
 		if (path.startsWith('/blog/post/')) return true;
@@ -422,6 +425,8 @@
 		const injectAdsense = () => {
 			if (!canLoad || (settings.loadStrategy === 'interaction' && !interacted)) return;
 			if (!isAdsensePathEligible($page.url.pathname, settings)) return;
+			// Never serve ads on pages the site itself marks as not worth indexing.
+			if (!isIndexablePath($page.url.pathname)) return;
 			if (document.getElementById('adsense-script')) return;
 			const script = document.createElement('script');
 			script.id = 'adsense-script';

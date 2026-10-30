@@ -6,6 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { isConfiguredNoindexPath } = require('../sveltekit/src/lib/indexing.js');
 
 const ROOT = path.join(__dirname, '..');
 const METADATA_DIR = path.join(ROOT, 'metadata');
@@ -186,14 +187,28 @@ if (!fs.existsSync(sitemapPath)) {
   // Check every blog post has a sitemap entry
   if (posts) {
     let sitemapMissing = 0;
+    let sitemapLeaked = 0;
+    let noindexPosts = 0;
     for (const post of posts) {
       const expectedUrl = `/blog/post/${post.slug}/`;
-      if (!sitemap.includes(expectedUrl)) {
+      const isNoindex = isConfiguredNoindexPath(expectedUrl, config);
+      const inSitemap = sitemap.includes(`${expectedUrl}</loc>`);
+      if (isNoindex) {
+        noindexPosts++;
+        if (inSitemap) {
+          error(`Post "${post.title}" (${expectedUrl}) matches seo.noindex_paths but is in sitemap`);
+          sitemapLeaked++;
+        }
+        continue;
+      }
+      if (!inSitemap) {
         error(`Post "${post.title}" (${expectedUrl}) missing from sitemap`);
         sitemapMissing++;
       }
     }
-    if (sitemapMissing === 0) ok(`All ${posts.length} posts present in sitemap`);
+    const indexedPosts = posts.length - noindexPosts;
+    if (sitemapMissing === 0) ok(`All ${indexedPosts} indexable posts present in sitemap`);
+    if (sitemapLeaked === 0 && noindexPosts > 0) ok(`${noindexPosts} seo.noindex_paths posts excluded from sitemap`);
   }
 
   if (portfolio) {

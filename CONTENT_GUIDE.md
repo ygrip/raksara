@@ -749,6 +749,23 @@ google_site_verification: your-google-search-console-token
 adsense: google.com, <your-pub>, DIRECT, <your-key>
 ```
 
+### Keeping Thin Pages Out of the Index
+
+Short reference or creative pages (character sheets, glossary entries, short
+poems) can drag a site's quality signals down for search and AdSense review.
+List them under `seo.noindex_paths` to keep them readable and linked while
+hiding them from search:
+
+```yaml
+seo:
+  noindex_paths:
+    - /blog/post/novel/*/characters/**
+    - /blog/post/poem/**
+```
+
+`*` matches one path segment and `**` matches zero or more. Matching pages render
+`noindex, follow`, are left out of `sitemap.xml`, and never load AdSense.
+
 ### Google Search Console Verification
 
 To verify the site with Google Search Console using the HTML meta tag method,
