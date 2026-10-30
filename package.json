@@ -22,6 +22,7 @@
     "test:publication": "node scripts/test-publication-policy.mjs",
     "validate:publication:dist": "node scripts/validate-publication-dist.cjs",
     "test:content-date": "node scripts/test-content-date.mjs",
+    "test:content-assets": "node scripts/test-content-assets.mjs",
     "validate:profile:metadata": "node scripts/test-content-date.mjs --verify-generated"
   },
   "keywords": [

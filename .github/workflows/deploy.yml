@@ -89,6 +89,7 @@ jobs:
           npm run test:taxonomy:policy
           npm run test:publication
           npm run test:content-date
+          npm run test:content-assets
 
       - name: Build metadata and static assets
         run: npm run build:metadata

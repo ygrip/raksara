@@ -17,6 +17,7 @@ const { generateOgImages, generateProfileOgImage } = require('./og-images');
 const { buildTaxonomyData } = require('./taxonomy-data.cjs');
 const { isPublished, prunePrivateMarkdown } = require('./publication-policy.cjs');
 const { normalizeContentDate } = require('./content-date.cjs');
+const { resolveContentAssetPath: resolvePath } = require('./content-asset-path.cjs');
 let taxonomyPolicy;
 let indexingPolicy;
 
@@ -1776,23 +1777,13 @@ function formatDate(dateStr) {
   });
 }
 
-function resolvePath(p) {
-  if (!p) return p;
-  if (
-    p.startsWith("http://") ||
-    p.startsWith("https://") ||
-    p.startsWith("data:")
-  )
-    return p;
-  return p.replace(/^\/+/, "");
-}
-
 function toRootRelativePublicPath(p) {
   if (!p) return p;
   if (
     p.startsWith("http://") ||
     p.startsWith("https://") ||
     p.startsWith("data:") ||
+    p.startsWith("blob:") ||
     p.startsWith("/")
   ) {
     return p;

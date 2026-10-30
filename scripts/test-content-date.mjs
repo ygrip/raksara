@@ -52,6 +52,15 @@ if (process.argv.includes('--verify-generated')) {
     if (typeof profile.html !== 'string' || !profile.html.trim()) {
       throw new Error('Published profile has an empty prerendered body');
     }
+    // The profile embeds custom prerendered carousels, which must resolve
+    // relative authored covers to the publicly served /content/ directory.
+    const carouselImages = [...profile.html.matchAll(/<div class="content-carousel-img\b[^>]*>\s*<img\b([^>]+)>/g)];
+    for (const [, attributes] of carouselImages) {
+      const src = attributes.match(/\bsrc="([^"]+)"/)?.[1] || '';
+      if (!src || /^\/?(?:assets|blog|gallery|pages|portfolio|thoughts)\//.test(src)) {
+        throw new Error(`Profile carousel has an invalid cover URL: ${src}`);
+      }
+    }
   }
   console.log('Generated profile artifact matches configured publication state.');
 }
