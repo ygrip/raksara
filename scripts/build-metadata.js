@@ -18,6 +18,7 @@ const { buildTaxonomyData } = require('./taxonomy-data.cjs');
 const { isPublished, prunePrivateMarkdown } = require('./publication-policy.cjs');
 const { normalizeContentDate } = require('./content-date.cjs');
 let taxonomyPolicy;
+let indexingPolicy;
 
 const REPO_ROOT = path.join(__dirname, "..");
 const LOCAL_CONTENT_LINK = path.join(REPO_ROOT, "content");
@@ -923,6 +924,9 @@ function collectRoutes({
   for (const t of siteConfig?.taxonomy?.highlighted_tags || []) {
     routes.add(`/tag/${encodeURIComponent(t)}`);
   }
+  for (const category of siteConfig?.taxonomy?.highlighted_categories || []) {
+    routes.add(`/category/${encodeURIComponent(category)}`);
+  }
 
   if (galleryItems.length > 0) {
     for (let i = 0; i < galleryItems.length; i += 1) {
@@ -1223,8 +1227,9 @@ function buildRobotsTxt(siteUrl, siteConfig) {
   ].join("\n");
 }
 
-function shouldFollow(route) {
+function shouldFollow(route, siteConfig) {
   if(!route) return false;
+  if (indexingPolicy.isConfiguredNoindexPath(route, siteConfig)) return true;
   if (taxonomyPolicy.isTaxonomyPath(route)) return true;
   if (route.startsWith("/blog/dir/")) return true;
   if (["/", "/blog", "/portfolio", "/profile", "/about", "/thoughts", "/tags", "/categories", "/gallery"].includes(route)) {
@@ -1240,6 +1245,8 @@ const NOINDEX_SINGLE_SEGMENT_ROUTES = ["/gallery", "/tags", "/categories", "/adm
 
 function isIndexableRoute(route, siteConfig) {
   if (!route) return false;
+  // Content-configured thin pages stay readable but out of the index and sitemap.
+  if (indexingPolicy.isConfiguredNoindexPath(route, siteConfig)) return false;
   if (taxonomyPolicy.isTaxonomyPath(route)) return taxonomyPolicy.isIndexableTaxonomyPath(route, siteConfig);
   if (["/", "/blog", "/portfolio", "/profile", "/about", "/thoughts"].includes(route)) {
     return true;
@@ -1506,7 +1513,7 @@ function getRouteMeta(route, context) {
     type: "website",
     author: (siteConfig && siteConfig.author) || "",
     keywords: [],
-    robots: isIndexableRoute(route, siteConfig) ? "index, follow" : shouldFollow(route) ? "noindex, follow" : "noindex, nofollow",
+    robots: isIndexableRoute(route, siteConfig) ? "index, follow" : shouldFollow(route, siteConfig) ? "noindex, follow" : "noindex, nofollow",
     url: routeUrl,
   };
 
@@ -2618,6 +2625,7 @@ async function runBuild() {
   const cleanupSymlink = setupLocalContentSymlink();
   CONTENT_DIR = resolveContentDir();
   taxonomyPolicy = await import('../sveltekit/src/lib/taxonomy.js');
+  indexingPolicy = await import('../sveltekit/src/lib/indexing.js');
   console.log(`Using content dir: ${CONTENT_DIR}`);
   try {
     await buildMetadata();

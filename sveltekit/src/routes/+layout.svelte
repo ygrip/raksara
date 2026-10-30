@@ -8,7 +8,7 @@
 	import { popupMotion, sidebarDialog } from '$lib/popup-motion';
 	import { onMount } from 'svelte';
 	import { navigating, page } from '$app/stores';
-	import { goto } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import type { LayoutData } from './$types';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
 	import AdcashAutoTag from '$lib/components/AdcashAutoTag.svelte';
@@ -17,6 +17,7 @@
 	import { assetUrl } from '$lib/utils';
 	import { themeTokens, earlyThemeScript } from '$lib/theme';
 	import { isTaxonomyPath, isIndexableTaxonomyPath } from '$lib/taxonomy.js';
+	import { isConfiguredNoindexPath } from '$lib/indexing.js';
 
 	let { children, data }: { children: import('svelte').Snippet; data: LayoutData } = $props();
 
@@ -132,14 +133,35 @@
 
 	function shouldFollowPath(pathname: string): boolean {
 		const path = normalizePath(pathname);
+		if (isConfiguredNoindexPath(path, config)) return true;
 		if (isTaxonomyPath(path)) return true;
 		if (path.startsWith('/blog/dir/')) return true;
 		if (['/', '/blog', '/portfolio', '/profile', '/about', '/thoughts', '/tags', '/categories', '/gallery'].includes(path)) return true;
 		return false;
 	}
 
+	/** Ads run only on allowlisted routes the site itself considers worth indexing. */
+	function isAdEligiblePath(pathname: string): boolean {
+		if (!isAdsensePathEligible(pathname, adsenseSettings)) return false;
+		return isIndexablePath(pathname);
+	}
+
+	// Auto ads keep running across client-side navigation once loaded. Leaving
+	// for an ineligible route (thin, noindex, navigation-only) therefore uses a
+	// full page load so the provider script is not carried onto that page.
+	beforeNavigate((navigation) => {
+		if (navigation.type === 'leave') return;
+		if (!document.getElementById('adsense-script')) return;
+		const target = navigation.to?.url;
+		if (!target || target.origin !== location.origin) return;
+		if (isAdEligiblePath(target.pathname)) return;
+		navigation.cancel();
+		location.assign(target.href);
+	});
+
 	function isIndexablePath(pathname: string): boolean {
 		const path = normalizePath(pathname);
+		if (isConfiguredNoindexPath(path, config)) return false;
 		if (isTaxonomyPath(path)) return isIndexableTaxonomyPath(path, config);
 		if (['/', '/blog', '/portfolio', '/profile', '/about', '/thoughts'].includes(path)) return true;
 		if (path.startsWith('/blog/post/')) return true;
@@ -422,6 +444,8 @@
 		const injectAdsense = () => {
 			if (!canLoad || (settings.loadStrategy === 'interaction' && !interacted)) return;
 			if (!isAdsensePathEligible($page.url.pathname, settings)) return;
+			// Never serve ads on pages the site itself marks as not worth indexing.
+			if (!isIndexablePath($page.url.pathname)) return;
 			if (document.getElementById('adsense-script')) return;
 			const script = document.createElement('script');
 			script.id = 'adsense-script';

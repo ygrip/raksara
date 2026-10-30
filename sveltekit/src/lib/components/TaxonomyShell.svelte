@@ -25,7 +25,7 @@
 	let registryCache: TaxonomyIndex | null = null;
 	const term = $derived(mounted ? selectedTerm : fixedTerm ?? '');
 	const archive = $derived(mounted ? loadedArchive : initialArchive ?? null);
-	const topic = $derived(kind === 'tag' && term && config.topics && Object.hasOwn(config.topics, term) ? config.topics[term] : null);
+	const topic = $derived(term ? (kind === 'tag' ? config.topics?.[term] : config.category_topics?.[term]) ?? null : null);
 	const displayName = $derived(topic?.title?.trim() || (kind === 'tag' ? topicName(term) : term));
 	const siteName = $derived(config.hero_title ?? config.title ?? 'Raksara');
 	const fallbackLinks = $derived((config.nav ?? []).filter(link => typeof link.href === 'string' && link.href.startsWith('/') && !link.href.startsWith('/tag/') && !link.href.startsWith('/category/')));
@@ -38,7 +38,7 @@
 		'@type': 'CollectionPage',
 		name: `${displayName} | ${siteName}`,
 		description: intro,
-		url: `${root}${taxonomyHref('tag', fixedTerm, config)}`,
+		url: `${root}${taxonomyHref(kind, fixedTerm, config)}`,
 		about: { '@type': 'Thing', name: displayName },
 		mainEntity: {
 			'@type': 'ItemList',

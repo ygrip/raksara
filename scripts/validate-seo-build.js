@@ -6,6 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { isConfiguredNoindexPath } = require('../sveltekit/src/lib/indexing.js');
 
 const ROOT = path.join(__dirname, '..');
 const METADATA_DIR = path.join(ROOT, 'metadata');
@@ -186,14 +187,28 @@ if (!fs.existsSync(sitemapPath)) {
   // Check every blog post has a sitemap entry
   if (posts) {
     let sitemapMissing = 0;
+    let sitemapLeaked = 0;
+    let noindexPosts = 0;
     for (const post of posts) {
       const expectedUrl = `/blog/post/${post.slug}/`;
-      if (!sitemap.includes(expectedUrl)) {
+      const isNoindex = isConfiguredNoindexPath(expectedUrl, config);
+      const inSitemap = sitemap.includes(`${expectedUrl}</loc>`);
+      if (isNoindex) {
+        noindexPosts++;
+        if (inSitemap) {
+          error(`Post "${post.title}" (${expectedUrl}) matches seo.noindex_paths but is in sitemap`);
+          sitemapLeaked++;
+        }
+        continue;
+      }
+      if (!inSitemap) {
         error(`Post "${post.title}" (${expectedUrl}) missing from sitemap`);
         sitemapMissing++;
       }
     }
-    if (sitemapMissing === 0) ok(`All ${posts.length} posts present in sitemap`);
+    const indexedPosts = posts.length - noindexPosts;
+    if (sitemapMissing === 0) ok(`All ${indexedPosts} indexable posts present in sitemap`);
+    if (sitemapLeaked === 0 && noindexPosts > 0) ok(`${noindexPosts} seo.noindex_paths posts excluded from sitemap`);
   }
 
   if (portfolio) {
@@ -310,10 +325,15 @@ if (prerenderRoutes) {
 
 // ── 7. Hybrid taxonomy policy and bounded result metadata ──
 const highlightedTags = config?.taxonomy?.highlighted_tags ?? [];
+const highlightedCategories = config?.taxonomy?.highlighted_categories ?? [];
 if (!Array.isArray(highlightedTags) || highlightedTags.some((term) => typeof term !== 'string' || !term.trim())) {
   error('taxonomy.highlighted_tags must be an array of non-empty exact tag names');
 } else {
   const expectedTags = new Set(highlightedTags.map((term) => `/tag/${encodeURIComponent(term)}`));
+  const expectedCategories = new Set(highlightedCategories.map((term) => `/category/${encodeURIComponent(term)}`));
+  if (!Array.isArray(highlightedCategories) || expectedCategories.size !== highlightedCategories.length) {
+    error('taxonomy.highlighted_categories must be a unique array');
+  }
   if (expectedTags.size !== highlightedTags.length) error('taxonomy.highlighted_tags contains duplicate terms');
   const manifestSet = new Set((prerenderRoutes ?? []).map(normalizeRoute));
   const sitemapSet = new Set(sitemapUrls.map((url) => normalizeRoute(new URL(url).pathname)));
@@ -324,9 +344,9 @@ if (!Array.isArray(highlightedTags) || highlightedTags.some((term) => typeof ter
   for (const [label, routes] of [['prerender manifest', manifestSet], ['sitemap', sitemapSet]]) {
     for (const route of routes) {
       if (route.startsWith('/tag/') && !expectedTags.has(route)) error(`Non-highlighted taxonomy route ${route} in ${label}`);
-      if (route.startsWith('/category/')) error(`Legacy category detail ${route} in ${label}`);
+      if (route.startsWith('/category/') && !expectedCategories.has(route)) error(`Non-highlighted category ${route} in ${label}`);
     }
-    for (const route of expectedTags) {
+    for (const route of [...expectedTags, ...expectedCategories]) {
       if (!routes.has(route)) error(`Highlighted taxonomy route ${route} missing from ${label}`);
     }
   }
@@ -375,6 +395,11 @@ if (!taxonomyIndex || taxonomyIndex.version !== 1 || !Number.isSafeInteger(taxon
   if (Array.isArray(highlightedTags)) {
     for (const term of highlightedTags) {
       if (!Object.hasOwn(taxonomyIndex.tags ?? {}, term)) error(`Highlighted tag ${JSON.stringify(term)} has no visible taxonomy content`);
+    }
+  }
+  if (Array.isArray(highlightedCategories)) {
+    for (const term of highlightedCategories) {
+      if (!Object.hasOwn(taxonomyIndex.categories ?? {}, term)) error(`Highlighted category ${JSON.stringify(term)} has no visible taxonomy content`);
     }
   }
   ok(`Validated bounded taxonomy metadata for ${validatedTerms} term(s)`);
