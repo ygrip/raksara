@@ -23,23 +23,32 @@ export function isTaxonomyPath(pathname) {
 /**
  * Presentation in config.topics never implicitly opts a term into indexing.
  * @param {string} term
- * @param {{ taxonomy?: { highlighted_tags?: string[] } } | null | undefined} config
+ * @param {{ taxonomy?: { highlighted_tags?: string[]; highlighted_categories?: string[] } } | null | undefined} config
  */
 export function isHighlightedTag(term, config) {
 	return config?.taxonomy?.highlighted_tags?.includes(term) ?? false;
 }
 
 /**
+ * Curated categories require a separate, explicit opt-in from highlighted tags.
+ * @param {string} term
+ * @param {{ taxonomy?: { highlighted_categories?: string[] } } | null | undefined} config
+ */
+export function isHighlightedCategory(term, config) {
+	return config?.taxonomy?.highlighted_categories?.includes(term) ?? false;
+}
+
+/**
  * @param {string} pathname
- * @param {{ taxonomy?: { highlighted_tags?: string[] } } | null | undefined} config
+ * @param {{ taxonomy?: { highlighted_tags?: string[]; highlighted_categories?: string[] } } | null | undefined} config
  */
 export function isIndexableTaxonomyPath(pathname, config) {
 	const path = normalizeTaxonomyPath(pathname);
-	if (!path.startsWith('/tag/')) return false;
+	const match = path.match(/^\/(tag|category)\/([^/]+)$/);
+	if (!match) return false;
 	try {
-		const encoded = path.slice('/tag/'.length);
-		if (encoded.includes('/')) return false;
-		return isHighlightedTag(decodeURIComponent(encoded), config);
+		const term = decodeURIComponent(match[2]);
+		return match[1] === 'tag' ? isHighlightedTag(term, config) : isHighlightedCategory(term, config);
 	} catch {
 		return false;
 	}
@@ -48,17 +57,18 @@ export function isIndexableTaxonomyPath(pathname, config) {
 /**
  * @param {'tag' | 'category'} kind
  * @param {string} term
- * @param {{ taxonomy?: { highlighted_tags?: string[] } } | null | undefined} config
+ * @param {{ taxonomy?: { highlighted_tags?: string[]; highlighted_categories?: string[] } } | null | undefined} config
  */
 export function taxonomyHref(kind, term, config) {
 	if (kind === 'tag' && isHighlightedTag(term, config)) return `/tag/${encodeURIComponent(term)}/`;
+	if (kind === 'category' && isHighlightedCategory(term, config)) return `/category/${encodeURIComponent(term)}/`;
 	return `/${kind}/?${new URLSearchParams({ name: term })}`;
 }
 
 /**
  * Rewrite authored legacy internal links, preserving view parameters and fragments.
  * @param {string} href
- * @param {{ taxonomy?: { highlighted_tags?: string[] } } | null | undefined} config
+ * @param {{ taxonomy?: { highlighted_tags?: string[]; highlighted_categories?: string[] } } | null | undefined} config
  */
 export function rewriteTaxonomyHref(href, config) {
 	if (!href.startsWith('/tag/') && !href.startsWith('/category/')) return href;

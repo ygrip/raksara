@@ -81,6 +81,18 @@ function validateHighlightedTags(config, index) {
       throw new Error(`Highlighted tag needs topics.${term}.title and intro or description`);
     }
   }
+  const categories = config.taxonomy?.highlighted_categories === undefined ? [] : config.taxonomy.highlighted_categories;
+  if (!Array.isArray(categories) || categories.some((term) => typeof term !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(term))) {
+    throw new Error('taxonomy.highlighted_categories must be an array of safe category slugs');
+  }
+  if (new Set(categories).size !== categories.length) throw new Error('taxonomy.highlighted_categories contains duplicates');
+  for (const term of categories) {
+    if (!Object.hasOwn(index.categories, term)) throw new Error(`Highlighted category has no visible content: ${term}`);
+    const topic = config.category_topics?.[term];
+    if (!topic?.title?.trim() || !(topic.intro || topic.description)?.trim()) {
+      throw new Error(`Highlighted category needs category_topics.${term}.title and intro or description`);
+    }
+  }
 }
 
 module.exports = { PAGE_SIZE, buildTaxonomyData, validateHighlightedTags };

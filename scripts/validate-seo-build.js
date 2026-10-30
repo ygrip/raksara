@@ -325,10 +325,15 @@ if (prerenderRoutes) {
 
 // ── 7. Hybrid taxonomy policy and bounded result metadata ──
 const highlightedTags = config?.taxonomy?.highlighted_tags ?? [];
+const highlightedCategories = config?.taxonomy?.highlighted_categories ?? [];
 if (!Array.isArray(highlightedTags) || highlightedTags.some((term) => typeof term !== 'string' || !term.trim())) {
   error('taxonomy.highlighted_tags must be an array of non-empty exact tag names');
 } else {
   const expectedTags = new Set(highlightedTags.map((term) => `/tag/${encodeURIComponent(term)}`));
+  const expectedCategories = new Set(highlightedCategories.map((term) => `/category/${encodeURIComponent(term)}`));
+  if (!Array.isArray(highlightedCategories) || expectedCategories.size !== highlightedCategories.length) {
+    error('taxonomy.highlighted_categories must be a unique array');
+  }
   if (expectedTags.size !== highlightedTags.length) error('taxonomy.highlighted_tags contains duplicate terms');
   const manifestSet = new Set((prerenderRoutes ?? []).map(normalizeRoute));
   const sitemapSet = new Set(sitemapUrls.map((url) => normalizeRoute(new URL(url).pathname)));
@@ -339,9 +344,9 @@ if (!Array.isArray(highlightedTags) || highlightedTags.some((term) => typeof ter
   for (const [label, routes] of [['prerender manifest', manifestSet], ['sitemap', sitemapSet]]) {
     for (const route of routes) {
       if (route.startsWith('/tag/') && !expectedTags.has(route)) error(`Non-highlighted taxonomy route ${route} in ${label}`);
-      if (route.startsWith('/category/')) error(`Legacy category detail ${route} in ${label}`);
+      if (route.startsWith('/category/') && !expectedCategories.has(route)) error(`Non-highlighted category ${route} in ${label}`);
     }
-    for (const route of expectedTags) {
+    for (const route of [...expectedTags, ...expectedCategories]) {
       if (!routes.has(route)) error(`Highlighted taxonomy route ${route} missing from ${label}`);
     }
   }
@@ -390,6 +395,11 @@ if (!taxonomyIndex || taxonomyIndex.version !== 1 || !Number.isSafeInteger(taxon
   if (Array.isArray(highlightedTags)) {
     for (const term of highlightedTags) {
       if (!Object.hasOwn(taxonomyIndex.tags ?? {}, term)) error(`Highlighted tag ${JSON.stringify(term)} has no visible taxonomy content`);
+    }
+  }
+  if (Array.isArray(highlightedCategories)) {
+    for (const term of highlightedCategories) {
+      if (!Object.hasOwn(taxonomyIndex.categories ?? {}, term)) error(`Highlighted category ${JSON.stringify(term)} has no visible taxonomy content`);
     }
   }
   ok(`Validated bounded taxonomy metadata for ${validatedTerms} term(s)`);

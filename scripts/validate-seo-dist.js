@@ -409,21 +409,28 @@ if (!fs.existsSync(configPath)) {
 } else {
   const config = JSON.parse(readFile(configPath));
   const highlighted = config?.taxonomy?.highlighted_tags ?? [];
-  if (!Array.isArray(highlighted) || highlighted.some((term) => typeof term !== 'string')) {
+  const highlightedCategories = config?.taxonomy?.highlighted_categories ?? [];
+  if (!Array.isArray(highlighted) || highlighted.some((term) => typeof term !== 'string') || !Array.isArray(highlightedCategories) || highlightedCategories.some((term) => typeof term !== 'string')) {
     error('Invalid highlighted taxonomy configuration');
   } else {
-    const expected = new Set(highlighted.map((term) => `/tag/${encodeURIComponent(term)}/`));
+    const expected = new Set([...highlighted.map((term) => `/tag/${encodeURIComponent(term)}/`), ...highlightedCategories.map((term) => `/category/${encodeURIComponent(term)}/`)]);
     const advertised = new Set(sitemapUrls.map((url) => new URL(url).pathname));
     for (const route of advertised) {
-      if ((route.startsWith('/tag/') && !expected.has(route)) || route.startsWith('/category/')) {
+      if ((route.startsWith('/tag/') || route.startsWith('/category/')) && !expected.has(route)) {
         error(`Non-indexable taxonomy URL ${route} is advertised in sitemap`);
       }
     }
     for (const route of expected) {
       if (!advertised.has(route)) error(`Highlighted taxonomy URL ${route} is missing from sitemap`);
       const file = htmlPathForUrl(new URL(route, sitemapUrls[0]).href);
-      if (fs.existsSync(file) && !/"@type"\s*:\s*"CollectionPage"/.test(readFile(file))) {
-        error(`${route}: curated topic is missing CollectionPage structured data`);
+      if (fs.existsSync(file)) {
+        const archiveHtml = readFile(file);
+        if (!/"@type"\s*:\s*"CollectionPage"/.test(archiveHtml)) {
+          error(`${route}: curated archive is missing CollectionPage structured data`);
+        }
+        if (!/data-taxonomy-item/.test(archiveHtml) || !/href="\/(blog\/post|portfolio)\//.test(archiveHtml)) {
+          error(`${route}: indexable archive must prerender links to article or project content`);
+        }
       }
     }
     function archiveHtmlFiles(dir) {

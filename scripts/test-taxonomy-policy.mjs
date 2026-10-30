@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import {
   isHighlightedTag,
+  isHighlightedCategory,
   isIndexableTaxonomyPath,
   isTaxonomyPath,
   normalizeTaxonomyPath,
@@ -11,7 +12,8 @@ import {
 } from '../sveltekit/src/lib/taxonomy.js';
 
 const config = {
-  taxonomy: { highlighted_tags: ['java', 'java_backend'] },
+  taxonomy: { highlighted_tags: ['java', 'java_backend'], highlighted_categories: ['engineering'] },
+  category_topics: { engineering: { title: 'Engineering', intro: 'Original engineering tutorials and projects.' } },
   topics: { programming: { title: 'Presentation alone is not an opt-in' } },
 };
 
@@ -22,6 +24,9 @@ for (const value of [1, 7, 30, 60, 120]) assert.equal(resolveTaxonomyPageSize(va
 
 assert.equal(taxonomyHref('tag', 'java', config), '/tag/java/');
 assert.equal(taxonomyHref('tag', 'java_backend', config), '/tag/java_backend/');
+assert.equal(taxonomyHref('category', 'engineering', config), '/category/engineering/');
+assert.equal(isHighlightedCategory('engineering', config), true);
+assert.equal(isHighlightedCategory('Engineering', config), false);
 assert.equal(isHighlightedTag('java', config), true);
 assert.equal(isHighlightedTag('Java', config), false, 'term identity is case-sensitive');
 assert.equal(isHighlightedTag('programming', config), false, 'topic copy does not imply indexability');
@@ -38,11 +43,13 @@ for (const term of ['Java', 'cucumber', 'café & code', 'spaces here', 'a+b', 'x
   }
 }
 assert.equal(new URL(taxonomyHref('category', 'java', config), 'https://example.com').pathname, '/category/');
+assert.equal(isIndexableTaxonomyPath('/category/engineering/', config), true);
+assert.equal(rewriteTaxonomyHref('/category/engineering/?page=2', config), '/category/engineering/?page=2');
 
 for (const pathname of ['/tag/java', '/tag/java/', 'tag/java/', '/tag/java_backend/']) {
   assert.equal(isIndexableTaxonomyPath(pathname, config), true, pathname);
 }
-for (const pathname of ['/', '/tag', '/tag/', '/category', '/category/', '/category/java/', '/tag/Java/', '/tag/programming/', '/tag/java/extra/', '/tag/%E0%A4%A/', '/tag/%6Aava%252F/']) {
+for (const pathname of ['/', '/tag', '/tag/', '/category', '/category/', '/category/java/', '/category/Engineering/', '/tag/Java/', '/tag/programming/', '/tag/java/extra/', '/tag/%E0%A4%A/', '/tag/%6Aava%252F/']) {
   assert.equal(isIndexableTaxonomyPath(pathname, config), false, pathname);
 }
 for (const pathname of ['/tag/', '/tag/java/', '/category/', '/category/Engineering/']) {
@@ -112,6 +119,12 @@ assert.deepEqual(buildTaxonomyData({}).index.tags, {}, 'omitted highlights do no
 assert.doesNotThrow(() => validateHighlightedTags({ topics: { bulk: { title: 'Bulk' } } }, built.index));
 const validConfig = { taxonomy: { highlighted_tags: ['bulk'] }, topics: { bulk: { title: 'Bulk', intro: 'Curated bulk archive.' } } };
 assert.doesNotThrow(() => validateHighlightedTags(validConfig, built.index));
+const validCategories = { taxonomy: { highlighted_categories: ['Engineering'] }, category_topics: { Engineering: { title: 'Engineering', intro: 'Hands-on experiments.' } } };
+assert.doesNotThrow(() => validateHighlightedTags(validCategories, built.index));
+assert.throws(() => validateHighlightedTags({ taxonomy: { highlighted_categories: ['Engineering'] } }, built.index), /needs category_topics/);
+assert.throws(() => validateHighlightedTags({ taxonomy: { highlighted_categories: ['Engineering', 'Engineering'] } }, built.index), /duplicates/);
+assert.throws(() => validateHighlightedTags({ taxonomy: { highlighted_categories: ['missing'] } }, built.index), /no visible content/);
+assert.throws(() => validateHighlightedTags({ taxonomy: { highlighted_categories: ['a/b'] } }, built.index), /safe category slugs/);
 assert.throws(() => validateHighlightedTags({ taxonomy: [] }, built.index), /taxonomy must be an object/);
 for (const highlighted_tags of [null, 'bulk', ['bulk', 'bulk'], ['a/b'], ['not present'], ['__proto__']]) {
   assert.throws(() => validateHighlightedTags({ taxonomy: { highlighted_tags } }, built.index));
