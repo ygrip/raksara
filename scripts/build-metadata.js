@@ -923,6 +923,9 @@ function collectRoutes({
   for (const t of siteConfig?.taxonomy?.highlighted_tags || []) {
     routes.add(`/tag/${encodeURIComponent(t)}`);
   }
+  for (const category of siteConfig?.taxonomy?.highlighted_categories || []) {
+    routes.add(`/category/${encodeURIComponent(category)}`);
+  }
 
   if (galleryItems.length > 0) {
     for (let i = 0; i < galleryItems.length; i += 1) {
