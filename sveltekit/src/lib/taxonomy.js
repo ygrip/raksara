@@ -29,7 +29,11 @@ export function isHighlightedTag(term, config) {
 	return config?.taxonomy?.highlighted_tags?.includes(term) ?? false;
 }
 
-/** Curated categories require a separate, explicit opt-in from highlighted tags. */
+/**
+ * Curated categories require a separate, explicit opt-in from highlighted tags.
+ * @param {string} term
+ * @param {{ taxonomy?: { highlighted_categories?: string[] } } | null | undefined} config
+ */
 export function isHighlightedCategory(term, config) {
 	return config?.taxonomy?.highlighted_categories?.includes(term) ?? false;
 }
