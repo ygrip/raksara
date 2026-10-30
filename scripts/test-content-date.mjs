@@ -54,10 +54,10 @@ if (process.argv.includes('--verify-generated')) {
     }
     // The profile embeds custom prerendered carousels, which must resolve
     // relative authored covers to the publicly served /content/ directory.
-    const carouselImages = [...profile.html.matchAll(/<div class="content-carousel-img\\b[^>]*>\\s*<img\\b([^>]+)>/g)];
+    const carouselImages = [...profile.html.matchAll(/<div class="content-carousel-img\b[^>]*>\s*<img\b([^>]+)>/g)];
     for (const [, attributes] of carouselImages) {
-      const src = attributes.match(/\\bsrc="([^"]+)"/)?.[1] || '';
-      if (!src || /^\\/?(?:assets|blog|gallery|pages|portfolio|thoughts)\\//.test(src)) {
+      const src = attributes.match(/\bsrc="([^"]+)"/)?.[1] || '';
+      if (!src || /^\/?(?:assets|blog|gallery|pages|portfolio|thoughts)\//.test(src)) {
         throw new Error(`Profile carousel has an invalid cover URL: ${src}`);
       }
     }
