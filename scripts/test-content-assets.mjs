@@ -25,7 +25,7 @@ for (const [input, expected] of examples) {
 // A metadata builder manifest lookup must find the same key regardless of how
 // the author specified the local image path.
 const manifest = { 'content/assets/images/blog/atlas-nusantara/hero-cover.webp': { variants: [{ path: 'content/.raksara-responsive/a.webp', width: 640 }] } };
-for (const input of examples.slice(0, 3)) {
+for (const [input] of examples.slice(0, 3)) {
   assert.ok(manifest[resolveContentAssetPath(input)], `Manifest lookup failed for ${input}`);
 }
 console.log('Prerendered content asset path normalization passed.');
