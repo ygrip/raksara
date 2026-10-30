@@ -23,7 +23,7 @@ export function isTaxonomyPath(pathname) {
 /**
  * Presentation in config.topics never implicitly opts a term into indexing.
  * @param {string} term
- * @param {{ taxonomy?: { highlighted_tags?: string[] } } | null | undefined} config
+ * @param {{ taxonomy?: { highlighted_tags?: string[]; highlighted_categories?: string[] } } | null | undefined} config
  */
 export function isHighlightedTag(term, config) {
 	return config?.taxonomy?.highlighted_tags?.includes(term) ?? false;
@@ -36,7 +36,7 @@ export function isHighlightedCategory(term, config) {
 
 /**
  * @param {string} pathname
- * @param {{ taxonomy?: { highlighted_tags?: string[] } } | null | undefined} config
+ * @param {{ taxonomy?: { highlighted_tags?: string[]; highlighted_categories?: string[] } } | null | undefined} config
  */
 export function isIndexableTaxonomyPath(pathname, config) {
 	const path = normalizeTaxonomyPath(pathname);
@@ -53,7 +53,7 @@ export function isIndexableTaxonomyPath(pathname, config) {
 /**
  * @param {'tag' | 'category'} kind
  * @param {string} term
- * @param {{ taxonomy?: { highlighted_tags?: string[] } } | null | undefined} config
+ * @param {{ taxonomy?: { highlighted_tags?: string[]; highlighted_categories?: string[] } } | null | undefined} config
  */
 export function taxonomyHref(kind, term, config) {
 	if (kind === 'tag' && isHighlightedTag(term, config)) return `/tag/${encodeURIComponent(term)}/`;
@@ -64,7 +64,7 @@ export function taxonomyHref(kind, term, config) {
 /**
  * Rewrite authored legacy internal links, preserving view parameters and fragments.
  * @param {string} href
- * @param {{ taxonomy?: { highlighted_tags?: string[] } } | null | undefined} config
+ * @param {{ taxonomy?: { highlighted_tags?: string[]; highlighted_categories?: string[] } } | null | undefined} config
  */
 export function rewriteTaxonomyHref(href, config) {
 	if (!href.startsWith('/tag/') && !href.startsWith('/category/')) return href;
