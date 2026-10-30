@@ -44,6 +44,7 @@ jobs:
           npm run test:tab-container
           npm run test:publication
           npm run test:content-date
+          npm run test:content-assets
 
       - name: Generate metadata
         run: npm run build:metadata
