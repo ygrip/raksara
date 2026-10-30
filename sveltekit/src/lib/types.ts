@@ -220,7 +220,9 @@ export interface SiteConfig {
   /** Terms per page on /tags/ and /categories/. Positive integer; defaults to 30. */
   taxonomy_page_size?: number;
   /** Explicit opt-in for prerendered, indexable tag archives. Omitted means none. */
-  taxonomy?: { highlighted_tags?: string[] };
+  taxonomy?: { highlighted_tags?: string[]; highlighted_categories?: string[] };
+  /** Curated category-page descriptions, separate from tag topic names. */
+  category_topics?: Record<string, { title?: string; intro?: string; description?: string }>;
   /** Optional per-tag topic-page presentation configured by the content repository. */
   topics?: Record<string, {
     title?: string;
