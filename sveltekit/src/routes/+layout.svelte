@@ -8,7 +8,7 @@
 	import { popupMotion, sidebarDialog } from '$lib/popup-motion';
 	import { onMount } from 'svelte';
 	import { navigating, page } from '$app/stores';
-	import { goto } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import type { LayoutData } from './$types';
 	import ContentFooter from '$lib/components/ContentFooter.svelte';
 	import AdcashAutoTag from '$lib/components/AdcashAutoTag.svelte';
@@ -139,6 +139,25 @@
 		if (['/', '/blog', '/portfolio', '/profile', '/about', '/thoughts', '/tags', '/categories', '/gallery'].includes(path)) return true;
 		return false;
 	}
+
+	/** Ads run only on allowlisted routes the site itself considers worth indexing. */
+	function isAdEligiblePath(pathname: string): boolean {
+		if (!isAdsensePathEligible(pathname, adsenseSettings)) return false;
+		return isIndexablePath(pathname);
+	}
+
+	// Auto ads keep running across client-side navigation once loaded. Leaving
+	// for an ineligible route (thin, noindex, navigation-only) therefore uses a
+	// full page load so the provider script is not carried onto that page.
+	beforeNavigate((navigation) => {
+		if (navigation.type === 'leave') return;
+		if (!document.getElementById('adsense-script')) return;
+		const target = navigation.to?.url;
+		if (!target || target.origin !== location.origin) return;
+		if (isAdEligiblePath(target.pathname)) return;
+		navigation.cancel();
+		location.assign(target.href);
+	});
 
 	function isIndexablePath(pathname: string): boolean {
 		const path = normalizePath(pathname);

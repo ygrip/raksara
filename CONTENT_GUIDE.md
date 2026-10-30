@@ -844,11 +844,11 @@ and provide `allowed_paths` when you actually want advertisements.
 An explicit `advertising.adsense.enabled: false` overrides any legacy
 setting.
 
-**Placement limitation:** after Google Auto Ads loads, its script may
-continue running across client-side navigation. An initial route allowlist
-cannot guarantee that the already-loaded provider will never place ads on
-other routes. Configure Google's exclusions or use manual ad placements
-when strict page-level restrictions are required. Site approval and
+Ads never load on routes that render `noindex` (including `seo.noindex_paths`).
+Once the AdSense script has loaded, navigating to a route that is not
+allowlisted or not indexable uses a full page load instead of client-side
+routing, so Auto Ads is not carried onto that page. Google's own page
+exclusions remain available for finer control. Site approval and
 regional consent requirements are separate from Raksara's technical settings.
 
 ### Giscus Comments (GitHub Discussions)
